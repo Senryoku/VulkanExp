@@ -7,9 +7,9 @@
 
 class Device : public HandleWrapper<VkDevice> {
 public:
-	Device() {
-
-	}
+	Device() = default;
+	Device(Device&& d) noexcept = default;
+	Device& operator=(Device&& d) noexcept = default;
 
 	explicit Device(VkSurfaceKHR surface, const PhysicalDevice& physicalDevice, const std::vector<const char*>& requiredDeviceExtensions) {
 		PhysicalDevice::QueueFamilyIndices indices = physicalDevice.getQueues(surface);
@@ -40,6 +40,17 @@ public:
 		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &_handle) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");
 		}
+	}
+
+	void destroy() {
+		if (isValid()) {
+			vkDestroyDevice(_handle, nullptr);
+			_handle = VK_NULL_HANDLE;
+		}
+	}
+
+	~Device() {
+		destroy();
 	}
 private:
 };

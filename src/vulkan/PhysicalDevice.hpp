@@ -34,8 +34,35 @@ public:
 		std::optional<uint32_t> presentFamily;
 	};
 
+	struct SwapChainSupportDetails {
+		SwapChainSupportDetails(VkSurfaceKHR surface, VkPhysicalDevice device) {
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &capabilities);
+
+			uint32_t formatCount;
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+			if (formatCount != 0) {
+				formats.resize(formatCount);
+				vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, formats.data());
+			}
+
+			uint32_t presentModeCount;
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+			if (presentModeCount != 0) {
+				presentModes.resize(presentModeCount);
+				vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, presentModes.data());
+			}
+		}
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+	};
+
 	QueueFamilyIndices getQueues(const VkSurfaceKHR& surface) const {
 		return QueueFamilyIndices(surface, _handle);
+	}
+	SwapChainSupportDetails getSwapChainSupport(const VkSurfaceKHR& surface) const {
+		return SwapChainSupportDetails(surface, _handle);
 	}
 
 private:

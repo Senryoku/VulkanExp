@@ -24,9 +24,24 @@
   <ItemGroup>
     <ClInclude Include="src\Application.hpp" />
     <ClInclude Include="src\Logger.hpp" />
+    <ClInclude Include="src\vulkan\CommandBuffer.hpp" />
+    <ClInclude Include="src\vulkan\CommandPool.hpp" />
     <ClInclude Include="src\vulkan\Device.hpp" />
+    <ClInclude Include="src\vulkan\Fence.hpp" />
+    <ClInclude Include="src\vulkan\Framebuffer.hpp" />
     <ClInclude Include="src\vulkan\HandleWrapper.hpp" />
+    <ClInclude Include="src\vulkan\ImageView.hpp" />
     <ClInclude Include="src\vulkan\PhysicalDevice.hpp" />
+    <ClInclude Include="src\vulkan\Pipeline.hpp" />
+    <ClInclude Include="src\vulkan\RenderPass.hpp" />
+    <ClInclude Include="src\vulkan\Semaphore.hpp" />
+    <ClInclude Include="src\vulkan\Shader.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\simple.frag" />
+    <None Include="shaders\simple.vert" />
+    <None Include="shaders\triangle.frag" />
+    <None Include="shaders\triangle.vert" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
