@@ -62,6 +62,15 @@
     <ClInclude Include="src\vulkan\Fence.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\vulkan\Vertex.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vulkan\Buffer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vulkan\DeviceMemory.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\simple.frag">

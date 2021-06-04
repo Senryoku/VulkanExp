@@ -24,9 +24,11 @@
   <ItemGroup>
     <ClInclude Include="src\Application.hpp" />
     <ClInclude Include="src\Logger.hpp" />
+    <ClInclude Include="src\vulkan\Buffer.hpp" />
     <ClInclude Include="src\vulkan\CommandBuffer.hpp" />
     <ClInclude Include="src\vulkan\CommandPool.hpp" />
     <ClInclude Include="src\vulkan\Device.hpp" />
+    <ClInclude Include="src\vulkan\DeviceMemory.hpp" />
     <ClInclude Include="src\vulkan\Fence.hpp" />
     <ClInclude Include="src\vulkan\Framebuffer.hpp" />
     <ClInclude Include="src\vulkan\HandleWrapper.hpp" />
@@ -36,6 +38,7 @@
     <ClInclude Include="src\vulkan\RenderPass.hpp" />
     <ClInclude Include="src\vulkan\Semaphore.hpp" />
     <ClInclude Include="src\vulkan\Shader.hpp" />
+    <ClInclude Include="src\vulkan\Vertex.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />

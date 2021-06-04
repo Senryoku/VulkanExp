@@ -1,16 +1,18 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#include <fmt/color.h>
-#include <fmt/core.h>
 #include <optional>
 #include <set>
 #include <stdexcept>
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <fmt/color.h>
+#include <fmt/core.h>
+
 #include "Logger.hpp"
+#include "vulkan/Buffer.hpp"
 #include "vulkan/Device.hpp"
+#include "vulkan/DeviceMemory.hpp"
 #include "vulkan/Fence.hpp"
 #include "vulkan/Framebuffer.hpp"
 #include "vulkan/ImageView.hpp"
@@ -18,6 +20,7 @@
 #include "vulkan/RenderPass.hpp"
 #include "vulkan/Semaphore.hpp"
 #include "vulkan/Shader.hpp"
+#include "vulkan/Vertex.hpp"
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
                                       VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -82,10 +85,18 @@ class Application {
     std::vector<Semaphore> _imageAvailableSemaphore;
     std::vector<Fence> _inFlightFences;
     std::vector<VkFence> _imagesInFlight;
+    VertexBuffer _vertexBuffer;
+    DeviceMemory _vertexBufferMemory;
 
     bool _framebufferResized = false;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
+
+    const std::vector<Vertex> _vertices = {
+        {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    };
 
     void initWindow() {
         fmt::print("Window initialisation... ");
@@ -375,6 +386,11 @@ class Application {
             b.begin();
             b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
             _pipeline.bind(b);
+
+            VkBuffer vertexBuffers[] = {_vertexBuffer};
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(_commandBuffers.getBuffers()[i], 0, 1, vertexBuffers, offsets);
+
             b.draw(3);
             b.endRenderPass();
             b.end();
@@ -400,6 +416,13 @@ class Application {
 
         createSwapChain();
         _commandPool.create(_device, queueIndices.graphicsFamily.value());
+        _vertexBuffer.create(_device, sizeof(_vertices[0]) * _vertices.size());
+        _vertexBufferMemory.allocate(
+            _device,
+            _physicalDevice.findMemoryType(_vertexBuffer.getMemoryRequirements().memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+            _vertexBuffer.getMemoryRequirements().size);
+        _vertexBufferMemory.fill(_vertices);
+        vkBindBufferMemory(_device, _vertexBuffer, _vertexBufferMemory, 0);
         initSwapchain();
 
         _renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
@@ -511,7 +534,6 @@ class Application {
         // Only free up the command buffer, not the command pool
         const auto commandBufferHandles = _commandBuffers.getBuffersHandles();
         vkFreeCommandBuffers(_device, _commandPool, static_cast<uint32_t>(commandBufferHandles.size()), commandBufferHandles.data());
-
         _pipeline.destroy();
         _renderPass.destroy();
         _swapChainImageViews.clear();
@@ -528,6 +550,8 @@ class Application {
 
         cleanupSwapChain();
         _commandPool.destroy();
+        _vertexBuffer.destroy();
+        _vertexBufferMemory.free();
 
         _device.destroy();
         if(_enableValidationLayers) {
