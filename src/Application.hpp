@@ -19,8 +19,8 @@
 #include "vulkan/Semaphore.hpp"
 #include "vulkan/Shader.hpp"
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator,
-                                      VkDebugUtilsMessengerEXT *pDebugMessenger) {
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                      VkDebugUtilsMessengerEXT* pDebugMessenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if(func != nullptr) {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -29,7 +29,7 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
     }
 }
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) {
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if(func != nullptr) {
         func(instance, debugMessenger, pAllocator);
@@ -49,9 +49,9 @@ class Application {
     const uint32_t Width = 800;
     const uint32_t Height = 600;
 
-    const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+    const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-    const std::vector<const char *> requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const std::vector<const char*> requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
     const bool _enableValidationLayers = false;
@@ -59,7 +59,7 @@ class Application {
     const bool _enableValidationLayers = true;
 #endif
 
-    GLFWwindow *_window = nullptr;
+    GLFWwindow* _window = nullptr;
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     PhysicalDevice _physicalDevice;
@@ -113,10 +113,10 @@ class Application {
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-        for(const char *layerName : validationLayers) {
+        for(const char* layerName : validationLayers) {
             bool layerFound = false;
 
-            for(const auto &layerProperties : availableLayers) {
+            for(const auto& layerProperties : availableLayers) {
                 if(strcmp(layerName, layerProperties.layerName) == 0) {
                     layerFound = true;
                     break;
@@ -155,9 +155,9 @@ class Application {
             fmt::print("\t{}\n", extensions[i].extensionName);
 
         uint32_t glfwExtensionCount = 0;
-        const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-        std::vector<const char *> requestedExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+        std::vector<const char*> requestedExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
         if(_enableValidationLayers)
             requestedExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -199,7 +199,7 @@ class Application {
 
         std::set<std::string> requiredExtensions(requiredDeviceExtensions.begin(), requiredDeviceExtensions.end());
 
-        for(const auto &extension : availableExtensions) {
+        for(const auto& extension : availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
         }
 
@@ -250,7 +250,7 @@ class Application {
 
         PhysicalDevice physicalDevice;
         int maxScore = 0;
-        for(const auto &device : devices) {
+        for(const auto& device : devices) {
             auto pd = PhysicalDevice(device);
             auto score = rateDevice(pd);
             if(score > maxScore) {
@@ -262,8 +262,8 @@ class Application {
         return physicalDevice;
     }
 
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
-        for(const auto &availableFormat : availableFormats) {
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+        for(const auto& availableFormat : availableFormats) {
             if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 return availableFormat;
             }
@@ -272,8 +272,8 @@ class Application {
         return availableFormats[0];
     }
 
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
-        for(const auto &availablePresentMode : availablePresentModes) {
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+        for(const auto& availablePresentMode : availablePresentModes) {
             if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
                 return availablePresentMode;
             }
@@ -282,7 +282,7 @@ class Application {
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
         if(capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
         } else {
@@ -354,30 +354,19 @@ class Application {
     }
 
     void initSwapchain() {
-        Shader vertShader;
-        Shader fragShader;
-        vertShader.load(_device, "shaders/triangle.vert.spv");
-        fragShader.load(_device, "shaders/triangle.frag.spv");
-        VkPipelineShaderStageCreateInfo vertShaderStageInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_VERTEX_BIT,
-            .module = vertShader,
-            .pName = "main",
-        };
-        VkPipelineShaderStageCreateInfo fragShaderStageInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-            .module = fragShader,
-            .pName = "main",
-        };
-        std::vector<VkPipelineShaderStageCreateInfo> shaderStages{vertShaderStageInfo, fragShaderStageInfo};
-
         _renderPass.create(_device, _swapChainImageFormat);
+
+        Shader vertShader(_device, "shaders/buffer.vert.spv");
+        Shader fragShader(_device, "shaders/triangle.frag.spv");
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
+            vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
+            fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+        };
         _pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent);
+
         _swapChainFramebuffers.resize(_swapChainImageViews.size());
-        for(size_t i = 0; i < _swapChainImageViews.size(); i++) {
-            _swapChainFramebuffers[i].create(_device, _renderPass, {_swapChainImageViews[i]}, _swapChainExtent);
-        }
+        for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+            _swapChainFramebuffers[i].create(_device, _renderPass, _swapChainImageViews[i], _swapChainExtent);
 
         _commandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
 
@@ -415,12 +404,12 @@ class Application {
 
         _renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
         _imageAvailableSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
-        for(auto &s : _renderFinishedSemaphore)
+        for(auto& s : _renderFinishedSemaphore)
             s.create(_device);
-        for(auto &s : _imageAvailableSemaphore)
+        for(auto& s : _imageAvailableSemaphore)
             s.create(_device);
         _inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-        for(auto &f : _inFlightFences)
+        for(auto& f : _inFlightFences)
             f.create(_device);
 
         success("Done.\n");
@@ -530,11 +519,11 @@ class Application {
     }
 
     void cleanup() {
-        for(auto &f : _inFlightFences)
+        for(auto& f : _inFlightFences)
             f.destroy();
-        for(auto &s : _renderFinishedSemaphore)
+        for(auto& s : _renderFinishedSemaphore)
             s.destroy();
-        for(auto &s : _imageAvailableSemaphore)
+        for(auto& s : _imageAvailableSemaphore)
             s.destroy();
 
         cleanupSwapChain();
@@ -553,7 +542,7 @@ class Application {
     static const VkDebugUtilsMessageSeverityFlagBitsEXT ValidationLayerDebugLevel = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData) {
+                                                        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 
         if(messageSeverity >= ValidationLayerDebugLevel) {
             switch(messageSeverity) {
@@ -573,8 +562,8 @@ class Application {
         return VK_FALSE;
     }
 
-    static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
-        auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+        auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
         app->_framebufferResized = true;
     }
 
