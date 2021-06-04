@@ -2,11 +2,11 @@
 #include <fmt/core.h>
 
 int main() {
-    HelloTriangleApplication app;
+    Application app;
 
     try {
         app.run();
-    } catch (const std::exception& e) {
+    } catch(const std::exception &e) {
         fmt::print(e.what());
         return EXIT_FAILURE;
     }

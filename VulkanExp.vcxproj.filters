@@ -76,5 +76,6 @@
     <None Include="shaders\triangle.vert">
       <Filter>Header Files</Filter>
     </None>
+    <None Include=".clang-format" />
   </ItemGroup>
 </Project>

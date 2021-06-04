@@ -79,6 +79,12 @@ public:
 	}
 
 	const std::vector<CommandBuffer>& getBuffers() const { return _buffers; }
+	const std::vector<VkCommandBuffer> getBuffersHandles() const {
+		std::vector<VkCommandBuffer> buffers;
+		for (const auto& b : _buffers)
+			buffers.push_back(b.getHandle());
+		return buffers;
+	}
 
 private:
 	VkDevice _device;
