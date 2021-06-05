@@ -16,6 +16,7 @@
 #include "vulkan/Fence.hpp"
 #include "vulkan/Framebuffer.hpp"
 #include "vulkan/ImageView.hpp"
+#include "vulkan/Mesh.hpp"
 #include "vulkan/Pipeline.hpp"
 #include "vulkan/RenderPass.hpp"
 #include "vulkan/Semaphore.hpp"
@@ -86,18 +87,13 @@ class Application {
     std::vector<Semaphore> _imageAvailableSemaphore;
     std::vector<Fence> _inFlightFences;
     std::vector<VkFence> _imagesInFlight;
-    Buffer _vertexBuffer;
-    DeviceMemory _vertexBufferMemory;
+
+    Mesh _mesh;
+    DeviceMemory _deviceMemory;
 
     bool _framebufferResized = false;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-
-    const std::vector<Vertex> _vertices = {
-        {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    };
 
     void initWindow() {
         fmt::print("Window initialisation... ");
@@ -388,9 +384,12 @@ class Application {
             b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
             _pipeline.bind(b);
 
-            _commandBuffers[i].bind<1>({_vertexBuffer});
+            _commandBuffers[i].bind<1>({_mesh.getVertexBuffer()});
+            vkCmdBindIndexBuffer(_commandBuffers[i], _mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-            b.draw(3);
+            // b.draw(3);
+            vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh._indices.size()), 1, 0, 0, 0);
+
             b.endRenderPass();
             b.end();
         }
@@ -417,7 +416,7 @@ class Application {
         _commandPool.create(_device, queueIndices.graphicsFamily.value());
         _tempCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
-        auto vertexDataSize = sizeof(_vertices[0]) * _vertices.size();
+        auto vertexDataSize = _mesh.getVertexByteSize();
 
         Buffer stagingBuffer;
         DeviceMemory stagingMemory;
@@ -427,32 +426,15 @@ class Application {
                                _physicalDevice.findMemoryType(stagingBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
                                stagingBufferMemReq.size);
         vkBindBufferMemory(_device, stagingBuffer, stagingMemory, 0);
-        stagingMemory.fill(_vertices);
 
-        _vertexBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexDataSize);
-        auto vertexBufferMemReq = _vertexBuffer.getMemoryRequirements();
-        _vertexBufferMemory.allocate(_device, _physicalDevice.findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), vertexBufferMemReq.size);
-        vkBindBufferMemory(_device, _vertexBuffer, _vertexBufferMemory, 0);
-
-        // Copy Vertex data from staging buffer to final (optimized) buffer
-        CommandBuffers stagingCommands;
-        stagingCommands.allocate(_device, _tempCommandPool, 1);
-        stagingCommands[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        VkBufferCopy copyRegion{
-            .srcOffset = 0, // Optional
-            .dstOffset = 0, // Optional
-            .size = vertexDataSize,
-        };
-        vkCmdCopyBuffer(stagingCommands[0], stagingBuffer, _vertexBuffer, 1, &copyRegion);
-        stagingCommands[0].end();
-        VkSubmitInfo submitInfo{
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = stagingCommands.getBuffersHandles().data(),
-        };
-        vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(_graphicsQueue);
-        stagingCommands.free();
+        _mesh.init(_device);
+        auto vertexBufferMemReq = _mesh.getVertexBuffer().getMemoryRequirements();
+        auto indexBufferMemReq = _mesh.getIndexBuffer().getMemoryRequirements();
+        _deviceMemory.allocate(_device, _physicalDevice.findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+                               vertexBufferMemReq.size + indexBufferMemReq.size);
+        vkBindBufferMemory(_device, _mesh.getVertexBuffer(), _deviceMemory, 0);
+        vkBindBufferMemory(_device, _mesh.getIndexBuffer(), _deviceMemory, vertexBufferMemReq.size);
+        _mesh.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 
         initSwapchain();
 
@@ -581,8 +563,8 @@ class Application {
         cleanupSwapChain();
         _commandPool.destroy();
         _tempCommandPool.destroy();
-        _vertexBuffer.destroy();
-        _vertexBufferMemory.free();
+        _mesh.destroy();
+        _deviceMemory.free();
 
         _device.destroy();
         if(_enableValidationLayers) {

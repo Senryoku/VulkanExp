@@ -40,7 +40,8 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
         vkUnmapMemory(_device, _handle);
     }
 
-    template <typename T> void fill(const std::vector<T>& data) const {
+    template <typename T>
+    void fill(const std::vector<T>& data) const {
         const auto sizeInBytes = sizeof(T) * data.size();
         auto mappedMemory = map(sizeInBytes);
         memcpy(mappedMemory, data.data(), sizeInBytes);

@@ -2,8 +2,9 @@
 
 #include <stdexcept>
 
+#include "../Logger.hpp"
+#include "CommandPool.hpp"
 #include "HandleWrapper.hpp"
-#include "Logger.hpp"
 
 class Buffer : public HandleWrapper<VkBuffer> {
   public:
@@ -43,6 +44,8 @@ class Buffer : public HandleWrapper<VkBuffer> {
         vkGetBufferMemoryRequirements(_device, _handle, &memRequirements);
         return memRequirements;
     }
+
+    void copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
 
   private:
     VkDevice _device = VK_NULL_HANDLE;
