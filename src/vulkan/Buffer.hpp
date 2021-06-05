@@ -3,14 +3,16 @@
 #include <stdexcept>
 
 #include "HandleWrapper.hpp"
+#include "Logger.hpp"
 
-template <int BufferType> class Buffer : public HandleWrapper<VkBuffer> {
+class Buffer : public HandleWrapper<VkBuffer> {
   public:
-    void create(VkDevice device, size_t size) {
+    Buffer() = default;
+    void create(VkDevice device, VkBufferUsageFlags usage, size_t size) {
         VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = size,
-            .usage = BufferType,
+            .usage = usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         };
 
@@ -33,14 +35,15 @@ template <int BufferType> class Buffer : public HandleWrapper<VkBuffer> {
     }
 
     VkMemoryRequirements getMemoryRequirements() const {
+        if(!isValid()) {
+            warn("Buffer::Call to 'getMemoryRequirements' on an invalid Buffer.");
+            return VkMemoryRequirements{};
+        }
         VkMemoryRequirements memRequirements;
-        if(isValid())
-            vkGetBufferMemoryRequirements(_device, _handle, &memRequirements);
+        vkGetBufferMemoryRequirements(_device, _handle, &memRequirements);
         return memRequirements;
     }
 
   private:
     VkDevice _device = VK_NULL_HANDLE;
 };
-
-using VertexBuffer = Buffer<VK_BUFFER_USAGE_VERTEX_BUFFER_BIT>;

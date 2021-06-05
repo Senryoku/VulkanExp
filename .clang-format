@@ -4,3 +4,4 @@ SpaceBeforeParens: Never
 BreakBeforeBraces: Attach
 ColumnLimit: 180
 PointerAlignment: Left
+AlwaysBreakTemplateDeclarations: Yes

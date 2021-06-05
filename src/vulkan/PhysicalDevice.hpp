@@ -76,7 +76,14 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
             }
         }
 
-        throw std::runtime_error("Failed to find suitable memory type.");
+        // Fallback
+        for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            if((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties)) {
+                return i;
+            }
+        }
+
+        throw std::runtime_error(fmt::format("Failed to find suitable memory type ({} {}).", typeFilter, properties));
     }
 
   private:

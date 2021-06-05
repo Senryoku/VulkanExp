@@ -80,12 +80,13 @@ class Application {
     Pipeline _pipeline;
     std::vector<Framebuffer> _swapChainFramebuffers;
     CommandPool _commandPool;
+    CommandPool _tempCommandPool;
     CommandBuffers _commandBuffers;
     std::vector<Semaphore> _renderFinishedSemaphore;
     std::vector<Semaphore> _imageAvailableSemaphore;
     std::vector<Fence> _inFlightFences;
     std::vector<VkFence> _imagesInFlight;
-    VertexBuffer _vertexBuffer;
+    Buffer _vertexBuffer;
     DeviceMemory _vertexBufferMemory;
 
     bool _framebufferResized = false;
@@ -387,9 +388,7 @@ class Application {
             b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
             _pipeline.bind(b);
 
-            VkBuffer vertexBuffers[] = {_vertexBuffer};
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(_commandBuffers.getBuffers()[i], 0, 1, vertexBuffers, offsets);
+            _commandBuffers[i].bind<1>({_vertexBuffer});
 
             b.draw(3);
             b.endRenderPass();
@@ -416,13 +415,45 @@ class Application {
 
         createSwapChain();
         _commandPool.create(_device, queueIndices.graphicsFamily.value());
-        _vertexBuffer.create(_device, sizeof(_vertices[0]) * _vertices.size());
-        _vertexBufferMemory.allocate(
-            _device,
-            _physicalDevice.findMemoryType(_vertexBuffer.getMemoryRequirements().memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-            _vertexBuffer.getMemoryRequirements().size);
-        _vertexBufferMemory.fill(_vertices);
+        _tempCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+
+        auto vertexDataSize = sizeof(_vertices[0]) * _vertices.size();
+
+        Buffer stagingBuffer;
+        DeviceMemory stagingMemory;
+        stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertexDataSize);
+        auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
+        stagingMemory.allocate(_device,
+                               _physicalDevice.findMemoryType(stagingBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+                               stagingBufferMemReq.size);
+        vkBindBufferMemory(_device, stagingBuffer, stagingMemory, 0);
+        stagingMemory.fill(_vertices);
+
+        _vertexBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexDataSize);
+        auto vertexBufferMemReq = _vertexBuffer.getMemoryRequirements();
+        _vertexBufferMemory.allocate(_device, _physicalDevice.findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), vertexBufferMemReq.size);
         vkBindBufferMemory(_device, _vertexBuffer, _vertexBufferMemory, 0);
+
+        // Copy Vertex data from staging buffer to final (optimized) buffer
+        CommandBuffers stagingCommands;
+        stagingCommands.allocate(_device, _tempCommandPool, 1);
+        stagingCommands[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        VkBufferCopy copyRegion{
+            .srcOffset = 0, // Optional
+            .dstOffset = 0, // Optional
+            .size = vertexDataSize,
+        };
+        vkCmdCopyBuffer(stagingCommands[0], stagingBuffer, _vertexBuffer, 1, &copyRegion);
+        stagingCommands[0].end();
+        VkSubmitInfo submitInfo{
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = stagingCommands.getBuffersHandles().data(),
+        };
+        vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(_graphicsQueue);
+        stagingCommands.free();
+
         initSwapchain();
 
         _renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
@@ -532,8 +563,7 @@ class Application {
         _swapChainFramebuffers.clear();
 
         // Only free up the command buffer, not the command pool
-        const auto commandBufferHandles = _commandBuffers.getBuffersHandles();
-        vkFreeCommandBuffers(_device, _commandPool, static_cast<uint32_t>(commandBufferHandles.size()), commandBufferHandles.data());
+        _commandBuffers.free();
         _pipeline.destroy();
         _renderPass.destroy();
         _swapChainImageViews.clear();
@@ -550,6 +580,7 @@ class Application {
 
         cleanupSwapChain();
         _commandPool.destroy();
+        _tempCommandPool.destroy();
         _vertexBuffer.destroy();
         _vertexBufferMemory.free();
 
