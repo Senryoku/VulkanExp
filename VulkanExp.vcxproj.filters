@@ -77,6 +77,9 @@
     <ClInclude Include="src\vulkan\Mesh.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\vulkan\DescriptorSetLayout.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\simple.frag">
@@ -92,5 +95,8 @@
       <Filter>Header Files</Filter>
     </None>
     <None Include=".clang-format" />
+    <None Include="shaders\ubo.vert">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

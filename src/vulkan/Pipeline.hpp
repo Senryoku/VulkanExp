@@ -10,13 +10,13 @@
 
 class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
   public:
-    void create(VkDevice device) {
+    void create(VkDevice device, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}) {
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 0,            // Optional
-            .pSetLayouts = nullptr,         // Optional
-            .pushConstantRangeCount = 0,    // Optional
-            .pPushConstantRanges = nullptr, // Optional
+            .setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),                   // Optional
+            .pSetLayouts = descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr, // Optional
+            .pushConstantRangeCount = 0,                                                            // Optional
+            .pPushConstantRanges = nullptr,                                                         // Optional
         };
         if(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &_handle) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
@@ -41,7 +41,8 @@ class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
 
 class Pipeline : HandleWrapper<VkPipeline> {
   public:
-    void create(VkDevice device, const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, const RenderPass& renderPass, VkExtent2D swapChainExtent) {
+    void create(VkDevice device, const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, const RenderPass& renderPass, VkExtent2D swapChainExtent,
+                const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}) {
         auto bindingDescription = Vertex::getBindingDescription();
         auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
@@ -132,7 +133,7 @@ class Pipeline : HandleWrapper<VkPipeline> {
             .pDynamicStates = dynamicStates,
         };
 
-        _pipelineLayout.create(device);
+        _pipelineLayout.create(device, descriptorSetLayouts);
 
         VkGraphicsPipelineCreateInfo pipelineInfo{
             .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

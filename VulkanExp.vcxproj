@@ -33,6 +33,7 @@
     <ClInclude Include="src\vulkan\Fence.hpp" />
     <ClInclude Include="src\vulkan\Framebuffer.hpp" />
     <ClInclude Include="src\vulkan\HandleWrapper.hpp" />
+    <ClInclude Include="src\vulkan\DescriptorSetLayout.hpp" />
     <ClInclude Include="src\vulkan\ImageView.hpp" />
     <ClInclude Include="src\vulkan\Mesh.hpp" />
     <ClInclude Include="src\vulkan\PhysicalDevice.hpp" />
@@ -48,6 +49,7 @@
     <None Include="shaders\simple.vert" />
     <None Include="shaders\triangle.frag" />
     <None Include="shaders\triangle.vert" />
+    <None Include="shaders\ubo.vert" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

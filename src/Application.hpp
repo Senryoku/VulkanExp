@@ -1,9 +1,13 @@
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include <set>
 #include <stdexcept>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <fmt/color.h>
@@ -11,6 +15,7 @@
 
 #include "Logger.hpp"
 #include "vulkan/Buffer.hpp"
+#include "vulkan/DescriptorSetLayout.hpp"
 #include "vulkan/Device.hpp"
 #include "vulkan/DeviceMemory.hpp"
 #include "vulkan/Fence.hpp"
@@ -22,6 +27,12 @@
 #include "vulkan/Semaphore.hpp"
 #include "vulkan/Shader.hpp"
 #include "vulkan/Vertex.hpp"
+
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
                                       VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -78,6 +89,7 @@ class Application {
     VkExtent2D _swapChainExtent;
     std::vector<ImageView> _swapChainImageViews;
     RenderPass _renderPass;
+    DescriptorSetLayout _descriptorSetLayout;
     Pipeline _pipeline;
     std::vector<Framebuffer> _swapChainFramebuffers;
     CommandPool _commandPool;
@@ -87,6 +99,9 @@ class Application {
     std::vector<Semaphore> _imageAvailableSemaphore;
     std::vector<Fence> _inFlightFences;
     std::vector<VkFence> _imagesInFlight;
+
+    std::vector<Buffer> _uniformBuffers;
+    DeviceMemory _uniformBuffersMemory;
 
     Mesh _mesh;
     DeviceMemory _deviceMemory;
@@ -364,13 +379,14 @@ class Application {
     void initSwapchain() {
         _renderPass.create(_device, _swapChainImageFormat);
 
-        Shader vertShader(_device, "shaders/buffer.vert.spv");
+        Shader vertShader(_device, "shaders/ubo.vert.spv");
         Shader fragShader(_device, "shaders/triangle.frag.spv");
         std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
             vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
             fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
         };
-        _pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent);
+        _descriptorSetLayout.create(_device);
+        _pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent, {_descriptorSetLayout});
 
         _swapChainFramebuffers.resize(_swapChainImageViews.size());
         for(size_t i = 0; i < _swapChainImageViews.size(); i++)
@@ -395,6 +411,23 @@ class Application {
         }
 
         _imagesInFlight.resize(_swapChainImages.size());
+
+        // Uniform buffers init
+        {
+            VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+            _uniformBuffers.resize(_swapChainImages.size());
+
+            for(size_t i = 0; i < _swapChainImages.size(); i++)
+                _uniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
+
+            auto memReq = _uniformBuffers[0].getMemoryRequirements();
+            _uniformBuffersMemory.allocate(_device,
+                                           _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+                                           _swapChainImages.size() * bufferSize);
+            for(size_t i = 0; i < _swapChainImages.size(); i++)
+                vkBindBufferMemory(_device, _uniformBuffers[i], _deviceMemory, i * bufferSize);
+        }
     }
 
     void initVulkan() {
@@ -483,6 +516,8 @@ class Application {
         // Mark the image as now being in use by this frame
         _imagesInFlight[imageIndex] = currentFence;
 
+        updateUniformBuffer(imageIndex);
+
         VkSemaphore waitSemaphores[] = {_imageAvailableSemaphore[_currentFrame]};
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkSemaphore signalSemaphores[] = {_renderFinishedSemaphore[_currentFrame]};
@@ -525,6 +560,23 @@ class Application {
         _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
+    void updateUniformBuffer(uint32_t currentImage) {
+        static auto startTime = std::chrono::high_resolution_clock::now();
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        UniformBufferObject ubo{};
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj[1][1] *= -1;
+
+        void* data;
+        vkMapMemory(_device, _uniformBuffersMemory, currentImage * sizeof(ubo), sizeof(ubo), 0, &data);
+        memcpy(data, &ubo, sizeof(ubo));
+        vkUnmapMemory(_device, _uniformBuffersMemory);
+    }
+
     void recreateSwapChain() {
         int width = 0, height = 0;
         glfwGetFramebufferSize(_window, &width, &height);
@@ -542,11 +594,15 @@ class Application {
     }
 
     void cleanupSwapChain() {
+        for(auto& b : _uniformBuffers)
+            b.destroy();
+        _uniformBuffersMemory.free();
         _swapChainFramebuffers.clear();
 
         // Only free up the command buffer, not the command pool
         _commandBuffers.free();
         _pipeline.destroy();
+        _descriptorSetLayout.destroy();
         _renderPass.destroy();
         _swapChainImageViews.clear();
         vkDestroySwapchainKHR(_device, _swapChain, nullptr);
