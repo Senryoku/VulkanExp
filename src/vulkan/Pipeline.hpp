@@ -87,7 +87,7 @@ class Pipeline : HandleWrapper<VkPipeline> {
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .cullMode = VK_CULL_MODE_BACK_BIT,
-            .frontFace = VK_FRONT_FACE_CLOCKWISE,
+            .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = VK_FALSE,
             .depthBiasConstantFactor = 0.0f, // Optional
             .depthBiasClamp = 0.0f,          // Optional
@@ -171,6 +171,10 @@ class Pipeline : HandleWrapper<VkPipeline> {
 
     void bind(const CommandBuffer& commandBuffer) const {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _handle);
+    }
+
+    const PipelineLayout& getLayout() const {
+        return _pipelineLayout;
     }
 
     ~Pipeline() {

@@ -15,6 +15,7 @@
 
 #include "Logger.hpp"
 #include "vulkan/Buffer.hpp"
+#include "vulkan/DescriptorPool.hpp"
 #include "vulkan/DescriptorSetLayout.hpp"
 #include "vulkan/Device.hpp"
 #include "vulkan/DeviceMemory.hpp"
@@ -102,6 +103,8 @@ class Application {
 
     std::vector<Buffer> _uniformBuffers;
     DeviceMemory _uniformBuffersMemory;
+
+    DescriptorPool _descriptorPool;
 
     Mesh _mesh;
     DeviceMemory _deviceMemory;
@@ -394,22 +397,6 @@ class Application {
 
         _commandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
 
-        for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
-            auto b = _commandBuffers.getBuffers()[i];
-            b.begin();
-            b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
-            _pipeline.bind(b);
-
-            _commandBuffers[i].bind<1>({_mesh.getVertexBuffer()});
-            vkCmdBindIndexBuffer(_commandBuffers[i], _mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
-
-            // b.draw(3);
-            vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh._indices.size()), 1, 0, 0, 0);
-
-            b.endRenderPass();
-            b.end();
-        }
-
         _imagesInFlight.resize(_swapChainImages.size());
 
         // Uniform buffers init
@@ -422,11 +409,57 @@ class Application {
                 _uniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
 
             auto memReq = _uniformBuffers[0].getMemoryRequirements();
-            _uniformBuffersMemory.allocate(_device,
-                                           _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-                                           _swapChainImages.size() * bufferSize);
-            for(size_t i = 0; i < _swapChainImages.size(); i++)
-                vkBindBufferMemory(_device, _uniformBuffers[i], _deviceMemory, i * bufferSize);
+            size_t memSize = (2 + _swapChainImages.size() * bufferSize / memReq.alignment) * memReq.alignment;
+            fmt::print("memSize : {}\n", memSize);
+            _uniformBuffersMemory.allocate(
+                _device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), memSize);
+            size_t offset = 0;
+            for(size_t i = 0; i < _swapChainImages.size(); i++) {
+                vkBindBufferMemory(_device, _uniformBuffers[i], _uniformBuffersMemory, offset);
+                offset += bufferSize;
+                offset = (1 + offset / memReq.alignment) * memReq.alignment;
+                fmt::print("offset : {}, aligment : {}\n", offset, memReq.alignment);
+            }
+        }
+
+        _descriptorPool.create(_device, _swapChainImages.size());
+        _descriptorPool.allocate(_swapChainImages.size(), _descriptorSetLayout);
+        ;
+        for(size_t i = 0; i < _swapChainImages.size(); i++) {
+            VkDescriptorBufferInfo bufferInfo{
+                .buffer = _uniformBuffers[i],
+                .offset = 0,
+                .range = sizeof(UniformBufferObject),
+            };
+
+            VkWriteDescriptorSet descriptorWrite{
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = _descriptorPool.getDescriptorSets()[i],
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pImageInfo = nullptr, // Optional
+                .pBufferInfo = &bufferInfo,
+                .pTexelBufferView = nullptr, // Optional
+            };
+
+            vkUpdateDescriptorSets(_device, 1, &descriptorWrite, 0, nullptr);
+        }
+
+        for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
+            auto b = _commandBuffers.getBuffers()[i];
+            b.begin();
+            b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
+            _pipeline.bind(b);
+
+            _commandBuffers[i].bind<1>({_mesh.getVertexBuffer()});
+            vkCmdBindIndexBuffer(_commandBuffers[i], _mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+            vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1, &_descriptorPool.getDescriptorSets()[i], 0, nullptr);
+            vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh._indices.size()), 1, 0, 0, 0);
+
+            b.endRenderPass();
+            b.end();
         }
     }
 
@@ -572,7 +605,8 @@ class Application {
         ubo.proj[1][1] *= -1;
 
         void* data;
-        vkMapMemory(_device, _uniformBuffersMemory, currentImage * sizeof(ubo), sizeof(ubo), 0, &data);
+        size_t offset = currentImage * 256; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
+        vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data);
         memcpy(data, &ubo, sizeof(ubo));
         vkUnmapMemory(_device, _uniformBuffersMemory);
     }
@@ -597,6 +631,7 @@ class Application {
         for(auto& b : _uniformBuffers)
             b.destroy();
         _uniformBuffersMemory.free();
+        _descriptorPool.destroy();
         _swapChainFramebuffers.clear();
 
         // Only free up the command buffer, not the command pool

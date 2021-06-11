@@ -28,6 +28,7 @@
     <ClInclude Include="src\vulkan\Buffer.hpp" />
     <ClInclude Include="src\vulkan\CommandBuffer.hpp" />
     <ClInclude Include="src\vulkan\CommandPool.hpp" />
+    <ClInclude Include="src\vulkan\DescriptorPool.hpp" />
     <ClInclude Include="src\vulkan\Device.hpp" />
     <ClInclude Include="src\vulkan\DeviceMemory.hpp" />
     <ClInclude Include="src\vulkan\Fence.hpp" />

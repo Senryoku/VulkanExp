@@ -80,6 +80,9 @@
     <ClInclude Include="src\vulkan\DescriptorSetLayout.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\vulkan\DescriptorPool.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\simple.frag">
