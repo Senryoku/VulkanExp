@@ -38,6 +38,7 @@
     <ClInclude Include="src\vulkan\Framebuffer.hpp" />
     <ClInclude Include="src\vulkan\HandleWrapper.hpp" />
     <ClInclude Include="src\vulkan\DescriptorSetLayout.hpp" />
+    <ClInclude Include="src\vulkan\Image.hpp" />
     <ClInclude Include="src\vulkan\ImageView.hpp" />
     <ClInclude Include="src\vulkan\Mesh.hpp" />
     <ClInclude Include="src\vulkan\PhysicalDevice.hpp" />

@@ -31,14 +31,17 @@ class CommandBuffer : public HandleWrapper<VkCommandBuffer> {
     }
 
     void beginRenderPass(const RenderPass& renderPass, const Framebuffer& framebuffer, VkExtent2D extent) const {
-        VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+        std::array<VkClearValue, 2> clearValues{
+            VkClearValue{.color = {0.0f, 0.0f, 0.0f, 1.0f}},
+            VkClearValue{.depthStencil = {1.0f, 0}},
+        };
         VkRenderPassBeginInfo renderPassInfo{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
             .framebuffer = framebuffer,
             .renderArea = {.offset = {0, 0}, .extent = extent},
-            .clearValueCount = 1,
-            .pClearValues = &clearColor,
+            .clearValueCount = clearValues.size(),
+            .pClearValues = clearValues.data(),
         };
 
         vkCmdBeginRenderPass(_handle, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);

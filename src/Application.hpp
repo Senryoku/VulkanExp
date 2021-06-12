@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #define GLFW_INCLUDE_VULKAN
@@ -28,6 +29,7 @@
 #include "vulkan/Semaphore.hpp"
 #include "vulkan/Shader.hpp"
 #include "vulkan/Vertex.hpp"
+#include <vulkan/Image.hpp>
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -92,6 +94,12 @@ class Application {
     VkFormat _swapChainImageFormat;
     VkExtent2D _swapChainExtent;
     std::vector<ImageView> _swapChainImageViews;
+
+    VkFormat _depthFormat;
+    Image _depthImage;
+    DeviceMemory _depthImageMemory;
+    ImageView _depthImageView;
+
     RenderPass _renderPass;
     DescriptorSetLayout _descriptorSetLayout;
     Pipeline _pipeline;

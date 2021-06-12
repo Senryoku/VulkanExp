@@ -1,5 +1,20 @@
 #include <Application.hpp>
 
+VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for(VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+        if(tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        } else if(tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("Failed to find supported format.");
+}
+
 void Application::createSwapChain() {
     auto swapChainSupport = _physicalDevice.getSwapChainSupport(_surface);
 
@@ -53,10 +68,19 @@ void Application::createSwapChain() {
 
     for(size_t i = 0; i < _swapChainImages.size(); i++)
         _swapChainImageViews.push_back(ImageView{_device, _swapChainImages[i], _swapChainImageFormat});
+
+    _depthFormat = findSupportedFormat(_physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL,
+                                       VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    _depthImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, _depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    auto memRequirements = _depthImage.getMemoryRequirements();
+    _depthImageMemory.allocate(_device, _physicalDevice.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), memRequirements.size);
+    vkBindImageMemory(_device, _depthImage, _depthImageMemory, 0);
+    _depthImageView.create(_device, _depthImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Application::initSwapChain() {
-    _renderPass.create(_device, _swapChainImageFormat);
+    _renderPass.create(_device, _swapChainImageFormat, _depthFormat);
 
     Shader vertShader(_device, "shaders/ubo.vert.spv");
     Shader fragShader(_device, "shaders/triangle.frag.spv");
@@ -69,7 +93,7 @@ void Application::initSwapChain() {
 
     _swapChainFramebuffers.resize(_swapChainImageViews.size());
     for(size_t i = 0; i < _swapChainImageViews.size(); i++)
-        _swapChainFramebuffers[i].create(_device, _renderPass, _swapChainImageViews[i], _swapChainExtent);
+        _swapChainFramebuffers[i].create(_device, _renderPass, {_swapChainImageViews[i], _depthImageView}, _swapChainExtent);
 
     _commandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
 
@@ -165,6 +189,9 @@ void Application::cleanupSwapChain() {
     _pipeline.destroy();
     _descriptorSetLayout.destroy();
     _renderPass.destroy();
+    _depthImageView.destroy();
+    _depthImage.destroy();
+    _depthImageMemory.free();
     _swapChainImageViews.clear();
     vkDestroySwapchainKHR(_device, _swapChain, nullptr);
 }
