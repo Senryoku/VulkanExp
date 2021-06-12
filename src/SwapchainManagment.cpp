@@ -83,7 +83,7 @@ void Application::initSwapChain() {
     _renderPass.create(_device, _swapChainImageFormat, _depthFormat);
 
     Shader vertShader(_device, "shaders/ubo.vert.spv");
-    Shader fragShader(_device, "shaders/triangle.frag.spv");
+    Shader fragShader(_device, "shaders/phong.frag.spv");
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
         vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
         fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),

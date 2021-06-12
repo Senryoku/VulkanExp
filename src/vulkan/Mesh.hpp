@@ -56,6 +56,7 @@ class Mesh {
 
     bool loadOBJ(const std::filesystem::path& path);
     void normalizeVertices();
+    void computeVertexNormals();
 
   private:
     Buffer _vertexBuffer;

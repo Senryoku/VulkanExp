@@ -53,3 +53,23 @@ void Mesh::normalizeVertices() {
     for(auto& v : _vertices)
         v.pos -= acc;
 }
+
+void Mesh::computeVertexNormals() {
+    // Here, normals are the average of adjacent triangles' normals
+    // (so we have exactly one normal per vertex)
+    for(auto& v : _vertices)
+        v.normal = glm::vec3{0.0f};
+
+    for(size_t i = 0; i < _indices.size();) {
+        // Norm of this triangle
+        glm::vec3 norm = glm::normalize(glm::cross(_vertices[_indices[i]].pos - _vertices[_indices[i + 1]].pos, _vertices[_indices[i + 2]].pos - _vertices[_indices[i]].pos));
+        // Add it to each vertex
+        for(size_t j = 0; j < 3; ++j) {
+            _vertices[_indices[i]].normal += norm;
+            ++i;
+        }
+    }
+    // Average norms
+    for(auto& v : _vertices)
+        v.normal = glm::normalize(v.normal);
+}

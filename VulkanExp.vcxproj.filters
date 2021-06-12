@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{e6e53175-57d2-41a9-acf6-7e9b755c17c4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -97,21 +100,24 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\simple.frag">
-      <Filter>Header Files</Filter>
-    </None>
-    <None Include="shaders\simple.vert">
-      <Filter>Header Files</Filter>
-    </None>
-    <None Include="shaders\triangle.frag">
-      <Filter>Header Files</Filter>
-    </None>
-    <None Include="shaders\triangle.vert">
-      <Filter>Header Files</Filter>
-    </None>
     <None Include=".clang-format" />
     <None Include="shaders\ubo.vert">
-      <Filter>Header Files</Filter>
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\phong.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\simple.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\simple.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\triangle.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\triangle.frag">
+      <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
 </Project>

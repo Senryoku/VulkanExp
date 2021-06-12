@@ -59,6 +59,7 @@ class Application {
     void run() {
         _mesh.loadOBJ("data/models/lucy.obj");
         _mesh.normalizeVertices();
+        _mesh.computeVertexNormals();
 
         initWindow();
         initVulkan();
