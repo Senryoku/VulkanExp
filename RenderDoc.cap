@@ -1,0 +1,27 @@
+{
+    "rdocCaptureSettings": 1,
+    "settings": {
+        "autoStart": false,
+        "commandLine": "",
+        "environment": [
+        ],
+        "executable": "H:\\Source\\VulkanExp\\x64\\Debug\\VulkanExp.exe",
+        "inject": false,
+        "numQueuedFrames": 0,
+        "options": {
+            "allowFullscreen": true,
+            "allowVSync": true,
+            "apiValidation": false,
+            "captureAllCmdLists": false,
+            "captureCallstacks": false,
+            "captureCallstacksOnlyDraws": false,
+            "debugOutputMute": true,
+            "delayForDebugger": 0,
+            "hookIntoChildren": false,
+            "refAllResources": false,
+            "verifyBufferAccess": false
+        },
+        "queuedFrameCap": 0,
+        "workingDir": "H:\\Source\\VulkanExp"
+    }
+}

@@ -21,6 +21,12 @@
     <ClCompile Include="src\vulkan\Buffer.cpp">
       <Filter>Header Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\vulkan\Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SwapchainManagment.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.hpp">
@@ -81,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\vulkan\DescriptorPool.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stringutils.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

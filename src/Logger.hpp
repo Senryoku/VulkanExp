@@ -17,3 +17,8 @@ template <typename... Args>
 void success(Args... args) {
     fmt::print(fg(fmt::color::green), args...);
 }
+
+template <typename... Args>
+void print(Args... args) {
+    fmt::print(args...);
+}

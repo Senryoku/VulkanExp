@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <vector>
 
 #include "Buffer.hpp"
@@ -8,15 +9,6 @@
 
 class Mesh {
   public:
-    const std::vector<Vertex> _vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
-    };
-
-    const std::vector<uint16_t> _indices = {0, 1, 2, 2, 3, 0};
-
     void init(VkDevice device) {
         const auto indexDataSize = getIndexByteSize();
         _indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexDataSize);
@@ -55,7 +47,26 @@ class Mesh {
         _vertexBuffer.destroy();
     }
 
+    const std::vector<Vertex>& getVertices() const {
+        return _vertices;
+    }
+    const std::vector<uint16_t>& getIndices() const {
+        return _indices;
+    }
+
+    bool loadOBJ(const std::filesystem::path& path);
+    void normalizeVertices();
+
   private:
     Buffer _vertexBuffer;
     Buffer _indexBuffer;
+
+    std::vector<Vertex> _vertices = {
+        {{-0.5f, -0.5f, 0.f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.f}, {1.0f, 1.0f, 1.0f}},
+    };
+
+    std::vector<uint16_t> _indices = {0, 1, 2, 2, 3, 0};
 };

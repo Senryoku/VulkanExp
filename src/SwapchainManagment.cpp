@@ -1,0 +1,170 @@
+#include <Application.hpp>
+
+void Application::createSwapChain() {
+    auto swapChainSupport = _physicalDevice.getSwapChainSupport(_surface);
+
+    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    if(swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
+        imageCount = swapChainSupport.capabilities.maxImageCount;
+    }
+    VkSwapchainCreateInfoKHR createInfo{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = _surface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = swapChainSupport.capabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = presentMode,
+        .clipped = VK_TRUE,
+        .oldSwapchain = VK_NULL_HANDLE,
+    };
+
+    auto indices = _physicalDevice.getQueues(_surface);
+    uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+    if(indices.graphicsFamily != indices.presentFamily) {
+        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices = queueFamilyIndices;
+    } else {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;     // Optional
+        createInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
+
+    if(vkCreateSwapchainKHR(_device, &createInfo, nullptr, &_swapChain) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create swap chain.");
+    }
+
+    vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, nullptr);
+    _swapChainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, _swapChainImages.data());
+
+    _swapChainImageFormat = surfaceFormat.format;
+    _swapChainExtent = extent;
+
+    for(size_t i = 0; i < _swapChainImages.size(); i++)
+        _swapChainImageViews.push_back(ImageView{_device, _swapChainImages[i], _swapChainImageFormat});
+}
+
+void Application::initSwapChain() {
+    _renderPass.create(_device, _swapChainImageFormat);
+
+    Shader vertShader(_device, "shaders/ubo.vert.spv");
+    Shader fragShader(_device, "shaders/triangle.frag.spv");
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
+        vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
+        fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+    };
+    _descriptorSetLayout.create(_device);
+    _pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent, {_descriptorSetLayout});
+
+    _swapChainFramebuffers.resize(_swapChainImageViews.size());
+    for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+        _swapChainFramebuffers[i].create(_device, _renderPass, _swapChainImageViews[i], _swapChainExtent);
+
+    _commandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
+
+    _imagesInFlight.resize(_swapChainImages.size());
+
+    // Uniform buffers init
+    {
+        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+        _uniformBuffers.resize(_swapChainImages.size());
+
+        for(size_t i = 0; i < _swapChainImages.size(); i++)
+            _uniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
+
+        auto memReq = _uniformBuffers[0].getMemoryRequirements();
+        size_t memSize = (2 + _swapChainImages.size() * bufferSize / memReq.alignment) * memReq.alignment;
+        _uniformBuffersMemory.allocate(_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+                                       memSize);
+        size_t offset = 0;
+        for(size_t i = 0; i < _swapChainImages.size(); i++) {
+            vkBindBufferMemory(_device, _uniformBuffers[i], _uniformBuffersMemory, offset);
+            offset += bufferSize;
+            offset = (1 + offset / memReq.alignment) * memReq.alignment;
+        }
+    }
+
+    _descriptorPool.create(_device, _swapChainImages.size());
+    _descriptorPool.allocate(_swapChainImages.size(), _descriptorSetLayout);
+    ;
+    for(size_t i = 0; i < _swapChainImages.size(); i++) {
+        VkDescriptorBufferInfo bufferInfo{
+            .buffer = _uniformBuffers[i],
+            .offset = 0,
+            .range = sizeof(UniformBufferObject),
+        };
+
+        VkWriteDescriptorSet descriptorWrite{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = _descriptorPool.getDescriptorSets()[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo = nullptr, // Optional
+            .pBufferInfo = &bufferInfo,
+            .pTexelBufferView = nullptr, // Optional
+        };
+
+        vkUpdateDescriptorSets(_device, 1, &descriptorWrite, 0, nullptr);
+    }
+
+    for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
+        auto b = _commandBuffers.getBuffers()[i];
+        b.begin();
+        b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
+        _pipeline.bind(b);
+
+        _commandBuffers[i].bind<1>({_mesh.getVertexBuffer()});
+        vkCmdBindIndexBuffer(_commandBuffers[i], _mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1, &_descriptorPool.getDescriptorSets()[i], 0, nullptr);
+        vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh.getIndices().size()), 1, 0, 0, 0);
+
+        b.endRenderPass();
+        b.end();
+    }
+}
+
+void Application::recreateSwapChain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(_window, &width, &height);
+    while(width == 0 || height == 0) {
+        glfwGetFramebufferSize(_window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(_device);
+
+    cleanupSwapChain();
+
+    createSwapChain();
+    initSwapChain();
+}
+
+void Application::cleanupSwapChain() {
+    for(auto& b : _uniformBuffers)
+        b.destroy();
+    _uniformBuffersMemory.free();
+    _descriptorPool.destroy();
+    _swapChainFramebuffers.clear();
+
+    // Only free up the command buffer, not the command pool
+    _commandBuffers.free();
+    _pipeline.destroy();
+    _descriptorSetLayout.destroy();
+    _renderPass.destroy();
+    _swapChainImageViews.clear();
+    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+}
