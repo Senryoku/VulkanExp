@@ -28,6 +28,7 @@
     <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Application.cpp" />
+    <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\SwapchainManagment.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
     <ClCompile Include="src\vulkan\Mesh.cpp" />
@@ -171,7 +172,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>

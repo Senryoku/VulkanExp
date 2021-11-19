@@ -36,7 +36,7 @@ void Application::createSwapChain() {
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .preTransform = swapChainSupport.capabilities.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR ?
         .presentMode = presentMode,
         .clipped = VK_TRUE,
         .oldSwapchain = VK_NULL_HANDLE,
@@ -112,8 +112,8 @@ void Application::initSwapChain() {
         }}
     );
 
-    Shader vertShader(_device, "shaders/ubo.vert.spv");
-    Shader fragShader(_device, "shaders/phong.frag.spv");
+    Shader vertShader(_device, "./shaders_spv/ubo.vert.spv");
+    Shader fragShader(_device, "./shaders_spv/phong.frag.spv");
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
         vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
         fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),

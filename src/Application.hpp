@@ -17,6 +17,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <FileWatch.hpp>
+
 #include "Logger.hpp"
 #include "vulkan/Buffer.hpp"
 #include "vulkan/DescriptorPool.hpp"
@@ -71,8 +73,8 @@ class Application {
     }
 
   private:
-    const uint32_t Width = 800;
-    const uint32_t Height = 600;
+    const uint32_t InitialWidth = 1280;
+    const uint32_t InitialHeight = 800;
 
     const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
@@ -83,6 +85,12 @@ class Application {
 #else
     const bool _enableValidationLayers = true;
 #endif
+
+    bool _dirtyShaders = true; // Re-compile on startup
+    // Auto re-compile shaders
+    filewatch::FileWatch<std::string> _shadersFileWatcher{"./src/shaders/", [&](const std::string& file, const filewatch::Event event_type) {
+                                                              _dirtyShaders = true;
+    }};
 
     GLFWwindow* _window = nullptr;
     VkInstance _instance;
@@ -116,7 +124,6 @@ class Application {
     std::vector<Fence> _inFlightFences;
     std::vector<VkFence> _imagesInFlight;
 
-
     std::vector<Buffer> _uniformBuffers;
     DeviceMemory _uniformBuffersMemory;
 
@@ -135,7 +142,7 @@ class Application {
 
     // See https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPresentModeKHR.html
     // TLDR (as I understand it:) ):
-    // VK_PRESENT_MODE_FIFO_KHR to limit the frame rate to the display refresh rate (increases input lag)
+    // VK_PRESENT_MODE_FIFO_KHR to limit the frame rate to the display refresh rate (basically VSync, increases input lag)
     // VK_PRESENT_MODE_MAILBOX_KHR to allow submiting gpu work more frequently, while presenting only on display refresh
     VkPresentModeKHR _preferedPresentMode = VK_PRESENT_MODE_FIFO_KHR; // VK_PRESENT_MODE_MAILBOX_KHR
 
@@ -145,12 +152,20 @@ class Application {
     double _cameraZoom = 600.0;
 
     bool _moving = false;
-    double last_xpos = 0, last_ypos = 0;
+    double _last_xpos = 0, _last_ypos = 0;
 
     void createSwapChain();
     void initSwapChain();
     void recreateSwapChain();
     void cleanupSwapChain();
+
+    void compileShaders() {
+        // Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
+        // Could use popen() instead of system() to capture the output too.
+        system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
+        // Fixme: We can probably do a lot less :) (Like only recreating the pipeline, which could even be done in another thread)
+        recreateSwapChain();
+    }
 
     void initWindow() {
         fmt::print("Window initialisation... ");
@@ -164,7 +179,7 @@ class Application {
         glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, 1);
         //glfwWindowHint(GLFW_DECORATED, false);
 
-        _window = glfwCreateWindow(Width, Height, "VulkanExp", nullptr, nullptr);
+        _window = glfwCreateWindow(InitialWidth, InitialHeight, "VulkanExp", nullptr, nullptr);
         if(_window == nullptr)
             error("Error while creating GLFW Window. ");
 
@@ -188,7 +203,7 @@ class Application {
         auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
         if(button == GLFW_MOUSE_BUTTON_LEFT) {
             app->_moving = action == GLFW_PRESS;
-            glfwGetCursorPos(window, &app->last_xpos, &app->last_ypos);
+            glfwGetCursorPos(window, &app->_last_xpos, &app->_last_ypos);
         }
     }
 
@@ -268,8 +283,7 @@ class Application {
     }
 
     void setupDebugMessenger() {
-        if(!_enableValidationLayers)
-            return;
+        if(!_enableValidationLayers) return;
         if(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("Failed to set up debug messenger!");
         }
@@ -349,7 +363,9 @@ class Application {
 
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
         for(const auto& availableFormat : availableFormats) {
-            if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            // FIXME: Imgui windows don't look right when VK_COLOR_SPACE_SRGB_NONLINEAR_KHR is used.
+            //if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
                 return availableFormat;
             }
         }
@@ -403,6 +419,8 @@ class Application {
         buffers.free();
         tempCommandPool.destroy();
     }
+
+    void initImGui(uint32_t queueFamily);
 
     void initVulkan() {
         fmt::print("Vulkan initialisation... ");
@@ -461,74 +479,12 @@ class Application {
         for(auto& f : _inFlightFences)
             f.create(_device);
 
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        (void)io;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // Enable Docking
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
-        // io.ConfigViewportsNoAutoMerge = true;
-        // io.ConfigViewportsNoTaskBarIcon = true;
-
-        // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
-        // ImGui::StyleColorsClassic();
-        //
-        // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-        ImGuiStyle& style = ImGui::GetStyle();
-        if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            style.WindowRounding = 0.0f;
-            style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-        }
-
-        // Create Dear ImGUI Descriptor Pool
-        {
-            VkDescriptorPoolSize pool_sizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                                                 {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
-            VkDescriptorPoolCreateInfo pool_info = {};
-            pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-            pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-            pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-            pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-            pool_info.pPoolSizes = pool_sizes;
-            if(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_imguiDescriptorPool)) {
-                throw std::runtime_error("Failed to create dear imgui descriptor pool.");
-            }
-        }
-
-        ImGui_ImplGlfw_InitForVulkan(_window, true);
-        ImGui_ImplVulkan_InitInfo init_info = {
-            .Instance = _instance,
-            .PhysicalDevice = _physicalDevice,
-            .Device = _device,
-            .QueueFamily = queueIndices.graphicsFamily.value(),
-            .Queue = _graphicsQueue,
-            .PipelineCache = VK_NULL_HANDLE,
-            .DescriptorPool = _imguiDescriptorPool,
-            .MinImageCount = 2,
-            .ImageCount = static_cast<uint32_t>(_swapChainImages.size()),
-            .Allocator = VK_NULL_HANDLE,
-            .CheckVkResultFn = nullptr,
-        };
-        ImGui_ImplVulkan_Init(&init_info, _imguiRenderPass);
-
-        immediateSubmit([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
-        ImGui_ImplVulkan_DestroyFontUploadObjects();
+        initImGui(queueIndices.graphicsFamily.value());
 
         success("Done.\n");
     }
+
+    void drawUI();
 
     void mainLoop() {
         while(!glfwWindowShouldClose(_window)) {
@@ -537,9 +493,8 @@ class Application {
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-
-            ImGui::ShowDemoWindow();
-
+            ImGui::DockSpaceOverViewport(nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
+            drawUI();
             ImGui::Render();
             // Update and Render additional Platform Windows
             if(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -547,7 +502,10 @@ class Application {
                 ImGui::RenderPlatformWindowsDefault();
             }
 
-            // TODO: Actually Render Dear ImGui (and fix popup window validation errors)
+            if(_dirtyShaders) {
+                compileShaders();
+                _dirtyShaders = false;
+            }
 
             drawFrame();
         }
@@ -566,10 +524,10 @@ class Application {
         if(_moving) {
             double xpos, ypos;
             glfwGetCursorPos(_window, &xpos, &ypos);
-            float dx = 2 * 3.14159 * (last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159 * (last_ypos - ypos) / _swapChainExtent.height;
+            float dx = 2 * 3.14159 * (_last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159 * (_last_ypos - ypos) / _swapChainExtent.height;
             static glm::vec4 camera_position{_cameraZoom, _cameraZoom, _cameraZoom, 1.f};
-            last_xpos = xpos;
-            last_ypos = ypos;
+            _last_xpos = xpos;
+            _last_ypos = ypos;
             camera_position = glm::rotate(glm::mat4{1.0f}, dx, glm::vec3(0.0f, 0.0f, 1.0f)) * camera_position;
             camera_position = glm::rotate(glm::mat4{1.0f}, dy, glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3{camera_position})) * camera_position;
             ubo.model = glm::mat4(1.0f);

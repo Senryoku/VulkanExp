@@ -1,5 +1,72 @@
 #include "Application.hpp"
 
+void Application::initImGui(uint32_t queueFamily) {
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
+    // io.ConfigViewportsNoAutoMerge = true;
+    // io.ConfigViewportsNoTaskBarIcon = true;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    // ImGui::StyleColorsClassic();
+
+    // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
+    ImGuiStyle& style = ImGui::GetStyle();
+    if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    }
+
+    // Create Dear ImGUI Descriptor Pool
+    VkDescriptorPoolSize pool_sizes[] = {
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
+    };
+    VkDescriptorPoolCreateInfo pool_info = { 
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1000 * IM_ARRAYSIZE(pool_sizes),
+        .poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes)),
+        .pPoolSizes = pool_sizes,
+    };
+    if(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_imguiDescriptorPool))
+        throw std::runtime_error("Failed to create dear imgui descriptor pool.");
+
+    ImGui_ImplGlfw_InitForVulkan(_window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {
+        .Instance = _instance,
+        .PhysicalDevice = _physicalDevice,
+        .Device = _device,
+        .QueueFamily = queueFamily,
+        .Queue = _graphicsQueue,
+        .PipelineCache = VK_NULL_HANDLE,
+        .DescriptorPool = _imguiDescriptorPool,
+        .MinImageCount = 2,
+        .ImageCount = static_cast<uint32_t>(_swapChainImages.size()),
+        .Allocator = VK_NULL_HANDLE,
+        .CheckVkResultFn = nullptr,
+    };
+    ImGui_ImplVulkan_Init(&init_info, _imguiRenderPass);
+
+    immediateSubmit([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
+    ImGui_ImplVulkan_DestroyFontUploadObjects();
+}
 
 void Application::drawFrame() {
     VkFence currentFence = _inFlightFences[_currentFrame];
