@@ -19,6 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ext\imgui-docking\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="ext\imgui-docking\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="ext\imgui-docking\imgui.cpp" />
+    <ClCompile Include="ext\imgui-docking\imgui_demo.cpp" />
+    <ClCompile Include="ext\imgui-docking\imgui_draw.cpp" />
+    <ClCompile Include="ext\imgui-docking\imgui_tables.cpp" />
+    <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\SwapchainManagment.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
@@ -68,26 +75,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -127,7 +134,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
@@ -145,7 +152,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
@@ -163,7 +170,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
@@ -181,7 +188,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>

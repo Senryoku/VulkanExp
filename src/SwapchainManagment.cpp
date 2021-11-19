@@ -82,6 +82,36 @@ void Application::createSwapChain() {
 void Application::initSwapChain() {
     _renderPass.create(_device, _swapChainImageFormat, _depthFormat);
 
+    VkAttachmentReference color_attachment = {};
+    color_attachment.attachment = 0;
+    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    _imguiRenderPass.create(_device, 
+        std::array < VkAttachmentDescription, 1>{VkAttachmentDescription{
+                                .format = _swapChainImageFormat,
+                                .samples = VK_SAMPLE_COUNT_1_BIT,
+                                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                                .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                            }},
+                            std::array<VkSubpassDescription, 1>{VkSubpassDescription{
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &color_attachment,
+        }},
+                            std::array<VkSubpassDependency, 1>{VkSubpassDependency{
+                                .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        }}
+    );
+
     Shader vertShader(_device, "shaders/ubo.vert.spv");
     Shader fragShader(_device, "shaders/phong.frag.spv");
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
@@ -95,7 +125,13 @@ void Application::initSwapChain() {
     for(size_t i = 0; i < _swapChainImageViews.size(); i++)
         _swapChainFramebuffers[i].create(_device, _renderPass, {_swapChainImageViews[i], _depthImageView}, _swapChainExtent);
 
+    _imguiFramebuffers.resize(_swapChainImageViews.size());
+    for(size_t i = 0; i < _swapChainImageViews.size(); i++) {
+        _imguiFramebuffers[i].create(_device, _imguiRenderPass, _swapChainImageViews[i], _swapChainExtent);
+    }
+
     _commandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
+    _imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainFramebuffers.size());
 
     _imagesInFlight.resize(_swapChainImages.size());
 
@@ -183,12 +219,15 @@ void Application::cleanupSwapChain() {
     _uniformBuffersMemory.free();
     _descriptorPool.destroy();
     _swapChainFramebuffers.clear();
+    _imguiFramebuffers.clear();
 
     // Only free up the command buffer, not the command pool
     _commandBuffers.free();
+    _imguiCommandBuffers.free();
     _pipeline.destroy();
     _descriptorSetLayout.destroy();
     _renderPass.destroy();
+    _imguiRenderPass.destroy();
     _depthImageView.destroy();
     _depthImage.destroy();
     _depthImageMemory.free();

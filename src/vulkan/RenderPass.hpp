@@ -6,6 +6,25 @@
 
 class RenderPass : public HandleWrapper<VkRenderPass> {
   public:
+    template<int A, int S, int D>
+    void create(VkDevice device, const std::array<VkAttachmentDescription, A>& attachments, const std::array<VkSubpassDescription, S>& subpasses,
+                const std::array<VkSubpassDependency, D>& dependencies) {
+        VkRenderPassCreateInfo renderPassInfo{
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .attachmentCount = A,
+            .pAttachments = attachments.data(),
+            .subpassCount = S,
+            .pSubpasses = subpasses.data(),
+            .dependencyCount = D,
+            .pDependencies = dependencies.data(),
+        };
+
+        if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &_handle) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create render pass!");
+        }
+        _device = device;
+    }
+
     void create(VkDevice device, VkFormat imageFormat, VkFormat depthFormat) {
         VkAttachmentDescription colorAttachment{
             .format = imageFormat,
@@ -15,7 +34,7 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         };
 
         VkAttachmentReference colorAttachmentRef{
