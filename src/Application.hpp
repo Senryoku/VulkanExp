@@ -175,6 +175,8 @@ class Application {
     };
 
     static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+        if(ImGui::GetIO().WantCaptureMouse)
+            return;
         auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
         if(button == GLFW_MOUSE_BUTTON_LEFT)
             app->_moving = action == GLFW_PRESS;
