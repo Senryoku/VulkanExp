@@ -27,6 +27,7 @@
     <ClCompile Include="ext\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\SwapchainManagment.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
     <ClCompile Include="src\vulkan\Mesh.cpp" />
