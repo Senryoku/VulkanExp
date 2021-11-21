@@ -26,15 +26,20 @@
     <ClCompile Include="ext\imgui-docking\imgui_draw.cpp" />
     <ClCompile Include="ext\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
+    <ClCompile Include="src\glTF.cpp" />
+    <ClCompile Include="src\JSON.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\UI.cpp" />
-    <ClCompile Include="src\SwapchainManagment.cpp" />
+    <ClCompile Include="src\SwapchainManagement.cpp" />
+    <ClCompile Include="src\VulkanLifecycle.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
     <ClCompile Include="src\vulkan\Mesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.hpp" />
+    <ClInclude Include="src\glTF.hpp" />
+    <ClInclude Include="src\JSON.hpp" />
     <ClInclude Include="src\Logger.hpp" />
     <ClInclude Include="src\stringutils.hpp" />
     <ClInclude Include="src\vulkan\Buffer.hpp" />

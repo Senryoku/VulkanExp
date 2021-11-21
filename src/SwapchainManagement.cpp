@@ -214,20 +214,21 @@ void Application::recreateSwapChain() {
 }
 
 void Application::cleanupSwapChain() {
+    _imguiFramebuffers.clear();
+    _imguiCommandBuffers.free();
+    _imguiRenderPass.destroy();
+
     for(auto& b : _uniformBuffers)
         b.destroy();
     _uniformBuffersMemory.free();
     _descriptorPool.destroy();
     _swapChainFramebuffers.clear();
-    _imguiFramebuffers.clear();
 
     // Only free up the command buffer, not the command pool
     _commandBuffers.free();
-    _imguiCommandBuffers.free();
     _pipeline.destroy();
     _descriptorSetLayout.destroy();
     _renderPass.destroy();
-    _imguiRenderPass.destroy();
     _depthImageView.destroy();
     _depthImage.destroy();
     _depthImageMemory.free();

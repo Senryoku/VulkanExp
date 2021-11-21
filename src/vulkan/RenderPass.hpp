@@ -37,11 +37,6 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
             .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         };
 
-        VkAttachmentReference colorAttachmentRef{
-            .attachment = 0,
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        };
-
         VkAttachmentDescription depthAttachment{
             .format = depthFormat,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -51,6 +46,11 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
+
+        VkAttachmentReference colorAttachmentRef{
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
 
         VkAttachmentReference depthAttachmentRef{
@@ -77,20 +77,7 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
 
         std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 
-        VkRenderPassCreateInfo renderPassInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-            .attachmentCount = attachments.size(),
-            .pAttachments = attachments.data(),
-            .subpassCount = 1,
-            .pSubpasses = &subpass,
-            .dependencyCount = 1,
-            .pDependencies = &dependency,
-        };
-
-        if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &_handle) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create render pass!");
-        }
-        _device = device;
+        create(device, attachments, std::array<VkSubpassDescription, 1>{subpass}, std::array<VkSubpassDependency, 1>{dependency});
     }
 
     void destroy() {
