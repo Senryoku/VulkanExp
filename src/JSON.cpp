@@ -66,7 +66,7 @@ JSON::array JSON::parseArray(std::ifstream& file) {
 			case ']': return a;
 			case ',': break;
 			default:
-				file.seekg(-1, file.cur);
+				file.putback(byte);
 				a.push(parseValue(file));
 				break;
 		}
@@ -111,11 +111,12 @@ JSON::number JSON::parseNumber(std::ifstream& file) {
 	char		byte;
 	std::string str;
 	bool		isFloat = false;
+	file.get(byte);
 	do {
-		file.get(byte);
+		str += byte;
 		if(byte == '.' || byte == 'e' || byte == 'E')
 			isFloat = true;
-		str += byte;
+		file.get(byte);
 	} while(file && (byte == '-' || byte == '+' || (byte >= '0' && byte <= '9') || byte == '.' || byte == 'e' || byte == 'E'));
 	if(isFloat) {
 		return number{std::stof(str)};
@@ -167,18 +168,18 @@ JSON::value JSON::parseValue(std::ifstream& file) {
 		case '7':
 		case '8':
 		case '9':
-			file.seekg(-1, file.cur);
+			file.putback(byte);
 			return value{parseNumber(file)};
 			break;
 		case '{': return value{parseObject(file)}; break;
 		case '[': return value{parseArray(file)}; break;
 		case 't':
 		case 'f':
-			file.seekg(-1, file.cur);
+			file.putback(byte);
 			return value{parseBoolean(file)};
 			break;
 		case 'n':
-			file.seekg(-1, file.cur);
+			file.putback(byte);
 			return value{parseNull(file)};
 			break;
 	}
