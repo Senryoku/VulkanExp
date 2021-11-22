@@ -27,6 +27,16 @@ bool JSON::parse(std::ifstream& file) {
 	return true;
 }
 
+bool JSON::expectImmediate(char c, std::ifstream& file) {
+	char byte;
+	file.get(byte);
+	if(byte != c) {
+		error("JSON Parsing error: Expected '{}', got '{}'\n", c, byte);
+		return false;
+	}
+	return true;
+}
+
 bool JSON::expect(char c, std::ifstream& file) {
 	char byte = skipWhitespace(file);
 	if(byte != c) {
@@ -45,8 +55,7 @@ JSON::object JSON::parseObject(std::ifstream& file) {
 			case '"': {
 				auto key = parseString(file);
 				expect(':', file);
-				auto value = parseValue(file);
-				o[key] = value;
+				o.emplace(key, parseValue(file));
 				break;
 			}
 			case ',':
@@ -67,7 +76,7 @@ JSON::array JSON::parseArray(std::ifstream& file) {
 			case ',': break;
 			default:
 				file.putback(byte);
-				a.push(parseValue(file));
+				a.emplace_back(parseValue(file));
 				break;
 		}
 	}
@@ -129,15 +138,15 @@ bool JSON::parseBoolean(std::ifstream& file) {
 	char byte;
 	file.get(byte);
 	if(byte == 't') {
-		expect('r', file);
-		expect('u', file);
-		expect('e', file);
+		expectImmediate('r', file);
+		expectImmediate('u', file);
+		expectImmediate('e', file);
 		return true;
 	} else if(byte == 'f') {
-		expect('a', file);
-		expect('l', file);
-		expect('s', file);
-		expect('e', file);
+		expectImmediate('a', file);
+		expectImmediate('l', file);
+		expectImmediate('s', file);
+		expectImmediate('e', file);
 		return false;
 	}
 	error("JSON Parsing error: Unexpected character '{}'.\n", byte);
@@ -145,16 +154,15 @@ bool JSON::parseBoolean(std::ifstream& file) {
 }
 
 JSON::null_t JSON::parseNull(std::ifstream& file) {
-	expect('n', file);
-	expect('u', file);
-	expect('l', file);
-	expect('l', file);
+	expectImmediate('n', file);
+	expectImmediate('u', file);
+	expectImmediate('l', file);
+	expectImmediate('l', file);
 	return JSON::null_t{};
 }
 
 JSON::value JSON::parseValue(std::ifstream& file) {
-	value v;
-	char  byte = skipWhitespace(file);
+	char byte = skipWhitespace(file);
 	switch(byte) {
 		case '"': return value{parseString(file)}; break;
 		case '-':
@@ -183,5 +191,4 @@ JSON::value JSON::parseValue(std::ifstream& file) {
 			return value{parseNull(file)};
 			break;
 	}
-	return v;
 }

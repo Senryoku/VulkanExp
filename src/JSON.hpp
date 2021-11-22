@@ -1,23 +1,26 @@
 #pragma once
 
+#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <unordered_map>
 #include <vector>
 
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+
 class JSON {
   public:
 	class value;
 
-	class null_t {
-	  public:
-		null_t() = default;
-	};
+	class null_t {};
 
 	class number {
 	  public:
 		number() = default;
+		number(const number&) = default;
+		number(number&&) = default;
 		number(int i) : _type(Type::integer) { _value.as_int = i; }
 		number(float f) : _type(Type::real) { _value.as_float = f; }
 
@@ -26,6 +29,16 @@ class JSON {
 				return std::to_string(_value.as_float);
 			else
 				return std::to_string(_value.as_int);
+		}
+
+		float asReal() const {
+			assert(_type == Type::real);
+			return _value.as_float;
+		}
+
+		int asInteger() const {
+			assert(_type == Type::integer);
+			return _value.as_int;
 		}
 
 	  private:
@@ -41,65 +54,9 @@ class JSON {
 		} _value;
 	};
 
-	class string {
-	  public:
-		string() = default;
-		string(const string& s) : _str(s._str) {}
-		string& operator=(const string& s) {
-			_str = s._str;
-			return *this;
-		}
-		string& operator+=(char c) {
-			_str += c;
-			return *this;
-		}
-		bool operator==(const string& s) const { return _str == s._str; }
-
-		struct Hasher {
-			std::size_t operator()(const JSON::string& k) const { return k.hash(); }
-		};
-		std::size_t hash() const { return std::hash<std::string>{}(_str); }
-
-		std::string toString() const { return '"' + _str + '"'; }
-
-	  private:
-		std::string _str;
-	};
-
-	class array {
-	  public:
-		void push(const value& v) { _values.push_back(v); }
-
-		std::string toString() const {
-			std::string s;
-			s += '[';
-			for(const auto& v : _values)
-				s += v.toString() + ", ";
-			s += ']';
-			return s;
-		}
-
-	  private:
-		std::vector<value> _values;
-	};
-
-	class object {
-	  public:
-		value& operator[](const string& key) { return _map[key]; }
-
-		std::string toString() const {
-			std::string s;
-			s += '{';
-			for(const auto& v : _map)
-				s += v.first.toString() + ": " + v.second.toString() + ", ";
-			s += '}';
-			return s;
-		}
-
-	  private:
-		std::unordered_map<string, value, string::Hasher> _map;
-	};
-
+	using string = std::string;
+	using array = std::vector<value>;
+	using object = std::unordered_map<string, value>;
 	class value {
 	  public:
 		enum class Type
@@ -113,50 +70,49 @@ class JSON {
 		};
 
 		value(){};
-		value(value& v) { swap(v); };
-		value(const value& v) noexcept { swap(v); };
-
-		/*
-		value(value&& v) { *this = v; };
-		value& operator=(value&& v) {
-			_type = v._type;
-			switch(_type) {
-				case Type::string: _value.as_string = std::move(v._value.as_string); break;
-				case Type::number: _value.as_number = std::move(v._value.as_number); break;
-				case Type::array: _value.as_array = std::move(v._value.as_array); break;
-				case Type::object: _value.as_object = std::move(v._value.as_object); break;
-				case Type::boolean: _value.as_boolean = std::move(v._value.as_boolean); break;
-				case Type::null: _value.as_null = std::move(v._value.as_null); break;
-			}
-			return *this;
-		}
-		*/
-
+		value(value& v) { copy(v); };
+		value(const value& v) noexcept { copy(v); };
 		value& operator=(const value& v) noexcept {
-			swap(v);
+			copy(v);
 			return *this;
 		}
-		value& operator=(value& v) {
-			swap(v);
+		value(value&& v) noexcept { swap(std::move(v)); };
+		value& operator=(value&& v) noexcept {
+			swap(std::move(v));
 			return *this;
 		}
-		auto operator<=>(const value&) const = default;
 
 		value(const object& o) {
 			_type = Type::object;
 			new(&_value.as_object) object{o};
 		};
+		value(object&& o) {
+			_type = Type::object;
+			new(&_value.as_object) object{std::move(o)};
+		};
 		value(const array& a) {
 			_type = Type::array;
 			new(&_value.as_array) array{a};
+		}
+		value(array&& a) {
+			_type = Type::array;
+			new(&_value.as_array) array{std::move(a)};
 		};
 		value(const string& s) {
 			_type = Type::string;
 			new(&_value.as_string) string{s};
 		};
+		value(string&& s) {
+			_type = Type::string;
+			new(&_value.as_string) string{std::move(s)};
+		};
 		value(const number& n) {
 			_type = Type::number;
 			new(&_value.as_number) number{n};
+		};
+		value(number&& n) {
+			_type = Type::number;
+			new(&_value.as_number) number{std::move(n)};
 		};
 		value(bool b) {
 			_type = Type::boolean;
@@ -178,15 +134,242 @@ class JSON {
 			}
 		};
 
+		auto operator<=>(const value&) const = default;
+
 		std::string toString() const {
 			switch(_type) {
-				case Type::string: return _value.as_string.toString();
+				case Type::string: return _value.as_string;
 				case Type::number: return _value.as_number.toString();
-				case Type::array: return _value.as_array.toString();
-				case Type::object: return _value.as_object.toString();
+				case Type::array: return JSON::toString(_value.as_array);
+				case Type::object: return JSON::toString(_value.as_object);
 				case Type::boolean: return _value.as_boolean ? "true" : "false";
 				case Type::null: return "null";
 			}
+		}
+
+		Type		  getType() const { return _type; }
+		const object& asObject() const {
+			assert(_type == Type::object);
+			return _value.as_object;
+		}
+		const array& asArray() const {
+			assert(_type == Type::array);
+			return _value.as_array;
+		}
+		const number& asNumber() const {
+			assert(_type == Type::number);
+			return _value.as_number;
+		}
+
+		class iterator {
+		  public:
+			using iterator_category = std::forward_iterator_tag;
+			using difference_type = std::ptrdiff_t;
+			using value_type = value;
+			using pointer = value_type*;
+			using reference = value_type&;
+
+			iterator(const iterator& it) : _type{it._type} {
+				if(_type == Type::array)
+					_it.array_it = it._it.array_it;
+				if(_type == Type::object)
+					_it.object_it = it._it.object_it;
+			}
+
+			iterator(array::iterator it) {
+				_type = Type::array;
+				_it.array_it = it;
+			}
+			iterator(object::iterator it) {
+				_type = Type::object;
+				_it.object_it = it;
+			}
+
+			reference operator*() {
+				if(_type == Type::array)
+					return *_it.array_it;
+				if(_type == Type::object)
+					return _it.object_it->second;
+				assert(false);
+				return *_it.array_it;
+			}
+
+			reference operator->() {
+				if(_type == Type::array)
+					return *_it.array_it;
+				if(_type == Type::object)
+					return _it.object_it->second;
+				assert(false);
+				return *_it.array_it;
+			}
+
+			// Prefix increment
+			iterator& operator++() {
+				if(_type == Type::array)
+					++_it.array_it;
+				if(_type == Type::object)
+					++_it.object_it;
+				return *this;
+			}
+
+			// Postfix increment
+			iterator operator++(int) {
+				auto tmp = *this;
+				++(*this);
+				return tmp;
+			}
+
+			friend bool operator==(const iterator& a, const iterator& b) {
+				if(a._type != b._type)
+					return false;
+				if(a._type == Type::array)
+					return a._it.array_it == b._it.array_it;
+				if(a._type == Type::object)
+					return a._it.object_it == b._it.object_it;
+				assert(false);
+			};
+			friend bool operator!=(const iterator& a, const iterator& b) { return !(a == b); };
+
+		  private:
+			union IteratorUnion {
+				IteratorUnion() {}
+				~IteratorUnion() {}
+				array::iterator	 array_it;
+				object::iterator object_it;
+			};
+			IteratorUnion _it;
+			Type		  _type;
+		};
+
+		class const_iterator {
+		  public:
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = value;
+			using reference = const value_type&;
+
+			const_iterator(const const_iterator& it) : _type{it._type} {
+				if(_type == Type::array)
+					_it.array_it = it._it.array_it;
+				if(_type == Type::object)
+					_it.object_it = it._it.object_it;
+			}
+
+			const_iterator(array::const_iterator it) {
+				_type = Type::array;
+				_it.array_it = it;
+			}
+			const_iterator(object::const_iterator it) {
+				_type = Type::object;
+				_it.object_it = it;
+			}
+
+			reference operator*() {
+				if(_type == Type::array)
+					return *_it.array_it;
+				if(_type == Type::object)
+					return _it.object_it
+						->second; // FIXME: This is probably not what you'd expect (but the return type has to match, we could encapsule the key in a value, but em...)
+				assert(false);
+				return *_it.array_it;
+			}
+
+			reference operator->() {
+				if(_type == Type::array)
+					return *_it.array_it;
+				if(_type == Type::object)
+					return _it.object_it->second;
+				assert(false);
+				return *_it.array_it;
+			}
+
+			const_iterator& operator++() {
+				if(_type == Type::array)
+					++_it.array_it;
+				if(_type == Type::object)
+					++_it.object_it;
+				assert(false);
+				return *this;
+			}
+
+			const_iterator operator++(int) {
+				auto tmp = *this;
+				++(*this);
+				return tmp;
+			}
+
+			friend bool operator==(const const_iterator& a, const const_iterator& b) {
+				if(a._type != b._type)
+					return false;
+				if(a._type == Type::array)
+					return a._it.array_it == b._it.array_it;
+				if(a._type == Type::object)
+					return a._it.object_it == b._it.object_it;
+			};
+			friend bool operator!=(const const_iterator& a, const const_iterator& b) { return !(a == b); };
+
+		  private:
+			union IteratorUnion {
+				IteratorUnion(){};
+				~IteratorUnion(){};
+				array::const_iterator  array_it{};
+				object::const_iterator object_it;
+			};
+			IteratorUnion _it;
+			Type		  _type;
+		};
+
+		iterator begin() noexcept {
+			if(_type == Type::array)
+				return _value.as_array.begin();
+			if(_type == Type::object)
+				return _value.as_object.begin();
+			assert(false);
+			return _value.as_array.begin();
+		}
+
+		const_iterator begin() const noexcept {
+			if(_type == Type::array)
+				return _value.as_array.cbegin();
+			if(_type == Type::object)
+				return _value.as_object.cbegin();
+			assert(false);
+			return _value.as_array.cbegin();
+		}
+
+		iterator end() noexcept {
+			if(_type == Type::array)
+				return _value.as_array.end();
+			if(_type == Type::object)
+				return _value.as_object.end();
+			assert(false);
+			return _value.as_array.end();
+		}
+
+		const_iterator end() const noexcept {
+			if(_type == Type::array)
+				return _value.as_array.cend();
+			if(_type == Type::object)
+				return _value.as_object.cend();
+			assert(false);
+			return _value.as_array.cend();
+		}
+
+		const value& operator[](size_t idx) const {
+			assert(_type == Type::array);
+			return _value.as_array[idx];
+		}
+		value& operator[](size_t idx) {
+			assert(_type == Type::array);
+			return _value.as_array[idx];
+		}
+
+		const value& operator[](const string& key) const {
+			assert(_type == Type::object);
+			return _value.as_object.at(key);
+		}
+		value& operator[](const string& key) {
+			assert(_type == Type::object);
+			return _value.as_object[key];
 		}
 
 	  private:
@@ -204,7 +387,19 @@ class JSON {
 		Type	  _type = Type::null;
 		ValueType _value = {};
 
-		void swap(const value& v) {
+		void swap(value&& v) {
+			_type = v._type;
+			switch(_type) {
+				case Type::string: new(&_value.as_string) string{std::move(v._value.as_string)}; break;
+				case Type::number: new(&_value.as_number) number{std::move(v._value.as_number)}; break;
+				case Type::array: new(&_value.as_array) array{std::move(v._value.as_array)}; break;
+				case Type::object: new(&_value.as_object) object{std::move(v._value.as_object)}; break;
+				case Type::boolean: _value.as_boolean = v._value.as_boolean; break;
+				case Type::null: new(&_value.as_null) null_t{std::move(v._value.as_null)}; break;
+			}
+		}
+
+		void copy(const value& v) {
 			_type = v._type;
 			switch(_type) {
 				case Type::string: new(&_value.as_string) string{v._value.as_string}; break;
@@ -217,19 +412,38 @@ class JSON {
 		}
 	};
 
+	static inline std::string toString(const array& value) {
+		std::string s;
+		s += '[';
+		for(const auto& v : value)
+			s += v.toString() + ", ";
+		s += ']';
+		return s;
+	}
+
+	static inline std::string toString(const object& value) {
+		std::string s;
+		s += '{';
+		for(const auto& v : value)
+			s += v.first + ": " + v.second.toString() + ", ";
+		s += '}';
+		return s;
+	}
+
 	JSON(const std::filesystem::path&);
 
 	bool parse(const std::filesystem::path&);
 	bool parse(std::ifstream&);
 
-	value getRoot() const { return _root; };
+	const value& getRoot() const { return _root; };
 
   private:
-	static bool isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
-	static char skipWhitespace(std::ifstream& file) {
-		char byte = ' ';
-		while(file && isWhitespace(byte))
+	inline static bool isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
+	inline static char skipWhitespace(std::ifstream& file) {
+		char byte;
+		do
 			file.get(byte);
+		while(file && isWhitespace(byte));
 		return byte;
 	}
 
@@ -241,6 +455,7 @@ class JSON {
 	static null_t parseNull(std::ifstream&);
 	static value  parseValue(std::ifstream&);
 
+	static bool expectImmediate(char c, std::ifstream&);
 	static bool expect(char c, std::ifstream&);
 
 	value _root;

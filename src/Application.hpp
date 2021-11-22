@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -63,14 +64,19 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMesse
 class Application {
   public:
 	void run() {
-		glTF model("./data/models/glTF/Box.gltf");
+		const auto& mesure = [&](const std::string& name, const std::function<void()>& call) {
+			auto t1 = std::chrono::high_resolution_clock::now();
+			call();
+			auto t2 = std::chrono::high_resolution_clock::now();
+			std::cout << name << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1) << '\n';
+		};
+		mesure("glTF load", [&]() { glTF model("./data/models/glTF/Box.gltf"); });
+		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });
+		mesure("_mesh.normalizeVertices", [&]() { _mesh.normalizeVertices(); });
+		mesure("_mesh.computeVertexNormals", [&]() { _mesh.computeVertexNormals(); });
 
-		_mesh.loadOBJ("data/models/lucy.obj");
-		_mesh.normalizeVertices();
-		_mesh.computeVertexNormals();
-
-		initWindow();
-		initVulkan();
+		mesure("initWindow", [&]() { initWindow(); });
+		mesure("initVulkan", [&]() { initVulkan(); });
 		mainLoop();
 		cleanup();
 	}
