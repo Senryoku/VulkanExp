@@ -68,7 +68,13 @@ class Application {
 			auto t1 = std::chrono::high_resolution_clock::now();
 			call();
 			auto t2 = std::chrono::high_resolution_clock::now();
-			std::cout << name << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1) << '\n';
+			auto d = t2 - t1;
+			if(d.count() > 10000000)
+				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(d) << '\n';
+			else if(d.count() > 10000)
+				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::microseconds>(d) << '\n';
+			else
+				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
 		mesure("glTF load", [&]() { glTF model("./data/models/glTF/Box.gltf"); });
 		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });

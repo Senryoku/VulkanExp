@@ -13,6 +13,8 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 
 	_vertices.clear();
 	_indices.clear();
+	_vertices.reserve(65536);
+	_indices.reserve(4 * 65536);
 
 	std::string line;
 	Vertex		v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
@@ -26,21 +28,29 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 			size = line.size();
 		std::string_view line_view{line.begin(), line.begin() + size};
 
-		auto tokens = split(line_view, " \t");
-
-		if(tokens[0] == "v") {
-			for(size_t i = 1; i < tokens.size(); ++i)
-				std::from_chars(tokens[i].data(), tokens[i].data() + tokens[i].size(), v.pos[i - 1]);
+		size_t start = 2;
+		size_t end = 3;
+		if(line_view[0] == 'v') {
+			for(size_t i = 0; i < 3; ++i) {
+				end = start + 1;
+				while(end < line_view.size() && line_view[end] != ' ')
+					++end;
+				std::from_chars(line_view.data() + start, line_view.data() + end, v.pos[i]);
+				start = end + 1;
+			}
 			_vertices.push_back(v);
-		} else if(tokens[0] == "f") {
-			assert(tokens.size() == 4); // TODO: Only supports triangles rn
-			uint16_t coords[3];
-			for(size_t i = 1; i < tokens.size(); ++i) {
-				std::from_chars(tokens[i].data(), tokens[i].data() + tokens[i].size(), coords[i - 1]);
-				_indices.push_back(coords[i - 1] - 1); // Indices starts at 1 in .obj
+		} else if(line_view[0] == 'f') {
+			uint16_t coord;
+			for(size_t i = 0; i < 3; ++i) { // Supports only triangles.
+				end = start + 1;
+				while(end < line_view.size() && line_view[end] != ' ')
+					++end;
+				std::from_chars(line_view.data() + start, line_view.data() + end, coord);
+				_indices.push_back(coord - 1); // Indices starts at 1 in .obj
+				start = end + 1;
 			}
 		} else {
-			warn("Unsupported OBJ command: {} (Full line:{})\n", tokens[0], line);
+			warn("Unsupported OBJ command: '{}' (Full line: '{}')\n", line_view[0], line);
 		}
 	}
 	return true;

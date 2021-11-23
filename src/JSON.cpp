@@ -127,11 +127,10 @@ JSON::number JSON::parseNumber(std::ifstream& file) {
 			isFloat = true;
 		file.get(byte);
 	} while(file && (byte == '-' || byte == '+' || (byte >= '0' && byte <= '9') || byte == '.' || byte == 'e' || byte == 'E'));
-	if(isFloat) {
+	if(isFloat)
 		return number{std::stof(str)};
-	} else {
+	else
 		return number{std::stoi(str)};
-	}
 }
 
 bool JSON::parseBoolean(std::ifstream& file) {

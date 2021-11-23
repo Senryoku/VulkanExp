@@ -41,6 +41,9 @@ class JSON {
 			return _value.as_int;
 		}
 
+		operator float() const { return asReal(); }
+		operator int() const { return asInteger(); }
+
 	  private:
 		enum class Type
 		{
@@ -274,20 +277,20 @@ class JSON {
 			}
 
 			reference operator->() {
+				assert(_type == Type::array || _type == Type::object);
 				if(_type == Type::array)
 					return *_it.array_it;
 				if(_type == Type::object)
 					return _it.object_it->second;
-				assert(false);
 				return *_it.array_it;
 			}
 
 			const_iterator& operator++() {
+				assert(_type == Type::array || _type == Type::object);
 				if(_type == Type::array)
 					++_it.array_it;
 				if(_type == Type::object)
 					++_it.object_it;
-				assert(false);
 				return *this;
 			}
 

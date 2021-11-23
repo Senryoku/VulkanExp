@@ -23,10 +23,10 @@ class glTF {
 
 	class Scene {};
 	class Node {};
-	struct primitive {
+	struct Primitive {
 		RenderingMode mode;
 		Attributes	  attributes;
-		Material	  material;
+		size_t		  material;
 	};
 
   private:
