@@ -163,6 +163,10 @@ class JSON {
 			assert(_type == Type::number);
 			return _value.as_number;
 		}
+		const string& asString() const {
+			assert(_type == Type::string);
+			return _value.as_string;
+		}
 
 		class iterator {
 		  public:

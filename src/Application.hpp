@@ -76,7 +76,7 @@ class Application {
 			else
 				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
-		mesure("glTF load", [&]() { glTF model("./data/models/glTF/Box.gltf"); });
+		mesure("glTF load", [&]() { _model.load("./data/models/glTF/Box.gltf"); });
 		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });
 		mesure("_mesh.normalizeVertices", [&]() { _mesh.normalizeVertices(); });
 		mesure("_mesh.computeVertexNormals", [&]() { _mesh.computeVertexNormals(); });
@@ -149,6 +149,7 @@ class Application {
 	CommandBuffers			 _imguiCommandBuffers;
 
 	Mesh		 _mesh;
+	glTF		 _model;
 	DeviceMemory _deviceMemory;
 
 	bool _framebufferResized = false;
@@ -162,7 +163,8 @@ class Application {
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	size_t	  _currentFrame = 0;
 
-	double _cameraZoom = 600.0;
+	float	  _cameraZoom = 10.0;
+	glm::vec3 _cameraTarget{0.0f, 0.0f, 0.0f};
 
 	bool   _moving = false;
 	double _last_xpos = 0, _last_ypos = 0;
@@ -185,7 +187,7 @@ class Application {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-		app->_cameraZoom -= 5.0 * yoffset;
+		app->_cameraZoom -= 5.0f * yoffset;
 	};
 
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -412,10 +414,10 @@ class Application {
 			camera_position = glm::rotate(glm::mat4{1.0f}, dx, glm::vec3(0.0f, 0.0f, 1.0f)) * camera_position;
 			camera_position = glm::rotate(glm::mat4{1.0f}, dy, glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3{camera_position})) * camera_position;
 			ubo.model = glm::mat4(1.0f);
-			ubo.view = glm::lookAt(glm::vec3{camera_position}, glm::vec3(0.0f, 0.0f, 300.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			ubo.view = glm::lookAt(glm::vec3{camera_position}, _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
 		} else {
 			ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			ubo.view = glm::lookAt(glm::vec3(_cameraZoom, _cameraZoom, _cameraZoom), glm::vec3(0.0f, 0.0f, 300.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			ubo.view = glm::lookAt(glm::vec3(_cameraZoom, _cameraZoom, _cameraZoom), _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
 		}
 
 		ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 2000.0f);

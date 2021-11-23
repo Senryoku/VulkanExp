@@ -27,11 +27,9 @@ class Mesh {
 	}
 
 	size_t getVertexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
-
 	size_t getIndexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
 
 	const Buffer& getVertexBuffer() const { return _vertexBuffer; }
-
 	const Buffer& getIndexBuffer() const { return _indexBuffer; }
 
 	void destroy() {
@@ -41,6 +39,8 @@ class Mesh {
 
 	const std::vector<Vertex>&	 getVertices() const { return _vertices; }
 	const std::vector<uint16_t>& getIndices() const { return _indices; }
+	std::vector<Vertex>&		 getVertices() { return _vertices; }
+	std::vector<uint16_t>&		 getIndices() { return _indices; }
 
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
