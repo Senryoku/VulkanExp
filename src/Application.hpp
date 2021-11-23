@@ -187,7 +187,10 @@ class Application {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-		app->_cameraZoom -= 5.0f * yoffset;
+		if(yoffset > 0)
+			app->_cameraZoom *= 1.f / 1.2f;
+		else
+			app->_cameraZoom *= 1.2f;
 	};
 
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -397,38 +400,7 @@ class Application {
 	void drawFrame();
 	void drawUI();
 
-	void updateUniformBuffer(uint32_t currentImage) {
-		static auto startTime = std::chrono::high_resolution_clock::now();
-		auto		currentTime = std::chrono::high_resolution_clock::now();
-		float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-		UniformBufferObject ubo{};
-
-		if(_moving) {
-			double xpos, ypos;
-			glfwGetCursorPos(_window, &xpos, &ypos);
-			float			 dx = 2 * 3.14159 * (_last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159 * (_last_ypos - ypos) / _swapChainExtent.height;
-			static glm::vec4 camera_position{_cameraZoom, _cameraZoom, _cameraZoom, 1.f};
-			_last_xpos = xpos;
-			_last_ypos = ypos;
-			camera_position = glm::rotate(glm::mat4{1.0f}, dx, glm::vec3(0.0f, 0.0f, 1.0f)) * camera_position;
-			camera_position = glm::rotate(glm::mat4{1.0f}, dy, glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3{camera_position})) * camera_position;
-			ubo.model = glm::mat4(1.0f);
-			ubo.view = glm::lookAt(glm::vec3{camera_position}, _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
-		} else {
-			ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			ubo.view = glm::lookAt(glm::vec3(_cameraZoom, _cameraZoom, _cameraZoom), _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
-		}
-
-		ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 2000.0f);
-		ubo.proj[1][1] *= -1;
-
-		void*  data;
-		size_t offset = static_cast<size_t>(currentImage) * 256; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
-		vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data);
-		memcpy(data, &ubo, sizeof(ubo));
-		vkUnmapMemory(_device, _uniformBuffersMemory);
-	}
+	void updateUniformBuffer(uint32_t currentImage);
 
 	void cleanupUI();
 	void cleanupVulkan();

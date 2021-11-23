@@ -52,21 +52,30 @@ void glTF::load(std::filesystem::path path) {
 			const auto& positionAccessor = object["accessors"][p["attributes"]["POSITION"].asNumber().asInteger()];
 			const auto& positionBufferView = object["bufferViews"][positionAccessor["bufferView"].asNumber().asInteger()];
 			const auto& positionBuffer = buffers[positionBufferView["buffer"].asNumber().asInteger()];
-			size_t		offset = positionBufferView["byteOffset"].asNumber().asInteger();
+			const auto& normalAccessor = object["accessors"][p["attributes"]["NORMAL"].asNumber().asInteger()];
+			const auto& normalBufferView = object["bufferViews"][normalAccessor["bufferView"].asNumber().asInteger()];
+			const auto& normalBuffer = buffers[normalBufferView["buffer"].asNumber().asInteger()];
 			if(positionAccessor["type"].asString() == "VEC3") {
 				assert(static_cast<ComponentType>(positionAccessor["componentType"].asNumber().asInteger()) == ComponentType::Float); // TODO
-				size_t start = positionAccessor["byteOffset"].asNumber().asInteger() + positionBufferView["byteOffset"].asNumber().asInteger();
-				size_t length = positionBufferView["byteLength"].asNumber().asInteger();
-				size_t stride = positionBufferView.asObject().contains("byteStride") ? positionBufferView["byteStride"].asNumber().asInteger() : 3 * sizeof(float);
-				size_t cursor = start;
+				assert(static_cast<ComponentType>(normalAccessor["componentType"].asNumber().asInteger()) == ComponentType::Float);	  // TODO
+				size_t positionCursor = positionAccessor["byteOffset"].asNumber().asInteger() + positionBufferView["byteOffset"].asNumber().asInteger();
+				size_t positionStride = positionBufferView.asObject().contains("byteStride") ? positionBufferView["byteStride"].asNumber().asInteger() : 3 * sizeof(float);
+
+				size_t normalCursor = normalAccessor["byteOffset"].asNumber().asInteger() + normalBufferView["byteOffset"].asNumber().asInteger();
+				size_t normalStride = normalBufferView.asObject().contains("byteStride") ? normalBufferView["byteStride"].asNumber().asInteger() : 3 * sizeof(float);
+
+				assert(positionAccessor["count"].asNumber().asInteger() == normalAccessor["count"].asNumber().asInteger());
 				for(size_t i = 0; i < positionAccessor["count"].asNumber().asInteger(); ++i) {
 					Vertex v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
-					v.pos[0] = *reinterpret_cast<const float*>(positionBuffer.data() + cursor);
-					v.pos[1] = *reinterpret_cast<const float*>(positionBuffer.data() + cursor + sizeof(float));
-					v.pos[2] = *reinterpret_cast<const float*>(positionBuffer.data() + cursor + 2 * sizeof(float));
-					cursor += stride;
+					v.pos[0] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor);
+					v.pos[1] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor + sizeof(float));
+					v.pos[2] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor + 2 * sizeof(float));
+					positionCursor += positionStride;
+					v.normal[0] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor);
+					v.normal[1] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor + sizeof(float));
+					v.normal[2] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor + 2 * sizeof(float));
+					normalCursor += normalStride;
 					mesh.getVertices().push_back(v);
-					// TODO: Normals
 				}
 			} else {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
@@ -74,13 +83,14 @@ void glTF::load(std::filesystem::path path) {
 
 			const auto& indicesAccessor = object["accessors"][p["indices"].asNumber().asInteger()];
 			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].asNumber().asInteger()];
+			const auto& indicesBuffer = buffers[indicesBufferView["buffer"].asNumber().asInteger()];
 			if(indicesAccessor["type"].asString() == "SCALAR") {
 				assert(static_cast<ComponentType>(indicesAccessor["componentType"].asNumber().asInteger()) == ComponentType::UnsignedShort); // TODO
-				size_t start = indicesBufferView["byteOffset"].asNumber().asInteger();
-				size_t length = indicesBufferView["byteLength"].asNumber().asInteger();
+				size_t cursor = indicesAccessor["byteOffset"].asNumber().asInteger() + indicesBufferView["byteOffset"].asNumber().asInteger();
 				size_t stride = indicesBufferView.asObject().contains("byteStride") ? indicesBufferView["byteStride"].asNumber().asInteger() : sizeof(unsigned short);
-				for(size_t i = start; i < start + length; i += stride) {
-					const unsigned short idx = *reinterpret_cast<const unsigned short*>(positionBuffer.data() + i);
+				for(size_t i = 0; i < indicesAccessor["count"].asNumber().asInteger(); ++i) {
+					const unsigned short idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
+					cursor += stride;
 					mesh.getIndices().push_back(idx);
 				}
 
@@ -88,10 +98,6 @@ void glTF::load(std::filesystem::path path) {
 				error("Error: Unsupported accessor type '{}'.", indicesAccessor["type"].asString());
 			}
 		}
-
-		// TEMP
-		mesh.normalizeVertices();
-		mesh.computeVertexNormals();
 	}
 }
 

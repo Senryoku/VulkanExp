@@ -50,12 +50,14 @@ class Mesh {
 	Buffer _vertexBuffer;
 	Buffer _indexBuffer;
 
-	std::vector<Vertex> _vertices = {
-		{{-0.5f, -0.5f, 0.f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f, 0.f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f, 0.f}, {1.0f, 1.0f, 1.0f}},
-	};
+	std::vector<Vertex> _vertices;
 
-	std::vector<uint16_t> _indices = {0, 1, 2, 2, 3, 0};
+	std::vector<uint16_t> _indices;
+
+	/* Box
+		_vertices = {{-0.5f, -0.5f, 0.f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, -0.5f, 0.f}, {0.0f, 1.0f, 0.0f}}, {{0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f, 0.f},
+	   {1.0f, 1.0f, 1.0f}};
+
+		_indices = {0, 1, 2, 2, 3, 0};
+	 */
 };
