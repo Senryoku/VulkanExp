@@ -76,11 +76,12 @@ class Application {
 			else
 				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
-		mesure("glTF load", [&]() { _model.load("./data/models/glTF/Box.gltf"); });
+		mesure("glTF load", [&]() { _model.load("./data/models/Sponza/glTF/Sponza.gltf"); });
+		/*
 		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });
 		mesure("_mesh.normalizeVertices", [&]() { _mesh.normalizeVertices(); });
 		mesure("_mesh.computeVertexNormals", [&]() { _mesh.computeVertexNormals(); });
-
+		*/
 		mesure("initWindow", [&]() { initWindow(); });
 		mesure("initVulkan", [&]() { initVulkan(); });
 		mainLoop();
@@ -120,10 +121,9 @@ class Application {
 	VkExtent2D			   _swapChainExtent;
 	std::vector<ImageView> _swapChainImageViews;
 
-	VkFormat	 _depthFormat;
-	Image		 _depthImage;
-	DeviceMemory _depthImageMemory;
-	ImageView	 _depthImageView;
+	VkFormat  _depthFormat;
+	Image	  _depthImage;
+	ImageView _depthImageView;
 
 	RenderPass				 _renderPass;
 	DescriptorSetLayout		 _descriptorSetLayout;
@@ -165,6 +165,8 @@ class Application {
 
 	float	  _cameraZoom = 10.0;
 	glm::vec3 _cameraTarget{0.0f, 0.0f, 0.0f};
+	float	  _farPlane = 4000.0f;
+	float	  _nearPlane = 1.0f;
 
 	bool   _moving = false;
 	double _last_xpos = 0, _last_ypos = 0;
@@ -295,7 +297,7 @@ class Application {
 		vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
 
 		PhysicalDevice physicalDevice;
-		int			   maxScore = 0;
+		unsigned int   maxScore = 0;
 		for(const auto& device : devices) {
 			auto pd = PhysicalDevice(device);
 			auto score = rateDevice(pd);

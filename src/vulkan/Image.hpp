@@ -1,50 +1,39 @@
 #pragma once
 
+#include <cassert>
 #include <stdexcept>
 
+#include "Device.hpp"
+#include "DeviceMemory.hpp"
 #include "HandleWrapper.hpp"
+#include <STBImage.hpp>
 
 class Image : public HandleWrapper<VkImage> {
   public:
-    void create(VkDevice device, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties) {
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = width;
-        imageInfo.extent.height = height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = tiling;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = usage;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	Image() = default;
+	Image(const Device& device, const STBImage& image, uint32_t queueFamilyIndex);
+	~Image();
+	void destroy();
 
-        if(vkCreateImage(device, &imageInfo, nullptr, &_handle) != VK_SUCCESS)
-            throw std::runtime_error("Failed to create image");
+	void create(size_t width, size_t height);
+	void create(const Device& device, uint32_t width, uint32_t height, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL,
+				VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	// Allocate Device Memory dedicated to this image (see member _memory)
+	void allocate(VkMemoryPropertyFlags);
 
-        _device = device;
-    }
+	void upload(const STBImage& image, uint32_t queueIndex);
 
-    VkMemoryRequirements getMemoryRequirements() const {
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(_device, _handle, &memRequirements);
-        return memRequirements;
-    }
+	VkMemoryRequirements getMemoryRequirements() const;
 
-    void destroy() {
-        if(isValid()) {
-            vkDestroyImage(_device, _handle, nullptr);
-            _handle = VK_NULL_HANDLE;
-        }
-    }
+	const Device& getDevice() const {
+		assert(_device);
+		return *_device;
+	}
 
-    ~Image() {
-        destroy();
-    }
+	void transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 
   private:
-    VkDevice _device;
+	const Device* _device;
+
+	DeviceMemory _memory; // May be unused, depending on the way the image is initialized
 };

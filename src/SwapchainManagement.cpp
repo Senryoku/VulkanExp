@@ -71,11 +71,8 @@ void Application::createSwapChain() {
 
 	_depthFormat = findSupportedFormat(_physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL,
 									   VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-	_depthImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, _depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-					   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	auto memRequirements = _depthImage.getMemoryRequirements();
-	_depthImageMemory.allocate(_device, _physicalDevice.findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), memRequirements.size);
-	vkBindImageMemory(_device, _depthImage, _depthImageMemory, 0);
+	_depthImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, _depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+	_depthImage.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_depthImageView.create(_device, _depthImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
@@ -239,7 +236,6 @@ void Application::cleanupSwapChain() {
 	_renderPass.destroy();
 	_depthImageView.destroy();
 	_depthImage.destroy();
-	_depthImageMemory.free();
 	_swapChainImageViews.clear();
 	vkDestroySwapchainKHR(_device, _swapChain, nullptr);
 }

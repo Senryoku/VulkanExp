@@ -129,20 +129,20 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	if(_moving) {
 		double xpos, ypos;
 		glfwGetCursorPos(_window, &xpos, &ypos);
-		float		 dx = 2 * 3.14159 * (_last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159 * (_last_ypos - ypos) / _swapChainExtent.height;
-		static float x = 0, z = 0;
-		z -= dx;
-		x += dy;
+		float dx = 2.f * 3.14159f * static_cast<float>(_last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159f * static_cast<float>(_last_ypos - ypos) / _swapChainExtent.height;
+		static float x = 0, y = 0;
+		x -= dx;
+		y += dy;
 		_last_xpos = xpos;
 		_last_ypos = ypos;
-		ubo.model = glm::eulerAngleYXZ(x, 0.f, z);
-		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 0, 1.0f)), _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.model = glm::eulerAngleYXZ(x, y, 0.0f);
+		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 1.0f, 0)), _cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 	} else {
-		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 0, 1.0f)), _cameraTarget, glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.model = glm::rotate(glm::mat4(1.0f), 0.1f * time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 1.0f, 0)), _cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 
-	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, 0.1f, 2000.0f);
+	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, _nearPlane, _farPlane);
 	ubo.proj[1][1] *= -1;
 
 	void*  data;

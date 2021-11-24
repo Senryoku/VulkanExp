@@ -7,6 +7,8 @@
 
 #include "JSON.hpp"
 #include "Logger.hpp"
+#include "STBImage.hpp"
+#include <vulkan/Image.hpp>
 
 glTF::glTF(std::filesystem::path path) {
 	load(path);
@@ -14,8 +16,7 @@ glTF::glTF(std::filesystem::path path) {
 
 void glTF::load(std::filesystem::path path) {
 	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
-	JSON json{path};
-	fmt::print("{}\n", json);
+	JSON		json{path};
 	const auto& object = json.getRoot();
 
 	// Load Buffers
@@ -23,13 +24,13 @@ void glTF::load(std::filesystem::path path) {
 	for(const auto& bufferDesc : object["buffers"]) {
 		buffers.push_back({});
 		auto&		  buffer = buffers.back();
-		auto		  filepath = path.parent_path().append(bufferDesc["uri"].asString());
+		auto		  filepath = path.parent_path() / bufferDesc["uri"].asString();
 		size_t		  length = bufferDesc["byteLength"].asNumber().asInteger();
-		std::ifstream buffer_file{filepath};
+		std::ifstream buffer_file{filepath, std::ifstream::binary};
 		if(buffer_file) {
 			buffer.resize(length);
 			if(!buffer_file.read(buffer.data(), length)) {
-				error("Error while reading '{}'.", filepath);
+				error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
 				return;
 			}
 		} else {
@@ -38,13 +39,17 @@ void glTF::load(std::filesystem::path path) {
 		}
 	}
 
-	for(const auto& m : object["meshes"]) {
-		_meshes.push_back({});
-		Mesh& mesh = _meshes.back();
-		fmt::print("{}\n", m["name"]);
+	// Load images
+	std::vector<STBImage> images;
+	for(const auto& img : object["images"]) {
+		images.push_back(STBImage{path.parent_path() / img["uri"].asString()});
+	}
 
+	for(const auto& m : object["meshes"]) {
 		const auto& primitives = m["primitives"];
 		for(const auto& p : primitives) {
+			_meshes.push_back({});
+			Mesh&	  mesh = _meshes.back();
 			Primitive primitive{
 				.mode = static_cast<RenderingMode>(p["mode"].asNumber().asInteger()),
 				.material = static_cast<size_t>(p["material"].asNumber().asInteger()),

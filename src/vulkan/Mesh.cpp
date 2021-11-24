@@ -25,13 +25,13 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 		if(line[0] == 'v') {
 			char* cur = line.data() + 2;
 			for(size_t i = 0; i < 3; ++i)
-				v.pos[i] = std::strtof(cur, &cur);
+				v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
 			_vertices.push_back(v);
 		} else if(line[0] == 'f') {
 			uint16_t coord;
 			char*	 cur = line.data() + 2;
-			for(size_t i = 0; i < 3; ++i)							// Supports only triangles.
-				_indices.push_back(std::strtol(cur, &cur, 10) - 1); // Indices starts at 1 in .obj
+			for(size_t i = 0; i < 3; ++i)												   // Supports only triangles.
+				_indices.push_back(static_cast<uint16_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
 		} else {
 			warn("Unsupported OBJ command: '{}' (Full line: '{}')\n", line[0], line);
 		}
