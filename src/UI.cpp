@@ -84,10 +84,10 @@ void Application::drawUI() {
 		ImGui::End();
 	}
 	if(ImGui::Begin("Rendering Settings")) {
-		ImGui::DragFloat("Near Plane", &_nearPlane, 0.001, 0.001f, 100);
-		ImGui::DragFloat("Far Plane", &_farPlane, 1, 0.1f, 10000);
-		ImGui::DragFloat("Camera Zoom", &_cameraZoom, 1, 0, 1000);
-		ImGui::DragFloat3("Camera Target", &_cameraTarget.x, 1, -500, 500);
+		ImGui::DragFloat("Near Plane", &_nearPlane, 0.001f, 0.001f, 100.f);
+		ImGui::DragFloat("Far Plane", &_farPlane, 1, 0.1f, 10000.f);
+		ImGui::DragFloat("Camera Zoom", &_cameraZoom, 1.f, 0.f, 1000.f);
+		ImGui::DragFloat3("Camera Target", &_cameraTarget.x, 1.f, -500.f, 500.f);
 		const char* values[4]{"VK_PRESENT_MODE_IMMEDIATE_KHR", "VK_PRESENT_MODE_MAILBOX_KHR", "VK_PRESENT_MODE_FIFO_KHR", "VK_PRESENT_MODE_FIFO_RELAXED_KHR"};
 		int			curr_choice = static_cast<int>(_preferedPresentMode);
 		if(ImGui::Combo("Present Mode", &curr_choice, values, 4)) {

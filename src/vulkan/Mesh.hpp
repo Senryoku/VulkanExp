@@ -5,6 +5,7 @@
 
 #include "Buffer.hpp"
 #include "DeviceMemory.hpp"
+#include "Material.hpp"
 #include "Vertex.hpp"
 
 class Mesh {
@@ -45,6 +46,10 @@ class Mesh {
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
 	void computeVertexNormals();
+
+	// FIXME
+	size_t	  materialIndex = 0;
+	Material* material = nullptr;
 
   private:
 	Buffer _vertexBuffer;

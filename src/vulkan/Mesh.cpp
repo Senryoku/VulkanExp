@@ -28,8 +28,7 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 				v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
 			_vertices.push_back(v);
 		} else if(line[0] == 'f') {
-			uint16_t coord;
-			char*	 cur = line.data() + 2;
+			char* cur = line.data() + 2;
 			for(size_t i = 0; i < 3; ++i)												   // Supports only triangles.
 				_indices.push_back(static_cast<uint16_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
 		} else {

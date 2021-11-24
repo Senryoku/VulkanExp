@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <filesystem>
 
 #include <stb_image.h>
@@ -17,16 +18,17 @@ class STBImage {
 	}
 
 	void load(const std::filesystem::path& path) {
-		_data = stbi_load(path.string().c_str(), &_x, &_y, &_n, STBI_rgb_alpha); // STBI_rgb_alpha: Force 4 channels
+		_data = stbi_load(path.string().c_str(), &_x, &_y, &_n, 4); // Force 4 channels
+		_n = 4;														// Adjust _n so it reflects the actual _data (we force 4 channels)
 		if(!_data) {
 			throw std::runtime_error("Image::load Error: Could not load '" + path.string() + "'\n");
 		}
 	}
 
-	size_t getWidth() const { return _x; }
-	size_t getHeight() const { return _y; }
-	size_t getChannelCount() const { return _n; }
-	size_t byteSize() const { return static_cast<size_t>(_x) * _y * _n; }
+	inline size_t getWidth() const { return _x; }
+	inline size_t getHeight() const { return _y; }
+	inline size_t getChannelCount() const { return _n; }
+	inline size_t byteSize() const { return static_cast<size_t>(_x) * _y * _n; }
 
 	const unsigned char* getData() const { return _data; }
 

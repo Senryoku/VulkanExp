@@ -174,6 +174,7 @@ class Application {
 	void createInstance();
 	void createSwapChain();
 	void initSwapChain();
+	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();
 
@@ -267,6 +268,9 @@ class Application {
 		if(!indices.graphicsFamily.has_value())
 			return 0;
 		if(!checkDeviceExtensionSupport(device))
+			return 0;
+		// FIXME: This should be made optional
+		if(!deviceFeatures.samplerAnisotropy)
 			return 0;
 
 		auto swapChainSupport = device.getSwapChainSupport(_surface);

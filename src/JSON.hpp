@@ -31,18 +31,18 @@ class JSON {
 				return std::to_string(_value.as_int);
 		}
 
-		float asReal() const {
+		const float& asReal() const {
 			assert(_type == Type::real);
 			return _value.as_float;
 		}
 
-		int asInteger() const {
+		const int& asInteger() const {
 			assert(_type == Type::integer);
 			return _value.as_int;
 		}
 
-		operator float() const { return asReal(); }
-		operator int() const { return asInteger(); }
+		operator const float&() const { return asReal(); }
+		operator const int&() const { return asInteger(); }
 
 	  private:
 		enum class Type
@@ -166,6 +166,22 @@ class JSON {
 		const string& asString() const {
 			assert(_type == Type::string);
 			return _value.as_string;
+		}
+
+		template<class T>
+		const T& as() const;
+
+		template<>
+		const string& as<string>() const {
+			return asString();
+		}
+		template<>
+		const int& as<int>() const {
+			return asNumber().asInteger();
+		}
+		template<>
+		const float& as<float>() const {
+			return asNumber().asReal();
 		}
 
 		class iterator {
@@ -311,6 +327,7 @@ class JSON {
 					return a._it.array_it == b._it.array_it;
 				if(a._type == Type::object)
 					return a._it.object_it == b._it.object_it;
+				return false;
 			};
 			friend bool operator!=(const const_iterator& a, const const_iterator& b) { return !(a == b); };
 

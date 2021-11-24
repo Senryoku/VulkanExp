@@ -6,6 +6,10 @@
 
 class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
   public:
+	DeviceMemory() = default;
+	DeviceMemory(const DeviceMemory&) = delete;
+	DeviceMemory(DeviceMemory&& m) noexcept : HandleWrapper(m._handle), _device(m._device) { m._handle = VK_NULL_HANDLE; }
+
 	void allocate(VkDevice device, uint32_t memoryTypeIndex, size_t size) {
 		VkMemoryAllocateInfo allocInfo{
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,

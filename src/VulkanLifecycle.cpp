@@ -46,7 +46,6 @@ void Application::initVulkan() {
 	_mesh.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 	*/
 
-	vkDeviceWaitIdle(_device);
 	for(auto& m : _model.getMeshes()) {
 		auto vertexDataSize = m.getVertexByteSize();
 
@@ -67,8 +66,10 @@ void Application::initVulkan() {
 		vkBindBufferMemory(_device, m.getVertexBuffer(), _deviceMemory, 0);
 		vkBindBufferMemory(_device, m.getIndexBuffer(), _deviceMemory, vertexBufferMemReq.size);
 		m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
+		if(m.material) {
+			m.material->uploadTextures(_device, queueIndices.graphicsFamily.value());
+		}
 	}
-	vkDeviceWaitIdle(_device);
 
 	initSwapChain();
 

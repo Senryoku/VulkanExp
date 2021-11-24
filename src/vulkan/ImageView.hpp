@@ -5,8 +5,8 @@
 class ImageView : public HandleWrapper<VkImageView> {
   public:
     ImageView() = default;
-    ImageView(const ImageView&) = delete;
-    ImageView(ImageView&& v) noexcept : HandleWrapper(v._handle), _device(v._device) {
+	ImageView(const ImageView&) = delete;
+	ImageView(ImageView&& v) noexcept : HandleWrapper(v._handle), _device(v._device) {
         v._handle = VK_NULL_HANDLE;
     }
     ImageView(VkDevice device, VkImage image, VkFormat format) : _device(device) {

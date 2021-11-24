@@ -152,31 +152,54 @@ void Application::initSwapChain() {
 		}
 	}
 
-	_descriptorPool.create(_device, _swapChainImages.size());
-	_descriptorPool.allocate(_swapChainImages.size(), _descriptorSetLayout);
-	;
+	_descriptorPool.create(_device, _swapChainImages.size() * Materials.size());
+	_descriptorPool.allocate(_swapChainImages.size() * Materials.size(), _descriptorSetLayout);
+
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
-		VkDescriptorBufferInfo bufferInfo{
-			.buffer = _uniformBuffers[i],
-			.offset = 0,
-			.range = sizeof(UniformBufferObject),
-		};
+		for(size_t m = 0; m < Materials.size(); m++) {
+			VkDescriptorBufferInfo bufferInfo{
+				.buffer = _uniformBuffers[i],
+				.offset = 0,
+				.range = sizeof(UniformBufferObject),
+			};
+			VkDescriptorImageInfo imageInfo{
+				.sampler = Materials[m].textures["baseColor"].sampler,
+				.imageView = Materials[m].textures["baseColor"].gpuImage->imageView,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			};
 
-		VkWriteDescriptorSet descriptorWrite{
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = _descriptorPool.getDescriptorSets()[i],
-			.dstBinding = 0,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			.pImageInfo = nullptr, // Optional
-			.pBufferInfo = &bufferInfo,
-			.pTexelBufferView = nullptr, // Optional
-		};
+			std::array<VkWriteDescriptorSet, 2> descriptorWrites{
+				VkWriteDescriptorSet{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					.pImageInfo = nullptr,
+					.pBufferInfo = &bufferInfo,
+					.pTexelBufferView = nullptr,
+				},
+				VkWriteDescriptorSet{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &imageInfo,
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr,
+				},
+			};
 
-		vkUpdateDescriptorSets(_device, 1, &descriptorWrite, 0, nullptr);
+			vkUpdateDescriptorSets(_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		}
 	}
+	recordCommandBuffers();
+}
 
+void Application::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto b = _commandBuffers.getBuffers()[i];
 		b.begin();
@@ -193,7 +216,8 @@ void Application::initSwapChain() {
 		for(const auto& m : _model.getMeshes()) {
 			_commandBuffers[i].bind<1>({m.getVertexBuffer()});
 			vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
-			vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1, &_descriptorPool.getDescriptorSets()[i], 0, nullptr);
+			vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1,
+									&_descriptorPool.getDescriptorSets()[i * Materials.size() + m.materialIndex], 0, nullptr);
 			vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(m.getIndices().size()), 1, 0, 0, 0);
 		}
 

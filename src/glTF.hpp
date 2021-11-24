@@ -4,6 +4,9 @@
 
 #include "vulkan/Mesh.hpp"
 
+// TODO: Move this :)
+inline std::vector<Material> Materials;
+
 class glTF {
   public:
 	glTF() = default;
@@ -39,7 +42,6 @@ class glTF {
 	};
 
 	class Attributes {};
-	class Material {};
 
 	class Scene {};
 	class Node {};

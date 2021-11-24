@@ -11,6 +11,8 @@
 class Image : public HandleWrapper<VkImage> {
   public:
 	Image() = default;
+	Image(const Image&) = delete;
+	Image(Image&& i) : HandleWrapper(i._handle), _device(i._device), _memory(std::move(i._memory)) { i._handle = VK_NULL_HANDLE; }
 	Image(const Device& device, const STBImage& image, uint32_t queueFamilyIndex);
 	~Image();
 	void destroy();
@@ -25,6 +27,7 @@ class Image : public HandleWrapper<VkImage> {
 
 	VkMemoryRequirements getMemoryRequirements() const;
 
+	void		  setDevice(const Device& d) { _device = &d; }
 	const Device& getDevice() const {
 		assert(_device);
 		return *_device;

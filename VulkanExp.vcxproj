@@ -39,6 +39,7 @@
     <ClCompile Include="src\vulkan\Device.cpp" />
     <ClCompile Include="src\vulkan\Image.cpp" />
     <ClCompile Include="src\vulkan\Mesh.cpp" />
+    <ClCompile Include="src\vulkan\Material.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ext\stb_image.h" />
@@ -60,10 +61,12 @@
     <ClInclude Include="src\vulkan\DescriptorSetLayout.hpp" />
     <ClInclude Include="src\vulkan\Image.hpp" />
     <ClInclude Include="src\vulkan\ImageView.hpp" />
+    <ClInclude Include="src\vulkan\Material.hpp" />
     <ClInclude Include="src\vulkan\Mesh.hpp" />
     <ClInclude Include="src\vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="src\vulkan\Pipeline.hpp" />
     <ClInclude Include="src\vulkan\RenderPass.hpp" />
+    <ClInclude Include="src\vulkan\Sampler.hpp" />
     <ClInclude Include="src\vulkan\Semaphore.hpp" />
     <ClInclude Include="src\vulkan\Shader.hpp" />
     <ClInclude Include="src\vulkan\Vertex.hpp" />
