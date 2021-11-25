@@ -36,6 +36,7 @@
 #include "vulkan/Semaphore.hpp"
 #include "vulkan/Shader.hpp"
 #include "vulkan/Vertex.hpp"
+#include <Camera.hpp>
 #include <vulkan/Image.hpp>
 
 struct UniformBufferObject {
@@ -163,13 +164,9 @@ class Application {
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	size_t	  _currentFrame = 0;
 
-	float	  _cameraZoom = 10.0;
-	glm::vec3 _cameraTarget{0.0f, 0.0f, 0.0f};
-	float	  _farPlane = 4000.0f;
-	float	  _nearPlane = 1.0f;
-
-	bool   _moving = false;
-	double _last_xpos = 0, _last_ypos = 0;
+	bool   _controlCamera = false;
+	Camera _camera;
+	double _mouse_x = 0, _mouse_y = 0;
 
 	void createInstance();
 	void createSwapChain();
@@ -191,9 +188,9 @@ class Application {
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
 		if(yoffset > 0)
-			app->_cameraZoom *= 1.f / 1.2f;
+			app->_camera.speed *= 1.1f;
 		else
-			app->_cameraZoom *= 1.2f;
+			app->_camera.speed *= (1.f / 1.1f);
 	};
 
 	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -201,8 +198,9 @@ class Application {
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
 		if(button == GLFW_MOUSE_BUTTON_LEFT) {
-			app->_moving = action == GLFW_PRESS;
-			glfwGetCursorPos(window, &app->_last_xpos, &app->_last_ypos);
+			app->_controlCamera = action == GLFW_PRESS;
+			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
+			glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 		}
 	}
 
@@ -406,6 +404,7 @@ class Application {
 	void drawFrame();
 	void drawUI();
 
+	void cameraControl(float dt);
 	void updateUniformBuffer(uint32_t currentImage);
 
 	void cleanupUI();

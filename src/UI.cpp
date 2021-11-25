@@ -84,10 +84,22 @@ void Application::drawUI() {
 		ImGui::End();
 	}
 	if(ImGui::Begin("Rendering Settings")) {
-		ImGui::DragFloat("Near Plane", &_nearPlane, 0.001f, 0.001f, 100.f);
+
+		ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
+		ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);
+		float fov = _camera.getFoV();
+		if(ImGui::DragFloat("Camera FoV", &fov, 1.f, 30.f, 120.f))
+			_camera.setFoV(fov);
+		float fnear = _camera.getNear();
+		if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 30.f, 120.f))
+			_camera.setFoV(fnear);
+		float ffar = _camera.getFar();
+		if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 30.f, 120.f))
+			_camera.setFoV(ffar);
+		/*
+		ImGui::DragFloat("Far Plane", &camera._farPlane, 1, 0.1f, 10000.f);
 		ImGui::DragFloat("Far Plane", &_farPlane, 1, 0.1f, 10000.f);
-		ImGui::DragFloat("Camera Zoom", &_cameraZoom, 1.f, 0.f, 1000.f);
-		ImGui::DragFloat3("Camera Target", &_cameraTarget.x, 1.f, -500.f, 500.f);
+		*/
 		const char* values[4]{"VK_PRESENT_MODE_IMMEDIATE_KHR", "VK_PRESENT_MODE_MAILBOX_KHR", "VK_PRESENT_MODE_FIFO_KHR", "VK_PRESENT_MODE_FIFO_RELAXED_KHR"};
 		int			curr_choice = static_cast<int>(_preferedPresentMode);
 		if(ImGui::Combo("Present Mode", &curr_choice, values, 4)) {

@@ -27,6 +27,7 @@
     <ClCompile Include="ext\imgui-docking\imgui_tables.cpp" />
     <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="ext\stb_image.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\glTF.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
@@ -44,6 +45,7 @@
   <ItemGroup>
     <ClInclude Include="ext\stb_image.h" />
     <ClInclude Include="src\Application.hpp" />
+    <ClInclude Include="src\Camera.hpp" />
     <ClInclude Include="src\glTF.hpp" />
     <ClInclude Include="src\STBImage.hpp" />
     <ClInclude Include="src\JSON.hpp" />

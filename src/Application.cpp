@@ -117,32 +117,58 @@ void Application::drawFrame() {
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Application::cameraControl(float dt) {
+	static glm::vec3 cameraPosition{0.0f};
+	if(_controlCamera) {
+		if(glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS) {
+			_camera.moveForward(dt);
+		}
+
+		if(glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS) {
+			_camera.strafeLeft(dt);
+		}
+
+		if(glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS) {
+			_camera.moveBackward(dt);
+		}
+
+		if(glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS) {
+			_camera.strafeRight(dt);
+		}
+
+		if(glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS) {
+			_camera.moveDown(dt);
+		}
+
+		if(glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS) {
+			_camera.moveUp(dt);
+		}
+
+		double mx = _mouse_x, my = _mouse_y;
+		glfwGetCursorPos(_window, &_mouse_x, &_mouse_y);
+		if(_mouse_x != mx || _mouse_y != my)
+			_camera.look(glm::vec2(_mouse_x - mx, my - _mouse_y));
+	}
+}
+
 #include <glm/gtx/euler_angles.hpp>
 
 void Application::updateUniformBuffer(uint32_t currentImage) {
-	static auto startTime = std::chrono::high_resolution_clock::now();
+	static auto lastTime = std::chrono::high_resolution_clock::now();
 	auto		currentTime = std::chrono::high_resolution_clock::now();
-	float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+	lastTime = currentTime;
+
+	cameraControl(time);
 
 	UniformBufferObject ubo{};
 
-	if(_moving) {
-		double xpos, ypos;
-		glfwGetCursorPos(_window, &xpos, &ypos);
-		float dx = 2.f * 3.14159f * static_cast<float>(_last_xpos - xpos) / _swapChainExtent.width, dy = 3.14159f * static_cast<float>(_last_ypos - ypos) / _swapChainExtent.height;
-		static float x = 0, y = 0;
-		x -= dx;
-		y += dy;
-		_last_xpos = xpos;
-		_last_ypos = ypos;
-		ubo.model = glm::eulerAngleYXZ(x, y, 0.0f);
-		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 1.0f, 0)), _cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
-	} else {
-		ubo.model = glm::rotate(glm::mat4(1.0f), 0.1f * time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		ubo.view = glm::lookAt(_cameraZoom * glm::normalize(glm::vec3(-1.0f, 1.0f, 0)), _cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
-	}
+	_camera.updateView();
+	_camera.updateProjection(_swapChainExtent.width / (float)_swapChainExtent.height);
 
-	ubo.proj = glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, _nearPlane, _farPlane);
+	ubo.model = glm::mat4(1.0f);
+	ubo.view = _camera.getViewMatrix();
+	ubo.proj = _camera.getProjectionMatrix(); // glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, _camera.nearPlane, _farPlane);
 	ubo.proj[1][1] *= -1;
 
 	void*  data;
