@@ -213,12 +213,17 @@ void Application::recordCommandBuffers() {
 		vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh.getIndices().size()), 1, 0, 0, 0);
 		*/
 
-		for(const auto& m : _model.getMeshes()) {
-			_commandBuffers[i].bind<1>({m.getVertexBuffer()});
-			vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+		// Trying to regroup meshses by material to gain some perfomance: No gain :^)
+		for(size_t mIdx = 0; mIdx < Materials.size(); ++mIdx) {
 			vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1,
-									&_descriptorPool.getDescriptorSets()[i * Materials.size() + m.materialIndex], 0, nullptr);
-			vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(m.getIndices().size()), 1, 0, 0, 0);
+									&_descriptorPool.getDescriptorSets()[i * Materials.size() + mIdx], 0, nullptr);
+			for(const auto& m : _model.getMeshes()) {
+				if(m.materialIndex == mIdx) {
+					_commandBuffers[i].bind<1>({m.getVertexBuffer()});
+					vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+					vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(m.getIndices().size()), 1, 0, 0, 0);
+				}
+			}
 		}
 
 		b.endRenderPass();

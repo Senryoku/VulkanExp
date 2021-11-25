@@ -13,6 +13,6 @@ vec3 lightDir = normalize(vec3(-1, 1, 1));
 
 void main() {
     vec4 texColor = texture(texSampler, fragTexCoord);
-    // TODO: Handle Transparency
+    if(texColor.a == 0) discard; // FIXME: This is a really bad way of handling transparency :)
     outColor = vec4(clamp(dot(lightDir, normal), 0.05, 1.0) * texColor.rgb, 1.0);
 }

@@ -50,7 +50,7 @@ void Material::uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 											.compareEnable = VK_FALSE,
 											.compareOp = VK_COMPARE_OP_ALWAYS,
 											.minLod = 0.0f,
-											.maxLod = 0.0f,
+											.maxLod = static_cast<float>(Images[path].image.getMipLevels()),
 											.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 											.unnormalizedCoordinates = VK_FALSE,
 										});
