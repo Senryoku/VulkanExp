@@ -12,9 +12,10 @@ class Mesh {
   public:
 	void init(const Device& device) {
 		const auto indexDataSize = getIndexByteSize();
-		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexDataSize);
+		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | usageBitsForRayTracing, indexDataSize);
 		auto vertexDataSize = getVertexByteSize();
-		_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexDataSize);
+		_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | usageBitsForRayTracing, vertexDataSize);
 		auto vertexBufferMemReq = _vertexBuffer.getMemoryRequirements();
 		auto indexBufferMemReq = _indexBuffer.getMemoryRequirements();
 		// FIXME: We should probably allocate larger buffers ahead of time rather than one per mesh.

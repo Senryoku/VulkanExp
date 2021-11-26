@@ -1,5 +1,7 @@
 #include "Buffer.hpp"
 
+#include <cassert>
+
 #include "CommandBuffer.hpp"
 #include "CommandPool.hpp"
 
@@ -24,4 +26,13 @@ void Buffer::copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buff
 	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(queue);
 	stagingCommands.free();
+}
+
+uint64_t Buffer::getDeviceAddress() const {
+	assert(isValid());
+	VkBufferDeviceAddressInfoKHR info{
+		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+		.buffer = _handle,
+	};
+	return vkGetBufferDeviceAddressKHR(_device, &info);
 }

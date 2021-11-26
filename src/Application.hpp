@@ -8,15 +8,10 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 #include <fmt/color.h>
 #include <fmt/core.h>
-
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <FileWatch.hpp>
 
@@ -38,6 +33,11 @@
 #include "vulkan/Vertex.hpp"
 #include <Camera.hpp>
 #include <vulkan/Image.hpp>
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -78,11 +78,6 @@ class Application {
 				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
 		mesure("glTF load", [&]() { _scene.load("./data/models/Sponza/glTF/Sponza.gltf"); });
-		/*
-		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });
-		mesure("_mesh.normalizeVertices", [&]() { _mesh.normalizeVertices(); });
-		mesure("_mesh.computeVertexNormals", [&]() { _mesh.computeVertexNormals(); });
-		*/
 		mesure("initWindow", [&]() { initWindow(); });
 		mesure("initVulkan", [&]() { initVulkan(); });
 		mainLoop();
@@ -95,7 +90,14 @@ class Application {
 
 	const std::vector<const char*> _validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-	const std::vector<const char*> _requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+	const std::vector<const char*> _requiredDeviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+	};
 
 #ifdef NDEBUG
 	const bool _enableValidationLayers = false;
@@ -103,7 +105,7 @@ class Application {
 	const bool _enableValidationLayers = true;
 #endif
 
-	bool _dirtyShaders = true; // Re-compile on startup
+	bool _dirtyShaders = false; // Re-compile on startup?
 	// Auto re-compile shaders
 	filewatch::FileWatch<std::string> _shadersFileWatcher{"./src/shaders/", [&](const std::string& file, const filewatch::Event event_type) { _dirtyShaders = true; }};
 
@@ -151,6 +153,16 @@ class Application {
 
 	glTF _scene;
 
+	// Raytracing test
+	Image					   _rayTraceStorageImage;
+	ImageView				   _rayTraceStorageImageView;
+	CommandBuffers			   _rayTraceCommandBuffers;
+	Buffer					   _arBuffer;
+	Buffer					   _arScratchBuffer;
+	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
+	void					   createStorageImage();
+	void					   createAccelerationStructure();
+
 	bool _framebufferResized = false;
 
 	// See https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/VkPresentModeKHR.html
@@ -195,7 +207,7 @@ class Application {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-		if(button == GLFW_MOUSE_BUTTON_LEFT) {
+		if(button == GLFW_MOUSE_BUTTON_RIGHT) {
 			app->_controlCamera = action == GLFW_PRESS;
 			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
 			glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);

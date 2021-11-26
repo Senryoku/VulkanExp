@@ -1,5 +1,7 @@
 #include "Application.hpp"
 
+#include <vulkan/Extension.hpp>
+
 void Application::initWindow() {
 	fmt::print("Window initialisation... ");
 
@@ -176,4 +178,114 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data);
 	memcpy(data, &ubo, sizeof(ubo));
 	vkUnmapMemory(_device, _uniformBuffersMemory);
+}
+
+// Raytracing
+
+void Application::createStorageImage() {
+	_rayTraceStorageImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+								 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+	_rayTraceStorageImage.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_rayTraceStorageImageView.create(_device, VkImageViewCreateInfo{
+												  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+												  .image = _rayTraceStorageImage,
+												  .viewType = VK_IMAGE_VIEW_TYPE_2D,
+												  .format = VK_FORMAT_B8G8R8A8_UNORM,
+												  .subresourceRange =
+													  VkImageSubresourceRange{
+														  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+														  .baseMipLevel = 0,
+														  .levelCount = 1,
+														  .baseArrayLayer = 0,
+														  .layerCount = 1,
+													  },
+											  });
+
+	_rayTraceStorageImage.transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+void Application::createAccelerationStructure() {
+	VkAccelerationStructureGeometryKHR acceleration_structure_geometry{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+		.geometry =
+			VkAccelerationStructureGeometryDataKHR{
+				.triangles =
+					VkAccelerationStructureGeometryTrianglesDataKHR{
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+						.vertexData = _scene.getMeshes()[0].getVertexBuffer().getDeviceAddress(),
+						.vertexStride = sizeof(Vertex),
+						.maxVertex = 3,
+						.indexType = VK_INDEX_TYPE_UINT32,
+						.indexData = _scene.getMeshes()[0].getIndexBuffer().getDeviceAddress(),
+						.transformData = 0,
+					},
+			},
+		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+	};
+
+	VkAccelerationStructureBuildGeometryInfoKHR acceleration_structure_build_geometry_info{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		.geometryCount = 1,
+		.pGeometries = &acceleration_structure_geometry,
+	};
+
+	const uint32_t primitive_count = 1;
+
+	VkAccelerationStructureBuildSizesInfoKHR acceleration_structure_build_sizes_info{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+	vkGetAccelerationStructureBuildSizesKHR(_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &acceleration_structure_build_geometry_info, &primitive_count,
+											&acceleration_structure_build_sizes_info);
+
+	_arBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, acceleration_structure_build_sizes_info.accelerationStructureSize);
+
+	// Create the acceleration structure
+	VkAccelerationStructureCreateInfoKHR acceleration_structure_create_info{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+		.buffer = _arBuffer,
+		.size = acceleration_structure_build_sizes_info.accelerationStructureSize,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+	};
+	vkCreateAccelerationStructureKHR(_device, &acceleration_structure_create_info, nullptr, &_bottomLevelAccelerationStructure);
+
+	// Temporary buffer used for Acceleration Creation
+	Buffer		 scratchBuffer;
+	DeviceMemory scratchMemory;
+	scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, acceleration_structure_build_sizes_info.buildScratchSize);
+	scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	VkAccelerationStructureBuildGeometryInfoKHR acceleration_build_geometry_info{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+		.dstAccelerationStructure = _bottomLevelAccelerationStructure,
+		.geometryCount = 1,
+		.pGeometries = &acceleration_structure_geometry,
+		.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()},
+	};
+
+	VkAccelerationStructureBuildRangeInfoKHR acceleration_structure_build_range_info{
+		.primitiveCount = 1,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0,
+	};
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> acceleration_build_structure_range_infos = {&acceleration_structure_build_range_info};
+
+	// Build the acceleration structure on the device via a one-time command buffer submission
+	// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we
+	// prefer device builds
+	immediateSubmit([&](const CommandBuffer& commandBuffer) {
+		vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &acceleration_build_geometry_info, acceleration_build_structure_range_infos.data());
+	});
+
+	// Get the bottom acceleration structure's handle, which will be used during the top level acceleration build
+	VkAccelerationStructureDeviceAddressInfoKHR acceleration_device_address_info{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+		.accelerationStructure = _bottomLevelAccelerationStructure,
+	};
+	auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(_device, &acceleration_device_address_info);
 }

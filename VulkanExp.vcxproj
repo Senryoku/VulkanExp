@@ -39,6 +39,7 @@
     <ClCompile Include="src\vulkan\Buffer.cpp" />
     <ClCompile Include="src\vulkan\Device.cpp" />
     <ClCompile Include="src\vulkan\DeviceMemory.cpp" />
+    <ClCompile Include="src\vulkan\Extension.cpp" />
     <ClCompile Include="src\vulkan\Image.cpp" />
     <ClCompile Include="src\vulkan\Mesh.cpp" />
     <ClCompile Include="src\vulkan\Material.cpp" />
@@ -58,6 +59,7 @@
     <ClInclude Include="src\vulkan\DescriptorPool.hpp" />
     <ClInclude Include="src\vulkan\Device.hpp" />
     <ClInclude Include="src\vulkan\DeviceMemory.hpp" />
+    <ClInclude Include="src\vulkan\Extension.hpp" />
     <ClInclude Include="src\vulkan\Fence.hpp" />
     <ClInclude Include="src\vulkan\Framebuffer.hpp" />
     <ClInclude Include="src\vulkan\HandleWrapper.hpp" />
@@ -187,16 +189,17 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.176.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.198.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -206,9 +209,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.176.1\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
     </ClCompile>
@@ -217,7 +221,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.176.1\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.198.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

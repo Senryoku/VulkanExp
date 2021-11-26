@@ -1,5 +1,7 @@
 #include "Application.hpp"
 
+#include <vulkan/Extension.hpp>
+
 void Application::initVulkan() {
 	fmt::print("Vulkan initialisation... ");
 
@@ -9,6 +11,7 @@ void Application::initVulkan() {
 	}
 
 	createInstance();
+	loadExtensions(_instance);
 	setupDebugMessenger();
 	createSurface();
 	auto physicalDevice = pickPhysicalDevice();
@@ -16,6 +19,7 @@ void Application::initVulkan() {
 		throw std::runtime_error("Failed to find a suitable GPU!");
 	_physicalDevice = physicalDevice;
 	_device = Device{_surface, _physicalDevice, _requiredDeviceExtensions};
+	loadExtensions(_device);
 	auto queueIndices = _physicalDevice.getQueues(_surface);
 	vkGetDeviceQueue(_device, queueIndices.graphicsFamily.value(), 0, &_graphicsQueue);
 	vkGetDeviceQueue(_device, queueIndices.presentFamily.value(), 0, &_presentQueue);
@@ -24,27 +28,6 @@ void Application::initVulkan() {
 	_commandPool.create(_device, queueIndices.graphicsFamily.value());
 	_imguiCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_tempCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-	/*
-	auto vertexDataSize = _mesh.getVertexByteSize();
-
-	Buffer		 stagingBuffer;
-	DeviceMemory stagingMemory;
-	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertexDataSize);
-	auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
-	stagingMemory.allocate(_device, _physicalDevice.findMemoryType(stagingBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-						   stagingBufferMemReq.size);
-	vkBindBufferMemory(_device, stagingBuffer, stagingMemory, 0);
-
-	_mesh.init(_device);
-	auto vertexBufferMemReq = _mesh.getVertexBuffer().getMemoryRequirements();
-	auto indexBufferMemReq = _mesh.getIndexBuffer().getMemoryRequirements();
-	_deviceMemory.allocate(_device, _physicalDevice.findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-						   vertexBufferMemReq.size + indexBufferMemReq.size);
-	vkBindBufferMemory(_device, _mesh.getVertexBuffer(), _deviceMemory, 0);
-	vkBindBufferMemory(_device, _mesh.getIndexBuffer(), _deviceMemory, vertexBufferMemReq.size);
-	_mesh.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-	*/
 
 	for(auto& m : _scene.getMeshes()) {
 		auto vertexDataSize = m.getVertexByteSize();

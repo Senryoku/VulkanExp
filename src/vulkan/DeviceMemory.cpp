@@ -23,6 +23,12 @@ void DeviceMemory::allocate(VkDevice device, uint32_t memoryTypeIndex, size_t si
 	_device = device;
 }
 
+void DeviceMemory::allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex) {
+	const auto memReq = buffer.getMemoryRequirements();
+	allocate(device, device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, memoryTypeIndex), memReq.size);
+	vkBindBufferMemory(device, buffer, _handle, 0);
+}
+
 void DeviceMemory::free() {
 	if(isValid()) {
 		vkFreeMemory(_device, _handle, nullptr);

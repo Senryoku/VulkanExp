@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "Buffer.hpp"
+#include "Device.hpp"
 #include "HandleWrapper.hpp"
 
 class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
@@ -13,6 +15,8 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
 	~DeviceMemory();
 
 	void allocate(VkDevice device, uint32_t memoryTypeIndex, size_t size);
+	// Allocate memory for the provided buffer and bind them
+	void allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex);
 	void free();
 
 	[[nodiscard]] void* map(size_t size) const;
