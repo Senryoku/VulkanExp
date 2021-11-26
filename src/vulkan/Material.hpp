@@ -14,6 +14,8 @@ struct GPUImage {
 	Image	  image;
 	ImageView imageView;
 };
+// FIXME: Move this (Resource Managment class/singleton?)
+inline std::unordered_map<std::string, GPUImage> Images;
 
 class Material {
   public:

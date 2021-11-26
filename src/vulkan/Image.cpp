@@ -15,9 +15,7 @@ void Image::destroy() {
 	if(isValid()) {
 		vkDestroyImage(getDevice(), _handle, nullptr);
 		_handle = VK_NULL_HANDLE;
-		if(_memory) {
-			_memory.free();
-		}
+		_memory.free();
 	}
 }
 
@@ -72,7 +70,7 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex) {
 	// Copy image data to the staging buffer
 	stagingMemory.fill(image.getData(), image.byteSize());
 
-	create(getDevice(), image.getWidth(), image.getHeight(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+	create(getDevice(), static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
 		   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, true);
 	allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 

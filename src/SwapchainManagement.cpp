@@ -217,7 +217,7 @@ void Application::recordCommandBuffers() {
 		for(size_t mIdx = 0; mIdx < Materials.size(); ++mIdx) {
 			vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1,
 									&_descriptorPool.getDescriptorSets()[i * Materials.size() + mIdx], 0, nullptr);
-			for(const auto& m : _model.getMeshes()) {
+			for(const auto& m : _scene.getMeshes()) {
 				if(m.materialIndex == mIdx) {
 					_commandBuffers[i].bind<1>({m.getVertexBuffer()});
 					vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);

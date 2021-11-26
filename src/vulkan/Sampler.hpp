@@ -54,8 +54,11 @@ class Sampler : public HandleWrapper<VkSampler> {
 	void destroy() {
 		if(isValid()) {
 			vkDestroySampler(getDevice(), _handle, nullptr);
+			_handle = VK_NULL_HANDLE;
 		}
 	}
+
+	~Sampler() { destroy(); }
 
   private:
 	const Device* _device = nullptr;

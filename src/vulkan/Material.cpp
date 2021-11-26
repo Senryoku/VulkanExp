@@ -1,8 +1,5 @@
 #include "Material.hpp"
 
-// FIXME: Move this (Resource Managment class/singleton?)
-std::unordered_map<std::string, GPUImage> Images;
-
 VkFilter glTFToVkFilter(int e) {
 	switch(e) {
 		case 9728: return VK_FILTER_NEAREST;

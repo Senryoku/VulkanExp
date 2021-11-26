@@ -12,7 +12,7 @@ class Image : public HandleWrapper<VkImage> {
   public:
 	Image() = default;
 	Image(const Image&) = delete;
-	Image(Image&& i) : HandleWrapper(i._handle), _device(i._device), _memory(std::move(i._memory)), _mipLevels(i._mipLevels) { i._handle = VK_NULL_HANDLE; }
+	Image(Image&& i) noexcept : HandleWrapper(i._handle), _device(i._device), _memory(std::move(i._memory)), _mipLevels(i._mipLevels) { i._handle = VK_NULL_HANDLE; }
 	Image(const Device& device, const STBImage& image, uint32_t queueFamilyIndex);
 	~Image();
 	void destroy();

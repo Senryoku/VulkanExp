@@ -10,11 +10,18 @@
 
 class Mesh {
   public:
-	void init(VkDevice device) {
+	void init(const Device& device) {
 		const auto indexDataSize = getIndexByteSize();
 		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexDataSize);
 		auto vertexDataSize = getVertexByteSize();
 		_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexDataSize);
+		auto vertexBufferMemReq = _vertexBuffer.getMemoryRequirements();
+		auto indexBufferMemReq = _indexBuffer.getMemoryRequirements();
+		// FIXME: We should probably allocate larger buffers ahead of time rather than one per mesh.
+		_memory.allocate(device, device.getPhysicalDevice().findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+						 vertexBufferMemReq.size + indexBufferMemReq.size);
+		vkBindBufferMemory(device, _vertexBuffer, _memory, 0);
+		vkBindBufferMemory(device, _indexBuffer, _memory, vertexBufferMemReq.size);
 	}
 
 	void upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue) {
@@ -36,6 +43,7 @@ class Mesh {
 	void destroy() {
 		_indexBuffer.destroy();
 		_vertexBuffer.destroy();
+		_memory.free();
 	}
 
 	const std::vector<Vertex>&	 getVertices() const { return _vertices; }
@@ -52,11 +60,11 @@ class Mesh {
 	Material* material = nullptr;
 
   private:
-	Buffer _vertexBuffer;
-	Buffer _indexBuffer;
+	DeviceMemory _memory;
+	Buffer		 _vertexBuffer;
+	Buffer		 _indexBuffer;
 
-	std::vector<Vertex> _vertices;
-
+	std::vector<Vertex>	  _vertices;
 	std::vector<uint16_t> _indices;
 
 	/* Box

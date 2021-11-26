@@ -77,7 +77,7 @@ class Application {
 			else
 				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
-		mesure("glTF load", [&]() { _model.load("./data/models/Sponza/glTF/Sponza.gltf"); });
+		mesure("glTF load", [&]() { _scene.load("./data/models/Sponza/glTF/Sponza.gltf"); });
 		/*
 		mesure("_mesh.loadOBJ", [&]() { _mesh.loadOBJ("data/models/lucy.obj"); });
 		mesure("_mesh.normalizeVertices", [&]() { _mesh.normalizeVertices(); });
@@ -149,9 +149,7 @@ class Application {
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
 
-	Mesh		 _mesh;
-	glTF		 _model;
-	DeviceMemory _deviceMemory;
+	glTF _scene;
 
 	bool _framebufferResized = false;
 

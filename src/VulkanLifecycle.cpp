@@ -46,9 +46,10 @@ void Application::initVulkan() {
 	_mesh.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 	*/
 
-	for(auto& m : _model.getMeshes()) {
+	for(auto& m : _scene.getMeshes()) {
 		auto vertexDataSize = m.getVertexByteSize();
 
+		// Prepare staging memory
 		Buffer		 stagingBuffer;
 		DeviceMemory stagingMemory;
 		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertexDataSize);
@@ -57,14 +58,7 @@ void Application::initVulkan() {
 							   _physicalDevice.findMemoryType(stagingBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
 							   stagingBufferMemReq.size);
 		vkBindBufferMemory(_device, stagingBuffer, stagingMemory, 0);
-		m.init(_device);
-		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
-		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
-		// FIXME: Should not allocate here :)
-		_deviceMemory.allocate(_device, _physicalDevice.findMemoryType(vertexBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-							   vertexBufferMemReq.size + indexBufferMemReq.size);
-		vkBindBufferMemory(_device, m.getVertexBuffer(), _deviceMemory, 0);
-		vkBindBufferMemory(_device, m.getIndexBuffer(), _deviceMemory, vertexBufferMemReq.size);
+		m.init(_device); // Pepare the final buffers
 		m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 		if(m.material) {
 			m.material->uploadTextures(_device, queueIndices.graphicsFamily.value());
@@ -150,11 +144,11 @@ void Application::cleanupVulkan() {
 	cleanupUI();
 	_commandPool.destroy();
 	_tempCommandPool.destroy();
-	for(auto& m : _model.getMeshes()) {
+	for(auto& m : _scene.getMeshes()) {
 		m.destroy();
 	}
-	_mesh.destroy();
-	_deviceMemory.free();
+	Materials.clear();
+	Images.clear();
 
 	_device.destroy();
 	if(_enableValidationLayers) {
