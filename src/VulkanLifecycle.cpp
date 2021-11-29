@@ -125,7 +125,10 @@ void Application::cleanupVulkan() {
 	_rayTraceCommandBuffers.free();
 	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
 	vkDestroyAccelerationStructureKHR(_device, _bottomLevelAccelerationStructure, nullptr);
-	_arBuffer.destroy();
+	_tlasBuffer.destroy();
+	_tlasMemory.free();
+	_blasBuffer.destroy();
+	_blasMemory.free();
 
 	for(auto& f : _inFlightFences)
 		f.destroy();

@@ -157,8 +157,10 @@ class Application {
 	Image					   _rayTraceStorageImage;
 	ImageView				   _rayTraceStorageImageView;
 	CommandBuffers			   _rayTraceCommandBuffers;
-	Buffer					   _arBuffer;
-	Buffer					   _arScratchBuffer;
+	Buffer					   _blasBuffer;
+	DeviceMemory			   _blasMemory;
+	Buffer					   _tlasBuffer;
+	DeviceMemory			   _tlasMemory;
 	VkAccelerationStructureKHR _topLevelAccelerationStructure;
 	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
 	void					   createStorageImage();
