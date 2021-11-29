@@ -27,15 +27,34 @@ class Device : public HandleWrapper<VkDevice> {
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		VkPhysicalDeviceFeatures deviceFeatures{.samplerAnisotropy = VK_TRUE};
-		VkDeviceCreateInfo		 createInfo{
-				  .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-				  .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-				  .pQueueCreateInfos = queueCreateInfos.data(),
-				  .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
-				  .ppEnabledExtensionNames = requiredDeviceExtensions.data(),
-				  .pEnabledFeatures = &deviceFeatures,
-		  };
+		VkPhysicalDeviceFeatures deviceFeatures{
+			.samplerAnisotropy = VK_TRUE,
+		};
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR deviceFeatureRayTracingPipeline{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+			.pNext = VK_NULL_HANDLE,
+			.rayTracingPipeline = VK_TRUE,
+		};
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR deviceFeaturesAccStruct{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+			.pNext = &deviceFeatureRayTracingPipeline,
+			.accelerationStructure = VK_TRUE,
+		};
+		VkPhysicalDeviceVulkan12Features deviceFeatures12{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+			.pNext = &deviceFeaturesAccStruct,
+			.descriptorIndexing = VK_TRUE,
+			.bufferDeviceAddress = VK_TRUE,
+		};
+		VkDeviceCreateInfo createInfo{
+			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pNext = &deviceFeatures12,
+			.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+			.pQueueCreateInfos = queueCreateInfos.data(),
+			.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
+			.ppEnabledExtensionNames = requiredDeviceExtensions.data(),
+			.pEnabledFeatures = &deviceFeatures,
+		};
 
 		if(vkCreateDevice(physicalDevice, &createInfo, nullptr, &_handle) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create logical device!");

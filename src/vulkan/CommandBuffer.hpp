@@ -90,22 +90,21 @@ class CommandBuffers {
 	}
 
 	void free() {
-		const auto commandBufferHandles = getBuffersHandles();
-		vkFreeCommandBuffers(_device, _commandPool, static_cast<uint32_t>(commandBufferHandles.size()), commandBufferHandles.data());
-		_buffers.clear();
-		_bufferHandles.clear();
-		_device = VK_NULL_HANDLE;
-		_commandPool = VK_NULL_HANDLE;
+		if(_commandPool != VK_NULL_HANDLE && _device != VK_NULL_HANDLE) {
+			const auto commandBufferHandles = getBuffersHandles();
+			vkFreeCommandBuffers(_device, _commandPool, static_cast<uint32_t>(commandBufferHandles.size()), commandBufferHandles.data());
+			_buffers.clear();
+			_bufferHandles.clear();
+			_device = VK_NULL_HANDLE;
+			_commandPool = VK_NULL_HANDLE;
+		}
 	}
 
 	const CommandBuffer&				operator[](size_t idx) const { return getBuffers()[idx]; }
 	const std::vector<CommandBuffer>&	getBuffers() const { return _buffers; }
 	const std::vector<VkCommandBuffer>& getBuffersHandles() const { return _bufferHandles; }
 
-	~CommandBuffers() {
-		if(_commandPool != VK_NULL_HANDLE && _device != VK_NULL_HANDLE)
-			free();
-	}
+	~CommandBuffers() { free(); }
 
   private:
 	VkDevice					 _device = VK_NULL_HANDLE;

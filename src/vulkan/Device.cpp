@@ -20,6 +20,8 @@ void Device::submit(uint32_t queueFamilyIndex, std::function<void(const CommandB
 	};
 	VkQueue queue;
 	vkGetDeviceQueue(_handle, queueFamilyIndex, 0, &queue);
-	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(queue);
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queue));
+	stagingCommands.free();
+	stagingCommandPool.destroy();
 }

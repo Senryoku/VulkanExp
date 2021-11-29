@@ -75,6 +75,7 @@
     <ClInclude Include="src\vulkan\Semaphore.hpp" />
     <ClInclude Include="src\vulkan\Shader.hpp" />
     <ClInclude Include="src\vulkan\Vertex.hpp" />
+    <ClInclude Include="src\vulkan\VkTools.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />

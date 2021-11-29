@@ -21,13 +21,14 @@ void Application::initVulkan() {
 	_device = Device{_surface, _physicalDevice, _requiredDeviceExtensions};
 	loadExtensions(_device);
 	auto queueIndices = _physicalDevice.getQueues(_surface);
-	vkGetDeviceQueue(_device, queueIndices.graphicsFamily.value(), 0, &_graphicsQueue);
+	auto graphicsFamily = queueIndices.graphicsFamily.value();
+	vkGetDeviceQueue(_device, graphicsFamily, 0, &_graphicsQueue);
 	vkGetDeviceQueue(_device, queueIndices.presentFamily.value(), 0, &_presentQueue);
 
 	createSwapChain();
-	_commandPool.create(_device, queueIndices.graphicsFamily.value());
-	_imguiCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-	_tempCommandPool.create(_device, queueIndices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+	_commandPool.create(_device, graphicsFamily);
+	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+	_tempCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 	for(auto& m : _scene.getMeshes()) {
 		auto vertexDataSize = m.getVertexByteSize();
@@ -44,7 +45,7 @@ void Application::initVulkan() {
 		m.init(_device); // Pepare the final buffers
 		m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 		if(m.material) {
-			m.material->uploadTextures(_device, queueIndices.graphicsFamily.value());
+			m.material->uploadTextures(_device, graphicsFamily);
 		}
 	}
 
@@ -60,7 +61,10 @@ void Application::initVulkan() {
 	for(auto& f : _inFlightFences)
 		f.create(_device);
 
-	initImGui(queueIndices.graphicsFamily.value());
+	createStorageImage();
+	createAccelerationStructure();
+
+	initImGui(graphicsFamily);
 
 	success("Done.\n");
 }
@@ -116,6 +120,13 @@ void Application::createInstance() {
 }
 
 void Application::cleanupVulkan() {
+	_rayTraceStorageImageView.destroy();
+	_rayTraceStorageImage.destroy();
+	_rayTraceCommandBuffers.free();
+	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
+	vkDestroyAccelerationStructureKHR(_device, _bottomLevelAccelerationStructure, nullptr);
+	_arBuffer.destroy();
+
 	for(auto& f : _inFlightFences)
 		f.destroy();
 	for(auto& s : _renderFinishedSemaphore)

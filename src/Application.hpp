@@ -159,6 +159,7 @@ class Application {
 	CommandBuffers			   _rayTraceCommandBuffers;
 	Buffer					   _arBuffer;
 	Buffer					   _arScratchBuffer;
+	VkAccelerationStructureKHR _topLevelAccelerationStructure;
 	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
 	void					   createStorageImage();
 	void					   createAccelerationStructure();
@@ -375,8 +376,9 @@ class Application {
 			.commandBufferCount = 1,
 			.pCommandBuffers = buffers.getBuffersHandles().data(),
 		};
-		vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(_graphicsQueue);
+		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
+		vkDeviceWaitIdle(_device);
 		buffers.free();
 		tempCommandPool.destroy();
 	}

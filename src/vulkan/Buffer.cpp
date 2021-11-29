@@ -23,8 +23,8 @@ void Buffer::copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buff
 		.commandBufferCount = 1,
 		.pCommandBuffers = stagingCommands.getBuffersHandles().data(),
 	};
-	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(queue);
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queue));
 	stagingCommands.free();
 }
 

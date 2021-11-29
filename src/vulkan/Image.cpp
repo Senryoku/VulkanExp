@@ -107,7 +107,7 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex) {
 		transitionLayout(queueFamilyIndex, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	} else {
 		// generateMipmaps takes care of the layout transition.
-		generateMipmaps(queueFamilyIndex, image.getWidth(), image.getHeight());
+		generateMipmaps(queueFamilyIndex, static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()));
 	}
 }
 
@@ -132,8 +132,8 @@ void Image::transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImage
 				},
 		};
 
-		VkPipelineStageFlags sourceStage;
-		VkPipelineStageFlags destinationStage;
+		VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
 		if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			barrier.srcAccessMask = 0;
@@ -147,6 +147,9 @@ void Image::transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImage
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		} else if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Could probably be optimised depending on the specific usage of the image
 		} else {
 			throw std::invalid_argument("unsupported layout transition!");
 		}

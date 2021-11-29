@@ -14,9 +14,10 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
 	DeviceMemory(DeviceMemory&& m) noexcept : HandleWrapper(m._handle), _device(m._device) { m._handle = VK_NULL_HANDLE; }
 	~DeviceMemory();
 
-	void allocate(VkDevice device, uint32_t memoryTypeIndex, size_t size);
+	void allocate(VkDevice device, const VkMemoryAllocateInfo& allocationInfo);
+	void allocate(VkDevice device, uint32_t memoryTypeIndex, size_t size, VkMemoryAllocateFlags flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 	// Allocate memory for the provided buffer and bind them
-	void allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex);
+	void allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex, VkMemoryAllocateFlags flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 	void free();
 
 	[[nodiscard]] void* map(size_t size) const;
