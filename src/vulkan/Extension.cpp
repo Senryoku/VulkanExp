@@ -6,6 +6,7 @@ inline PFN_vkGetAccelerationStructureBuildSizesKHR	  F_vkGetAccelerationStructur
 inline PFN_vkGetBufferDeviceAddressKHR				  F_vkGetBufferDeviceAddressKHR = nullptr;
 inline PFN_vkGetAccelerationStructureDeviceAddressKHR F_vkGetAccelerationStructureDeviceAddressKHR = nullptr;
 inline PFN_vkCmdBuildAccelerationStructuresKHR		  F_vkCmdBuildAccelerationStructuresKHR = nullptr;
+inline PFN_vkCreateRayTracingPipelinesKHR			  F_vkCreateRayTracingPipelinesKHR = nullptr;
 
 VkResult vkCreateAccelerationStructureKHR(VkDevice device, const VkAccelerationStructureCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator,
 										  VkAccelerationStructureKHR* pAccelerationStructure) {
@@ -34,6 +35,11 @@ void vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t
 	F_vkCmdBuildAccelerationStructuresKHR(commandBuffer, infoCount, pInfos, ppBuildRangeInfos);
 }
 
+VkResult vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount,
+										const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines) {
+	return F_vkCreateRayTracingPipelinesKHR(device, deferredOperation, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
+}
+
 void loadExtensions(VkInstance instance) {
 	// vkGetInstanceProcAddr
 }
@@ -45,4 +51,5 @@ void loadExtensions(VkDevice device) {
 	F_vkGetBufferDeviceAddressKHR = (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR");
 	F_vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR");
 	F_vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR");
+	F_vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR");
 }

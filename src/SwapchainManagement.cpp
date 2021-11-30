@@ -108,8 +108,9 @@ void Application::initSwapChain() {
 								.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 							}});
 
-	Shader										 vertShader(_device, "./shaders_spv/ubo.vert.spv");
-	Shader										 fragShader(_device, "./shaders_spv/phong.frag.spv");
+	Shader vertShader(_device, "./shaders_spv/ubo.vert.spv");
+	Shader fragShader(_device, "./shaders_spv/phong.frag.spv");
+
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
 		vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
 		fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
@@ -205,13 +206,6 @@ void Application::recordCommandBuffers() {
 		b.begin();
 		b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
 		_pipeline.bind(b);
-
-		/*
-		_commandBuffers[i].bind<1>({_mesh.getVertexBuffer()});
-		vkCmdBindIndexBuffer(_commandBuffers[i], _mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
-		vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1, &_descriptorPool.getDescriptorSets()[i], 0, nullptr);
-		vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(_mesh.getIndices().size()), 1, 0, 0, 0);
-		*/
 
 		// Trying to regroup meshses by material to gain some perfomance: No gain :^)
 		for(size_t mIdx = 0; mIdx < Materials.size(); ++mIdx) {

@@ -163,8 +163,12 @@ class Application {
 	DeviceMemory			   _tlasMemory;
 	VkAccelerationStructureKHR _topLevelAccelerationStructure;
 	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
+	DescriptorSetLayout		   _rayTracingDescriptorSetLayout;
+	PipelineLayout			   _rayTracingPipelineLayout;
+	Pipeline				   _rayTracingPipeline;
 	void					   createStorageImage();
 	void					   createAccelerationStructure();
+	void					   createRayTracingPipeline();
 
 	bool _framebufferResized = false;
 

@@ -13,7 +13,7 @@ Foreach($shader in $shaders)
 	If(-not $exists -or $d -gt $d2)
 	{
 		Write-Output "Compiling $filename to $dstfolder\$filename.spv"
-		glslangValidator.exe -V -I$srcfolder $shader -o $dstfolder\$filename.spv
+		glslangValidator.exe -V --target-env vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
 	} Else {
 		#Write-Output "Skiping $filename ($d < $d2)"
 	}

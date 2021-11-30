@@ -63,6 +63,7 @@ void Application::initVulkan() {
 
 	createStorageImage();
 	createAccelerationStructure();
+	createRayTracingPipeline();
 
 	initImGui(graphicsFamily);
 

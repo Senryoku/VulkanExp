@@ -15,9 +15,10 @@ class HandleWrapper {
 	}
 	HandleWrapper& operator=(const HandleWrapper&) = default;
 	explicit HandleWrapper(T handle) : _handle(handle) {}
-	T	 getHandle() const { return _handle; }
-		 operator T() const { return _handle; }
-	bool isValid() const { return _handle != VK_NULL_HANDLE; }
+	// T		 getHandle() const { return _handle; }
+	const T& getHandle() const { return _handle; }
+			 operator T() const { return _handle; }
+	bool	 isValid() const { return _handle != VK_NULL_HANDLE; }
 
   protected:
 	HandleWrapper() = default;

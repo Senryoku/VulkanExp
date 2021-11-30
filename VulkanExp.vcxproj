@@ -37,6 +37,7 @@
     <ClCompile Include="src\SwapchainManagement.cpp" />
     <ClCompile Include="src\VulkanLifecycle.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
+    <ClCompile Include="src\vulkan\DescriptorSetLayout.cpp" />
     <ClCompile Include="src\vulkan\Device.cpp" />
     <ClCompile Include="src\vulkan\DeviceMemory.cpp" />
     <ClCompile Include="src\vulkan\Extension.cpp" />

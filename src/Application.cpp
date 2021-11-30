@@ -377,3 +377,113 @@ void Application::createAccelerationStructure() {
 
 	immediateSubmit([&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
+
+void Application::createRayTracingPipeline() {
+	VkPhysicalDeviceRayTracingPropertiesNV rayTracingPipelineProperties = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+	VkPhysicalDeviceProperties2			   deviceProperties{
+				   .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+				   .pNext = &rayTracingPipelineProperties,
+	   };
+	vkGetPhysicalDeviceProperties2(_device.getPhysicalDevice(), &deviceProperties);
+
+	// Slot for binding top level acceleration structures to the ray generation shader
+	VkDescriptorSetLayoutBinding acceleration_structure_layout_binding{
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+
+	VkDescriptorSetLayoutBinding result_image_layout_binding{
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+
+	VkDescriptorSetLayoutBinding uniform_buffer_binding{
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+	};
+	std::array<VkDescriptorSetLayoutBinding, 3> bindings = {acceleration_structure_layout_binding, result_image_layout_binding, uniform_buffer_binding};
+
+	VkDescriptorSetLayoutCreateInfo layout_info{
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.bindingCount = static_cast<uint32_t>(bindings.size()),
+		.pBindings = bindings.data(),
+	};
+	_rayTracingDescriptorSetLayout.create(_device, layout_info);
+
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.setLayoutCount = 1,
+		.pSetLayouts = &_rayTracingDescriptorSetLayout.getHandle(),
+	};
+
+	_rayTracingPipelineLayout.create(_device, pipeline_layout_create_info);
+
+	/*
+		Setup ray tracing shader groups
+		Each shader group points at the corresponding shader in the pipeline
+	*/
+	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+
+	Shader raygenShader(_device, "./shaders_spv/raygen.rgen.spv");
+	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
+	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
+	// Ray generation group
+	{
+		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/raygen.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{};
+		raygen_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		raygen_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		raygen_group_ci.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+		raygen_group_ci.closestHitShader = VK_SHADER_UNUSED_KHR;
+		raygen_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
+		raygen_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		shader_groups.push_back(raygen_group_ci);
+	}
+
+	// Ray miss group
+	{
+		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/miss.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR miss_group_ci{};
+		miss_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		miss_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		miss_group_ci.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+		miss_group_ci.closestHitShader = VK_SHADER_UNUSED_KHR;
+		miss_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
+		miss_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		shader_groups.push_back(miss_group_ci);
+	}
+
+	// Ray closest hit group
+	{
+		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/closesthit.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR closes_hit_group_ci{};
+		closes_hit_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		closes_hit_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		closes_hit_group_ci.generalShader = VK_SHADER_UNUSED_KHR;
+		closes_hit_group_ci.closestHitShader = static_cast<uint32_t>(shader_stages.size()) - 1;
+		closes_hit_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
+		closes_hit_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		shader_groups.push_back(closes_hit_group_ci);
+	}
+
+	/*
+		Create the ray tracing pipeline
+	*/
+	VkRayTracingPipelineCreateInfoKHR raytracing_pipeline_create_info{
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+		.stageCount = static_cast<uint32_t>(shader_stages.size()),
+		.pStages = shader_stages.data(),
+		.groupCount = static_cast<uint32_t>(shader_groups.size()),
+		.pGroups = shader_groups.data(),
+		.maxPipelineRayRecursionDepth = 1,
+		.layout = _rayTracingPipelineLayout,
+	};
+	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info);
+}
