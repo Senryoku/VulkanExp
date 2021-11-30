@@ -61,9 +61,7 @@ void Application::initVulkan() {
 	for(auto& f : _inFlightFences)
 		f.create(_device);
 
-	createStorageImage();
 	createAccelerationStructure();
-	createRayTracingPipeline();
 
 	initImGui(graphicsFamily);
 
@@ -121,9 +119,6 @@ void Application::createInstance() {
 }
 
 void Application::cleanupVulkan() {
-	_rayTraceStorageImageView.destroy();
-	_rayTraceStorageImage.destroy();
-	_rayTraceCommandBuffers.free();
 	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
 	vkDestroyAccelerationStructureKHR(_device, _bottomLevelAccelerationStructure, nullptr);
 	_tlasBuffer.destroy();

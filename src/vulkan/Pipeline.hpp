@@ -40,7 +40,7 @@ class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
 	VkDevice _device = VK_NULL_HANDLE;
 };
 
-class Pipeline : HandleWrapper<VkPipeline> {
+class Pipeline : public HandleWrapper<VkPipeline> {
   public:
 	void create(VkDevice device, const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, const RenderPass& renderPass, VkExtent2D swapChainExtent,
 				const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}) {

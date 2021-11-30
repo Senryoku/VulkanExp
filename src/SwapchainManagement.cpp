@@ -15,6 +15,44 @@ VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<
 	throw std::runtime_error("Failed to find supported format.");
 }
 
+VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+	for(const auto& availableFormat : availableFormats) {
+		// FIXME: Imgui windows don't look right when VK_COLOR_SPACE_SRGB_NONLINEAR_KHR is used.
+		// if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+		if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+			return availableFormat;
+		}
+	}
+
+	return availableFormats[0];
+}
+
+VkPresentModeKHR Application::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+	for(const auto& availablePresentMode : availablePresentModes) {
+		if(availablePresentMode == _preferedPresentMode) {
+			return availablePresentMode;
+		}
+	}
+
+	return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+	if(capabilities.currentExtent.width != UINT32_MAX) {
+		return capabilities.currentExtent;
+	} else {
+		int width, height;
+		glfwGetFramebufferSize(_window, &width, &height);
+
+		VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+
+		actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+		actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+		return actualExtent;
+	}
+}
+
 void Application::createSwapChain() {
 	auto swapChainSupport = _physicalDevice.getSwapChainSupport(_surface);
 
@@ -197,7 +235,12 @@ void Application::initSwapChain() {
 			vkUpdateDescriptorSets(_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
 	}
+
 	recordCommandBuffers();
+
+	createStorageImage();
+	createRayTracingPipeline();
+	recordRayTracingCommands();
 }
 
 void Application::recordCommandBuffers() {
@@ -242,6 +285,13 @@ void Application::recreateSwapChain() {
 }
 
 void Application::cleanupSwapChain() {
+	_rayTraceCommandBuffers.free();
+	_rayTracingPipeline.destroy();
+	_rayTracingDescriptorSetLayout.destroy();
+	_rayTracingPipelineLayout.destroy();
+	_rayTraceStorageImageView.destroy();
+	_rayTraceStorageImage.destroy();
+
 	_imguiFramebuffers.clear();
 	_imguiCommandBuffers.free();
 	_imguiRenderPass.destroy();

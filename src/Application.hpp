@@ -110,6 +110,8 @@ class Application {
 	filewatch::FileWatch<std::string> _shadersFileWatcher{"./src/shaders/", [&](const std::string& file, const filewatch::Event event_type) { _dirtyShaders = true; }};
 
 	GLFWwindow*				 _window = nullptr;
+	uint32_t				 _width = InitialWidth;
+	uint32_t				 _height = InitialHeight;
 	VkInstance				 _instance;
 	VkDebugUtilsMessengerEXT _debugMessenger;
 	PhysicalDevice			 _physicalDevice;
@@ -164,11 +166,16 @@ class Application {
 	VkAccelerationStructureKHR _topLevelAccelerationStructure;
 	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
 	DescriptorSetLayout		   _rayTracingDescriptorSetLayout;
+	DescriptorPool			   _rayTracingDescriptorPool;
 	PipelineLayout			   _rayTracingPipelineLayout;
 	Pipeline				   _rayTracingPipeline;
+	Buffer					   _rayTracingShaderBindingTables[3];
+	DeviceMemory			   _rayTracingShaderBindingTablesMemory[3];
 	void					   createStorageImage();
 	void					   createAccelerationStructure();
+	void					   createRaytracingDescriptorSets();
 	void					   createRayTracingPipeline();
+	void					   recordRayTracingCommands();
 
 	bool _framebufferResized = false;
 
@@ -329,43 +336,9 @@ class Application {
 		return physicalDevice;
 	}
 
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
-		for(const auto& availableFormat : availableFormats) {
-			// FIXME: Imgui windows don't look right when VK_COLOR_SPACE_SRGB_NONLINEAR_KHR is used.
-			// if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-			if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
-				return availableFormat;
-			}
-		}
-
-		return availableFormats[0];
-	}
-
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
-		for(const auto& availablePresentMode : availablePresentModes) {
-			if(availablePresentMode == _preferedPresentMode) {
-				return availablePresentMode;
-			}
-		}
-
-		return VK_PRESENT_MODE_FIFO_KHR;
-	}
-
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
-		if(capabilities.currentExtent.width != UINT32_MAX) {
-			return capabilities.currentExtent;
-		} else {
-			int width, height;
-			glfwGetFramebufferSize(_window, &width, &height);
-
-			VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-
-			actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-			actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-			return actualExtent;
-		}
-	}
+	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+	VkExtent2D		   chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
 		CommandPool tempCommandPool;
@@ -455,6 +428,8 @@ class Application {
 	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
 		app->_framebufferResized = true;
+		app->_width = width;
+		app->_height = height;
 	}
 
 	const VkDebugUtilsMessengerCreateInfoEXT DebugMessengerCreateInfo{
