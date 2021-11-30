@@ -54,7 +54,8 @@ void Application::drawFrame() {
 	VkSemaphore			 waitSemaphores[] = {_imageAvailableSemaphore[_currentFrame]};
 	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 	VkSemaphore			 signalSemaphores[] = {_renderFinishedSemaphore[_currentFrame]};
-	auto				 commandBuffer = _commandBuffers.getBuffers()[imageIndex].getHandle();
+	auto				 commandBuffer = _rayTraceCommandBuffers.getBuffers()[imageIndex].getHandle();
+	// auto				 commandBuffer = _commandBuffers.getBuffers()[imageIndex].getHandle();
 
 	// Dear IMGUI
 	auto imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
@@ -567,8 +568,8 @@ void Application::recordRayTracingCommands() {
 	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
 	for(size_t i = 0; i < _rayTraceCommandBuffers.getBuffers().size(); i++) {
-		auto b = _rayTraceCommandBuffers.getBuffers()[i];
-		b.begin();
+		auto cmdBuff = _rayTraceCommandBuffers.getBuffers()[i];
+		cmdBuff.begin();
 
 		/*
 			Setup the strided device address regions pointing at the shader identifiers in the shader binding table
@@ -596,57 +597,64 @@ void Application::recordRayTracingCommands() {
 		/*
 			Dispatch the ray tracing commands
 		*/
-		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipeline);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 1, &_rayTracingDescriptorPool.getDescriptorSets()[0], 0, 0);
+		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipeline);
+		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 1, &_rayTracingDescriptorPool.getDescriptorSets()[0], 0, 0);
 
-		vkCmdTraceRaysKHR(b, &raygen_shader_sbt_entry, &miss_shader_sbt_entry, &hit_shader_sbt_entry, &callable_shader_sbt_entry, _width, _height, 1);
+		vkCmdTraceRaysKHR(cmdBuff, &raygen_shader_sbt_entry, &miss_shader_sbt_entry, &hit_shader_sbt_entry, &callable_shader_sbt_entry, _width, _height, 1);
 
 		/*
 			Copy ray tracing output to swap chain image
 		*/
 
 		// Prepare current swap chain image as transfer destination
-		vkb::set_image_layout(draw_cmd_buffers[i], get_render_context().get_swapchain().get_images()[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-							  subresource_range);
-
+		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
 		// Prepare ray tracing output image as transfer source
-		vkb::set_image_layout(draw_cmd_buffers[i], storage_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
+		Image::setLayout(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
 
-		VkImageCopy copy_region{};
-		copy_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-		copy_region.srcOffset = {0, 0, 0};
-		copy_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-		copy_region.dstOffset = {0, 0, 0};
-		copy_region.extent = {width, height, 1};
-		vkCmdCopyImage(draw_cmd_buffers[i], storage_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, get_render_context().get_swapchain().get_images()[i],
-					   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+		VkImageCopy copy_region{
+			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.srcOffset = {0, 0, 0},
+			.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.dstOffset = {0, 0, 0},
+			.extent = {_width, _height, 1},
+		};
+		vkCmdCopyImage(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 
 		// Transition swap chain image back for presentation
-		vkb::set_image_layout(draw_cmd_buffers[i], get_render_context().get_swapchain().get_images()[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-							  subresource_range);
-
+		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						 subresource_range); // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR probably no correct: we still have to render dear imgui
 		// Transition ray tracing output image back to general layout
-		vkb::set_image_layout(draw_cmd_buffers[i], storage_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
+		Image::setLayout(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
 
 		/*
 			Start a new render pass to draw the UI overlay on top of the ray traced image
 		*/
+		/*
 		VkClearValue clear_values[2];
 		clear_values[0].color = {{0.0f, 0.0f, 0.2f, 0.0f}};
 		clear_values[1].depthStencil = {0.0f, 0};
 
-		VkRenderPassBeginInfo render_pass_begin_info = vkb::initializers::render_pass_begin_info();
-		render_pass_begin_info.renderPass = render_pass;
-		render_pass_begin_info.framebuffer = framebuffers[i];
-		render_pass_begin_info.renderArea.extent.width = width;
-		render_pass_begin_info.renderArea.extent.height = height;
-		render_pass_begin_info.clearValueCount = 2;
-		render_pass_begin_info.pClearValues = clear_values;
+		VkRenderPassBeginInfo render_pass_begin_info{
+			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			.renderPass = _renderPass,
+			.framebuffer = _swapChainFramebuffers[i],
+			.renderArea =
+				{
+					.extent =
+						{
+							.width = _width,
+							.height = _height,
+						},
+				},
+			.clearValueCount = 2,
+			.pClearValues = clear_values,
+		};
 
-		vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(cmdBuff, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 		draw_ui(draw_cmd_buffers[i]);
-		vkCmdEndRenderPass(draw_cmd_buffers[i]);
+		vkCmdEndRenderPass(cmdBuff);
+		*/
 
-		VK_CHECK(vkEndCommandBuffer(draw_cmd_buffers[i]));
+		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}
 }

@@ -34,7 +34,7 @@ class DescriptorPool : public HandleWrapper<VkDescriptorPool> {
 	void create(VkDevice device, uint32_t maxSets, std::array<VkDescriptorPoolSize, N> poolSizes) {
 		VkDescriptorPoolCreateInfo poolInfo{
 			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.maxSets = static_cast<uint32_t>(size),
+			.maxSets = static_cast<uint32_t>(maxSets),
 			.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
 			.pPoolSizes = poolSizes.data(),
 		};

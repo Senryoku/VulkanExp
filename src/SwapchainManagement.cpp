@@ -238,8 +238,10 @@ void Application::initSwapChain() {
 
 	recordCommandBuffers();
 
+	_rayTraceCommandBuffers.allocate(_device, _commandPool, _swapChainFramebuffers.size());
 	createStorageImage();
 	createRayTracingPipeline();
+	createRaytracingDescriptorSets();
 	recordRayTracingCommands();
 }
 

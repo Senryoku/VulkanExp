@@ -34,8 +34,12 @@ class Image : public HandleWrapper<VkImage> {
 
 	uint32_t getMipLevels() const { return _mipLevels; }
 
-	void transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
+						  VkPipelineStageFlags srcMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	void generateMipmaps(uint32_t queueFamilyIndex, int32_t width, int32_t height);
+
+	static void setLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange subSourceRange,
+						  VkPipelineStageFlags srcMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
   private:
 	const Device* _device;
