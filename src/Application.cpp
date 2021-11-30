@@ -484,6 +484,7 @@ void Application::createRayTracingPipeline() {
 }
 
 void Application::createRaytracingDescriptorSets() {
+	assert(_topLevelAccelerationStructure != VK_NULL_HANDLE);
 	_rayTracingDescriptorPool.create(_device, 1,
 									 std::array<VkDescriptorPoolSize, 3>{
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
@@ -560,6 +561,7 @@ void Application::recordRayTracingCommands() {
 		_rayTracingShaderBindingTables[i].create(_device,
 												 VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 												 rayTracingPipelineProperties.shaderGroupHandleSize);
+		_rayTracingShaderBindingTablesMemory[i].free();
 		_rayTracingShaderBindingTablesMemory[i].allocate(_device, _rayTracingShaderBindingTables[i],
 														 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		_rayTracingShaderBindingTablesMemory[i].fill(shader_handle_storage.data() + i * handle_size_aligned, rayTracingPipelineProperties.shaderGroupHandleSize);

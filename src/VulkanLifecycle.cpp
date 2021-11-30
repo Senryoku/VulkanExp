@@ -49,6 +49,8 @@ void Application::initVulkan() {
 		}
 	}
 
+	createAccelerationStructure();
+
 	initSwapChain();
 
 	_renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
@@ -60,8 +62,6 @@ void Application::initVulkan() {
 	_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 	for(auto& f : _inFlightFences)
 		f.create(_device);
-
-	createAccelerationStructure();
 
 	initImGui(graphicsFamily);
 
