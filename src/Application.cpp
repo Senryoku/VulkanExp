@@ -432,44 +432,47 @@ void Application::createRayTracingPipeline() {
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 
 	Shader raygenShader(_device, "./shaders_spv/raygen.rgen.spv");
+	shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
+	shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
+	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 	// Ray generation group
 	{
-		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/raygen.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
-		VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{};
-		raygen_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-		raygen_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		raygen_group_ci.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
-		raygen_group_ci.closestHitShader = VK_SHADER_UNUSED_KHR;
-		raygen_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
-		raygen_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 0,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
 		shader_groups.push_back(raygen_group_ci);
 	}
 
 	// Ray miss group
 	{
-		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/miss.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR));
-		VkRayTracingShaderGroupCreateInfoKHR miss_group_ci{};
-		miss_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-		miss_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		miss_group_ci.generalShader = static_cast<uint32_t>(shader_stages.size()) - 1;
-		miss_group_ci.closestHitShader = VK_SHADER_UNUSED_KHR;
-		miss_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
-		miss_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		VkRayTracingShaderGroupCreateInfoKHR miss_group_ci{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 1,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
 		shader_groups.push_back(miss_group_ci);
 	}
 
 	// Ray closest hit group
 	{
-		// shader_stages.push_back(load_shader("khr_ray_tracing_basic/closesthit.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
-		VkRayTracingShaderGroupCreateInfoKHR closes_hit_group_ci{};
-		closes_hit_group_ci.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
-		closes_hit_group_ci.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-		closes_hit_group_ci.generalShader = VK_SHADER_UNUSED_KHR;
-		closes_hit_group_ci.closestHitShader = static_cast<uint32_t>(shader_stages.size()) - 1;
-		closes_hit_group_ci.anyHitShader = VK_SHADER_UNUSED_KHR;
-		closes_hit_group_ci.intersectionShader = VK_SHADER_UNUSED_KHR;
+		VkRayTracingShaderGroupCreateInfoKHR closes_hit_group_ci{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = 2,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
 		shader_groups.push_back(closes_hit_group_ci);
 	}
 

@@ -28,16 +28,16 @@ class Shader : public HandleWrapper<VkShaderModule> {
     }
 
     // Can stage be inferred internally?
-    VkPipelineShaderStageCreateInfo getStageCreateInfo(VkShaderStageFlagBits stage) const {
-        return VkPipelineShaderStageCreateInfo{
+	VkPipelineShaderStageCreateInfo getStageCreateInfo(VkShaderStageFlagBits stage) const {
+		return VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = stage,
             .module = _handle,
             .pName = "main",
         };
-    }
+	}
 
-    void destroy() {
+	void destroy() {
         if(isValid()) {
             vkDestroyShaderModule(_device, _handle, nullptr);
             _handle = VK_NULL_HANDLE;
