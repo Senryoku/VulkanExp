@@ -9,6 +9,12 @@
 class Buffer : public HandleWrapper<VkBuffer> {
   public:
 	Buffer() = default;
+	Buffer(const Buffer&) = delete;
+	Buffer(Buffer&& o) noexcept : HandleWrapper(o._handle), _device(o._device) {
+		o._handle = VK_NULL_HANDLE;
+		o._device = VK_NULL_HANDLE;
+	}
+
 	void create(VkDevice device, VkBufferUsageFlags usage, size_t size) {
 		VkBufferCreateInfo bufferInfo{
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -44,8 +50,7 @@ class Buffer : public HandleWrapper<VkBuffer> {
 	}
 
 	uint64_t getDeviceAddress() const;
-
-	void copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
+	void	 copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
 
   private:
 	VkDevice _device = VK_NULL_HANDLE;

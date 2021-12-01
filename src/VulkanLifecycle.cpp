@@ -120,11 +120,25 @@ void Application::createInstance() {
 
 void Application::cleanupVulkan() {
 	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
-	vkDestroyAccelerationStructureKHR(_device, _bottomLevelAccelerationStructure, nullptr);
+	for(const auto& blas : _bottomLevelAccelerationStructures)
+		vkDestroyAccelerationStructureKHR(_device, blas, nullptr);
+	for(auto& blasBuff : _blasBuffers)
+		blasBuff.destroy();
+	_blasBuffers.clear();
+	for(auto& blasMem : _blasMemories)
+		blasMem.free();
+	_blasMemories.clear();
+	_bottomLevelAccelerationStructures.clear();
 	_tlasBuffer.destroy();
 	_tlasMemory.free();
-	_blasBuffer.destroy();
-	_blasMemory.free();
+	_accStructInstancesBuffer.destroy();
+	_accStructInstancesMemory.free();
+	_accStructTransformBuffer.destroy();
+	_accStructTransformMemory.free();
+	for(size_t i = 0; i < 3; ++i) {
+		_rayTracingShaderBindingTables[i].destroy();
+		_rayTracingShaderBindingTablesMemory[i].free();
+	}
 
 	for(auto& f : _inFlightFences)
 		f.destroy();

@@ -156,26 +156,31 @@ class Application {
 	glTF _scene;
 
 	// Raytracing test
-	Image					   _rayTraceStorageImage;
-	ImageView				   _rayTraceStorageImageView;
-	CommandBuffers			   _rayTraceCommandBuffers;
-	Buffer					   _blasBuffer;
-	DeviceMemory			   _blasMemory;
-	Buffer					   _tlasBuffer;
-	DeviceMemory			   _tlasMemory;
-	VkAccelerationStructureKHR _topLevelAccelerationStructure;
-	VkAccelerationStructureKHR _bottomLevelAccelerationStructure;
-	DescriptorSetLayout		   _rayTracingDescriptorSetLayout;
-	DescriptorPool			   _rayTracingDescriptorPool;
-	PipelineLayout			   _rayTracingPipelineLayout;
-	Pipeline				   _rayTracingPipeline;
-	Buffer					   _rayTracingShaderBindingTables[3];
-	DeviceMemory			   _rayTracingShaderBindingTablesMemory[3];
-	void					   createStorageImage();
-	void					   createAccelerationStructure();
-	void					   createRaytracingDescriptorSets();
-	void					   createRayTracingPipeline();
-	void					   recordRayTracingCommands();
+	bool									_raytracingDebug = true;
+	Image									_rayTraceStorageImage;
+	ImageView								_rayTraceStorageImageView;
+	CommandBuffers							_rayTraceCommandBuffers;
+	std::vector<Buffer>						_blasBuffers;
+	std::vector<DeviceMemory>				_blasMemories;
+	Buffer									_tlasBuffer;
+	DeviceMemory							_tlasMemory;
+	VkAccelerationStructureKHR				_topLevelAccelerationStructure;
+	std::vector<VkAccelerationStructureKHR> _bottomLevelAccelerationStructures;
+	DescriptorSetLayout						_rayTracingDescriptorSetLayout;
+	DescriptorPool							_rayTracingDescriptorPool;
+	PipelineLayout							_rayTracingPipelineLayout;
+	Pipeline								_rayTracingPipeline;
+	Buffer									_rayTracingShaderBindingTables[3];
+	DeviceMemory							_rayTracingShaderBindingTablesMemory[3];
+	Buffer									_accStructTransformBuffer;
+	DeviceMemory							_accStructTransformMemory;
+	Buffer									_accStructInstancesBuffer;
+	DeviceMemory							_accStructInstancesMemory;
+	void									createStorageImage();
+	void									createAccelerationStructure();
+	void									createRaytracingDescriptorSets();
+	void									createRayTracingPipeline();
+	void									recordRayTracingCommands();
 
 	bool _framebufferResized = false;
 

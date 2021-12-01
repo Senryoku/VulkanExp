@@ -85,6 +85,7 @@ void Application::drawUI() {
 	}
 	if(ImGui::Begin("Rendering Settings")) {
 
+		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
 		ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
 		ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);
 		float fov = _camera.getFoV();
