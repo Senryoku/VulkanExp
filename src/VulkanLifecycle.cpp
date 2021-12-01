@@ -135,7 +135,7 @@ void Application::cleanupVulkan() {
 	_accStructInstancesMemory.free();
 	_accStructTransformBuffer.destroy();
 	_accStructTransformMemory.free();
-	for(size_t i = 0; i < 3; ++i) {
+	for(size_t i = 0; i < _rayShaderBindingTablesCount; ++i) {
 		_rayTracingShaderBindingTables[i].destroy();
 		_rayTracingShaderBindingTablesMemory[i].free();
 	}

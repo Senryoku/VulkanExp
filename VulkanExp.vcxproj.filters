@@ -209,5 +209,6 @@
     <None Include="shaders\triangle.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="src\shaders\shadow.rmiss" />
   </ItemGroup>
 </Project>

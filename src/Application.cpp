@@ -123,29 +123,23 @@ void Application::drawFrame() {
 void Application::cameraControl(float dt) {
 	static glm::vec3 cameraPosition{0.0f};
 	if(_controlCamera) {
-		if(glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
 			_camera.moveForward(dt);
-		}
 
-		if(glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS)
 			_camera.strafeLeft(dt);
-		}
 
-		if(glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS)
 			_camera.moveBackward(dt);
-		}
 
-		if(glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS)
 			_camera.strafeRight(dt);
-		}
 
-		if(glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS)
 			_camera.moveDown(dt);
-		}
 
-		if(glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS) {
+		if(glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS || glfwGetKey(_window, GLFW_KEY_SPACE) == GLFW_PRESS)
 			_camera.moveUp(dt);
-		}
 
 		double mx = _mouse_x, my = _mouse_y;
 		glfwGetCursorPos(_window, &_mouse_x, &_mouse_y);
@@ -398,7 +392,7 @@ void Application::createRayTracingPipeline() {
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 	};
 
 	VkDescriptorSetLayoutBinding result_image_layout_binding{
@@ -442,6 +436,8 @@ void Application::createRayTracingPipeline() {
 	shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
 	shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
+	Shader raymissShadowShader(_device, "./shaders_spv/shadow.rmiss.spv");
+	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
 	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 	// Ray generation group
@@ -469,6 +465,17 @@ void Application::createRayTracingPipeline() {
 		};
 		shader_groups.push_back(miss_group_ci);
 	}
+	{
+		VkRayTracingShaderGroupCreateInfoKHR shadow_miss_group_ci{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 2,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		};
+		shader_groups.push_back(shadow_miss_group_ci);
+	}
 
 	// Ray closest hit group
 	{
@@ -476,7 +483,7 @@ void Application::createRayTracingPipeline() {
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 2,
+			.closestHitShader = 3,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		};
@@ -489,7 +496,7 @@ void Application::createRayTracingPipeline() {
 		.pStages = shader_stages.data(),
 		.groupCount = static_cast<uint32_t>(shader_groups.size()),
 		.pGroups = shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 1,
+		.maxPipelineRayRecursionDepth = 2,
 		.layout = _rayTracingPipelineLayout,
 	};
 	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info);
@@ -564,21 +571,44 @@ void Application::recordRayTracingCommands() {
 				   .pNext = &rayTracingPipelineProperties,
 	   };
 	vkGetPhysicalDeviceProperties2(_device.getPhysicalDevice(), &deviceProperties);
-	const uint32_t		 handle_size_aligned = aligned_size(rayTracingPipelineProperties.shaderGroupHandleSize, rayTracingPipelineProperties.shaderGroupBaseAlignment);
-	auto				 stb_size = 3 * handle_size_aligned;
-	std::vector<uint8_t> shader_handle_storage(stb_size);
-	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(_device, _rayTracingPipeline, 0, 3, stb_size, shader_handle_storage.data()));
+	if(rayTracingPipelineProperties.maxRecursionDepth <= 1) {
+		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 2.");
+	}
 
-	for(size_t i = 0; i < 3; ++i) {
+	const size_t entriesCount[4] = {
+		1, // rgen
+		2, // miss
+		1, // hit
+		0, // callable
+	};
+	const size_t   totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];
+	const auto	   handle_size = rayTracingPipelineProperties.shaderGroupHandleSize;
+	const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment);
+	const size_t   regionSizes[4] = {
+		  entriesCount[0] * handle_size_aligned,
+		  entriesCount[1] * handle_size_aligned,
+		  entriesCount[2] * handle_size_aligned,
+		  entriesCount[3] * handle_size_aligned,
+	  };
+	auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
+	std::vector<uint8_t> shader_handle_storage(stb_size);
+	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(_device, _rayTracingPipeline, 0, totalEntries, stb_size, shader_handle_storage.data()));
+
+	size_t offsetInShaderHandleStorage = 0;
+	for(size_t i = 0; i < _rayShaderBindingTablesCount; ++i) {
 		if(!_rayTracingShaderBindingTables[i]) {
-			_rayTracingShaderBindingTables[i].create(_device,
-													 VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-													 rayTracingPipelineProperties.shaderGroupHandleSize);
+			_rayTracingShaderBindingTables[i].create(
+				_device, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, regionSizes[i]);
 			_rayTracingShaderBindingTablesMemory[i].allocate(_device, _rayTracingShaderBindingTables[i],
 															 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		}
 
-		_rayTracingShaderBindingTablesMemory[i].fill(shader_handle_storage.data() + i * handle_size_aligned, rayTracingPipelineProperties.shaderGroupHandleSize);
+		char* mapped = (char*)_rayTracingShaderBindingTablesMemory[i].map(regionSizes[i]);
+		for(size_t handleIdx = 0; handleIdx < entriesCount[i]; ++handleIdx) {
+			memcpy(mapped + handleIdx * handle_size_aligned, shader_handle_storage.data() + offsetInShaderHandleStorage + handleIdx * handle_size, handle_size);
+		}
+		_rayTracingShaderBindingTablesMemory[i].unmap();
+		offsetInShaderHandleStorage += entriesCount[i] * handle_size;
 	}
 
 	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -594,17 +624,17 @@ void Application::recordRayTracingCommands() {
 		VkStridedDeviceAddressRegionKHR raygen_shader_sbt_entry{};
 		raygen_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[0].getDeviceAddress();
 		raygen_shader_sbt_entry.stride = handle_size_aligned;
-		raygen_shader_sbt_entry.size = handle_size_aligned;
+		raygen_shader_sbt_entry.size = regionSizes[0];
 
 		VkStridedDeviceAddressRegionKHR miss_shader_sbt_entry{};
 		miss_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[1].getDeviceAddress();
 		miss_shader_sbt_entry.stride = handle_size_aligned;
-		miss_shader_sbt_entry.size = handle_size_aligned;
+		miss_shader_sbt_entry.size = regionSizes[1];
 
 		VkStridedDeviceAddressRegionKHR hit_shader_sbt_entry{};
 		hit_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[2].getDeviceAddress();
 		hit_shader_sbt_entry.stride = handle_size_aligned;
-		hit_shader_sbt_entry.size = handle_size_aligned;
+		hit_shader_sbt_entry.size = regionSizes[2];
 
 		VkStridedDeviceAddressRegionKHR callable_shader_sbt_entry{};
 

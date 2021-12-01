@@ -86,6 +86,7 @@
     <None Include="shaders\triangle.frag" />
     <None Include="shaders\triangle.vert" />
     <None Include="shaders\ubo.vert" />
+    <None Include="src\shaders\shadow.rmiss" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
