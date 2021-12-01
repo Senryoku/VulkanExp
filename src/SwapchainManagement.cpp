@@ -289,6 +289,7 @@ void Application::recreateSwapChain() {
 void Application::cleanupSwapChain() {
 	_rayTraceCommandBuffers.free();
 	_rayTracingPipeline.destroy();
+	_rayTracingDescriptorPool.destroy();
 	_rayTracingDescriptorSetLayout.destroy();
 	_rayTracingPipelineLayout.destroy();
 	_rayTraceStorageImageView.destroy();
