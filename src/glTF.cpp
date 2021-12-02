@@ -59,18 +59,18 @@ void glTF::load(std::filesystem::path path) {
 			.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
 			.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
 		};
+		if(mat.contains("normalTexture")) {
+			const auto& normalTexture = object["textures"][mat["normalTexture"]["index"].as<int>()];
+			material.textures["normal"] = Material::Texture{
+				.source = path.parent_path() / object["images"][normalTexture["source"].as<int>()]["uri"].asString(),
+				.samplerDescription = object["samplers"][normalTexture["sampler"].as<int>()].asObject(),
+			};
+		}
 		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
 			const auto& metallicRoughnessTexture = object["textures"][mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>()];
 			material.textures["metallicRoughness"] = Material::Texture{
 				.source = path.parent_path() / object["images"][metallicRoughnessTexture["source"].as<int>()]["uri"].asString(),
 				.samplerDescription = object["samplers"][metallicRoughnessTexture["sampler"].as<int>()].asObject(),
-			};
-		}
-		if(mat.contains("normalTexture")) {
-			const auto& normalTexture = object["textures"][mat["normalTexture"]["index"].as<int>()];
-			material.textures["normalTexture"] = Material::Texture{
-				.source = path.parent_path() / object["images"][normalTexture["source"].as<int>()]["uri"].asString(),
-				.samplerDescription = object["samplers"][normalTexture["sampler"].as<int>()].asObject(),
 			};
 		}
 		Materials.push_back(material);
@@ -98,6 +98,22 @@ void glTF::load(std::filesystem::path path) {
 			const auto& normalBufferView = object["bufferViews"][normalAccessor["bufferView"].as<int>()];
 			const auto& normalBuffer = buffers[normalBufferView["buffer"].as<int>()];
 
+			const char* tangentBufferData = nullptr;
+			size_t		tangentCursor = 0;
+			size_t		tangentStride = 0;
+			if(p["attributes"].contains("TANGENT")) {
+				const auto& tangentAccessor = object["accessors"][p["attributes"]["TANGENT"].as<int>()];
+				assert(static_cast<ComponentType>(tangentAccessor["componentType"].as<int>()) == ComponentType::Float); // Supports only vec4 of floats
+				assert(tangentAccessor["type"].as<std::string>() == "VEC4");
+				const auto& tangentBufferView = object["bufferViews"][tangentAccessor["bufferView"].as<int>()];
+				const auto& tangentBuffer = buffers[tangentBufferView["buffer"].as<int>()];
+				tangentBufferData = tangentBuffer.data();
+				tangentCursor = tangentAccessor("byteOffset", 0) + tangentBufferView("byteOffset", 0);
+				const int defaultStride = 4 * sizeof(float);
+				tangentStride = tangentBufferView("byteStride", defaultStride);
+			}
+			// TODO: Compute tangents if not present in file.
+
 			const auto& texCoordAccessor = object["accessors"][p["attributes"]["TEXCOORD_0"].as<int>()];
 			const auto& texCoordBufferView = object["bufferViews"][texCoordAccessor["bufferView"].as<int>()];
 			const auto& texCoordBuffer = buffers[texCoordBufferView["buffer"].as<int>()];
@@ -117,16 +133,20 @@ void glTF::load(std::filesystem::path path) {
 				assert(positionAccessor["count"].as<int>() == normalAccessor["count"].as<int>());
 				for(size_t i = 0; i < positionAccessor["count"].as<int>(); ++i) {
 					Vertex v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
-					v.pos[0] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor);
-					v.pos[1] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor + sizeof(float));
-					v.pos[2] = *reinterpret_cast<const float*>(positionBuffer.data() + positionCursor + 2 * sizeof(float));
+					v.pos = *reinterpret_cast<const glm::vec3*>(positionBuffer.data() + positionCursor);
 					positionCursor += positionStride;
-					v.normal[0] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor);
-					v.normal[1] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor + sizeof(float));
-					v.normal[2] = *reinterpret_cast<const float*>(normalBuffer.data() + normalCursor + 2 * sizeof(float));
+
+					v.normal = *reinterpret_cast<const glm::vec3*>(normalBuffer.data() + normalCursor);
 					normalCursor += normalStride;
-					v.texCoord[0] = *reinterpret_cast<const float*>(texCoordBuffer.data() + texCoordCursor);
-					v.texCoord[1] = *reinterpret_cast<const float*>(texCoordBuffer.data() + texCoordCursor + sizeof(float));
+
+					if(tangentBufferData) {
+						v.tangent = *reinterpret_cast<const glm::vec4*>(tangentBufferData + tangentCursor);
+						assert(v.tangent.w == -1.0f || v.tangent.w == 1.0f);
+						tangentCursor += tangentStride;
+					} else
+						v.tangent = glm::vec4(1.0);
+
+					v.texCoord = *reinterpret_cast<const glm::vec2*>(texCoordBuffer.data() + texCoordCursor);
 					texCoordCursor += texCoordStride;
 					mesh.getVertices().push_back(v);
 				}

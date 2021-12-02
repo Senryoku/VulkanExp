@@ -12,6 +12,9 @@
 
 #include <JSON.hpp>
 
+#include "DescriptorSetLayout.hpp"
+#include "Device.hpp"
+
 struct GPUImage {
 	Image	  image;
 	ImageView imageView;

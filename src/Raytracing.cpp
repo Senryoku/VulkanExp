@@ -333,7 +333,7 @@ void Application::createRaytracingDescriptorSets() {
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 									 });
-	_rayTracingDescriptorPool.allocate(1, _rayTracingDescriptorSetLayout);
+	_rayTracingDescriptorPool.allocate({_rayTracingDescriptorSetLayout.getHandle()});
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
 	VkWriteDescriptorSetAccelerationStructureKHR descriptor_acceleration_structure_info{

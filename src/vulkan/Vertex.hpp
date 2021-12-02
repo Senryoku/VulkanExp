@@ -8,6 +8,7 @@ struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec3 normal;
+	glm::vec4 tangent;
 	glm::vec2 texCoord;
 
 	static constexpr VkVertexInputBindingDescription getBindingDescription() {
@@ -19,8 +20,8 @@ struct Vertex {
 
 		return bindingDescription;
 	}
-	static constexpr std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{
+	static constexpr std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{
 			VkVertexInputAttributeDescription{
 				.location = 0,
 				.binding = 0,
@@ -41,6 +42,12 @@ struct Vertex {
 			},
 			VkVertexInputAttributeDescription{
 				.location = 3,
+				.binding = 0,
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.offset = offsetof(Vertex, tangent),
+			},
+			VkVertexInputAttributeDescription{
+				.location = 4,
 				.binding = 0,
 				.format = VK_FORMAT_R32G32_SFLOAT,
 				.offset = offsetof(Vertex, texCoord),

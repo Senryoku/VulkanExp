@@ -1,5 +1,7 @@
 #include "Material.hpp"
 
+#include <array>
+
 VkFilter glTFToVkFilter(int e) {
 	switch(e) {
 		case 9728: return VK_FILTER_NEAREST;

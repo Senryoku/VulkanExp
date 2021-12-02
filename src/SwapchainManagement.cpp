@@ -153,8 +153,36 @@ void Application::initSwapChain() {
 		vertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
 		fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
-	_descriptorSetLayout.create(_device);
-	_pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent, {_descriptorSetLayout});
+
+	DescriptorSetLayoutBuilder builder;
+	builder.add({
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.pImmutableSamplers = nullptr, // Optional
+	});
+	builder.add({
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = nullptr,
+	});
+	builder.add({
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = nullptr,
+	});
+	_descriptorSetLayouts.push_back(builder.build(_device));
+
+	std::vector<VkDescriptorSetLayout> layouts;
+	for(const auto& layout : _descriptorSetLayouts)
+		layouts.push_back(layout);
+
+	_pipeline.create(_device, shaderStages, _renderPass, _swapChainExtent, layouts);
 
 	_swapChainFramebuffers.resize(_swapChainImageViews.size());
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
@@ -192,7 +220,13 @@ void Application::initSwapChain() {
 	}
 
 	_descriptorPool.create(_device, _swapChainImages.size() * Materials.size());
-	_descriptorPool.allocate(_swapChainImages.size() * Materials.size(), _descriptorSetLayout);
+
+	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
+	for(size_t i = 0; i < _swapChainImages.size(); ++i)
+		for(const auto& material : Materials) {
+			descriptorSetsLayoutsToAllocate.push_back(_descriptorSetLayouts[0]);
+		}
+	_descriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {
@@ -207,30 +241,67 @@ void Application::initSwapChain() {
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			};
 
-			std::array<VkWriteDescriptorSet, 2> descriptorWrites{
-				VkWriteDescriptorSet{
+			std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+			descriptorWrites.push_back(VkWriteDescriptorSet{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.pImageInfo = nullptr,
+				.pBufferInfo = &bufferInfo,
+				.pTexelBufferView = nullptr,
+			});
+			descriptorWrites.push_back(VkWriteDescriptorSet{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
+				.dstBinding = 1,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = &imageInfo,
+				.pBufferInfo = nullptr,
+				.pTexelBufferView = nullptr,
+			});
+			if(Materials[m].textures.contains("normal")) {
+				auto&				  normals = Materials[m].textures["normal"];
+				VkDescriptorImageInfo normalInfo{
+					.sampler = normals.sampler,
+					.imageView = normals.gpuImage->imageView,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				};
+				descriptorWrites.push_back(VkWriteDescriptorSet{
 					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 					.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
-					.dstBinding = 0,
-					.dstArrayElement = 0,
-					.descriptorCount = 1,
-					.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					.pImageInfo = nullptr,
-					.pBufferInfo = &bufferInfo,
-					.pTexelBufferView = nullptr,
-				},
-				VkWriteDescriptorSet{
-					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
-					.dstBinding = 1,
+					.dstBinding = 2,
 					.dstArrayElement = 0,
 					.descriptorCount = 1,
 					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					.pImageInfo = &imageInfo,
+					.pImageInfo = &normalInfo,
 					.pBufferInfo = nullptr,
 					.pTexelBufferView = nullptr,
-				},
-			};
+				});
+			} else {
+				auto&				  blank = _blankTexture;
+				VkDescriptorImageInfo blankTexture{
+					.sampler = blank.sampler,
+					.imageView = blank.gpuImage->imageView,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				};
+				descriptorWrites.push_back(VkWriteDescriptorSet{
+					.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
+					.dstBinding = 2,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					.pImageInfo = &blankTexture,
+					.pBufferInfo = nullptr,
+					.pTexelBufferView = nullptr,
+				});
+			}
 
 			vkUpdateDescriptorSets(_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
@@ -308,7 +379,7 @@ void Application::cleanupSwapChain() {
 	// Only free up the command buffer, not the command pool
 	_commandBuffers.free();
 	_pipeline.destroy();
-	_descriptorSetLayout.destroy();
+	_descriptorSetLayouts.clear();
 	_renderPass.destroy();
 	_depthImageView.destroy();
 	_depthImage.destroy();

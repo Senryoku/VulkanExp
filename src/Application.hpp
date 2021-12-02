@@ -121,6 +121,8 @@ class Application {
 	VkQueue					 _graphicsQueue;
 	VkQueue					 _presentQueue;
 
+	Material::Texture _blankTexture;
+
 	VkSwapchainKHR		   _swapChain;
 	std::vector<VkImage>   _swapChainImages;
 	VkFormat			   _swapChainImageFormat;
@@ -131,17 +133,17 @@ class Application {
 	Image	  _depthImage;
 	ImageView _depthImageView;
 
-	RenderPass				 _renderPass;
-	DescriptorSetLayout		 _descriptorSetLayout;
-	Pipeline				 _pipeline;
-	std::vector<Framebuffer> _swapChainFramebuffers;
-	CommandPool				 _commandPool;
-	CommandPool				 _tempCommandPool;
-	CommandBuffers			 _commandBuffers;
-	std::vector<Semaphore>	 _renderFinishedSemaphore;
-	std::vector<Semaphore>	 _imageAvailableSemaphore;
-	std::vector<Fence>		 _inFlightFences;
-	std::vector<VkFence>	 _imagesInFlight;
+	RenderPass						 _renderPass;
+	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
+	Pipeline						 _pipeline;
+	std::vector<Framebuffer>		 _swapChainFramebuffers;
+	CommandPool						 _commandPool;
+	CommandPool						 _tempCommandPool;
+	CommandBuffers					 _commandBuffers;
+	std::vector<Semaphore>			 _renderFinishedSemaphore;
+	std::vector<Semaphore>			 _imageAvailableSemaphore;
+	std::vector<Fence>				 _inFlightFences;
+	std::vector<VkFence>			 _imagesInFlight;
 
 	std::vector<Buffer> _uniformBuffers;
 	DeviceMemory		_uniformBuffersMemory;
