@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <glm/glm.hpp>
+
 #include "Image.hpp"
 #include "ImageView.hpp"
 #include "Sampler.hpp"
@@ -27,6 +29,11 @@ class Material {
 	};
 
 	std::unordered_map<std::string, Texture> textures;
+
+	std::string name;
+	glm::vec4	baseColorFactor{1.0, 1.0, 1.0, 1.0};
+	float		metallicFactor = 1.0;
+	float		roughnessFactor = 1.0;
 
 	void uploadTextures(const Device& device, uint32_t queueFamilyIndex);
 

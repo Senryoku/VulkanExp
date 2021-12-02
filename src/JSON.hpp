@@ -150,6 +150,11 @@ class JSON {
 			}
 		}
 
+		bool contains(const std::string& key) const {
+			assert(_type == Type::object);
+			return _value.as_object.contains(key);
+		}
+
 		Type		  getType() const { return _type; }
 		const object& asObject() const {
 			assert(_type == Type::object);
@@ -182,6 +187,14 @@ class JSON {
 		template<>
 		const float& as<float>() const {
 			return asNumber().asReal();
+		}
+
+		// With default value
+		template<class T>
+		const T& as(const T& defaultValue) const {
+			if(_type == Type::null)
+				return defaultValue;
+			return as<T>();
 		}
 
 		class iterator {
@@ -394,6 +407,14 @@ class JSON {
 		value& operator[](const string& key) {
 			assert(_type == Type::object);
 			return _value.as_object[key];
+		}
+
+		template<typename T>
+		inline const T& operator()(const string& key, const T& defaultValue) const {
+			assert(_type == Type::object);
+			if(_value.as_object.contains(key) && _value.as_object.at(key).getType() != Type::null)
+				return _value.as_object.at(key).as<T>();
+			return defaultValue;
 		}
 
 	  private:

@@ -664,40 +664,10 @@ void Application::recordRayTracingCommands() {
 		};
 		vkCmdCopyImage(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 
-		// Transition swap chain image back for presentation
-		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						 subresource_range); // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR probably no correct: we still have to render dear imgui
+		// Transition swap chain image back to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to prepare for UI rendering
+		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, subresource_range);
 		// Transition ray tracing output image back to general layout
 		Image::setLayout(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
-
-		/*
-			Start a new render pass to draw the UI overlay on top of the ray traced image
-		*/
-		/*
-		VkClearValue clear_values[2];
-		clear_values[0].color = {{0.0f, 0.0f, 0.2f, 0.0f}};
-		clear_values[1].depthStencil = {0.0f, 0};
-
-		VkRenderPassBeginInfo render_pass_begin_info{
-			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			.renderPass = _renderPass,
-			.framebuffer = _swapChainFramebuffers[i],
-			.renderArea =
-				{
-					.extent =
-						{
-							.width = _width,
-							.height = _height,
-						},
-				},
-			.clearValueCount = 2,
-			.pClearValues = clear_values,
-		};
-
-		vkCmdBeginRenderPass(cmdBuff, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-		draw_ui(draw_cmd_buffers[i]);
-		vkCmdEndRenderPass(cmdBuff);
-		*/
 
 		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}

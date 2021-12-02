@@ -30,17 +30,14 @@ void Material::uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 			Images[path].imageView.create(device, Images[path].image, VK_FORMAT_R8G8B8A8_SRGB);
 			VkPhysicalDeviceProperties properties{};
 			vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
-			VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-			if(texR.samplerDescription.contains("wrapU")) // FIXME: Doesn't actually exist?
-				addressModeW = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapU"].as<int>());
 			texR.sampler.create(device, VkSamplerCreateInfo{
 											.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-											.magFilter = glTFToVkFilter(texR.samplerDescription["magFilter"].as<int>()),
-											.minFilter = glTFToVkFilter(texR.samplerDescription["minFilter"].as<int>()),
+											.magFilter = glTFToVkFilter(texR.samplerDescription["magFilter"].as<int>(9729)),
+											.minFilter = glTFToVkFilter(texR.samplerDescription["minFilter"].as<int>(9729)),
 											.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-											.addressModeU = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapS"].as<int>()),
-											.addressModeV = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapT"].as<int>()),
-											.addressModeW = addressModeW,
+											.addressModeU = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapS"].as<int>(10497)),
+											.addressModeV = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapT"].as<int>(10497)),
+											.addressModeW = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapU"].as<int>(10497)), // FIXME: Doesn't actually exist?
 											.mipLodBias = 0.0f,
 											.anisotropyEnable = VK_TRUE,
 											.maxAnisotropy = properties.limits.maxSamplerAnisotropy,

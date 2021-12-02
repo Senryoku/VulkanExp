@@ -12,6 +12,13 @@
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
 
+template<>
+const glm::vec4& JSON::value::as<glm::vec4>() const {
+	assert(_type == Type::array);
+	assert(_value.as_array.size() == 4);
+	return *reinterpret_cast<const glm::vec4*>(_value.as_array.data());
+}
+
 glTF::glTF(std::filesystem::path path) {
 	load(path);
 }
@@ -42,12 +49,30 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	for(const auto& mat : object["materials"]) {
-		Material	material;
+		Material material;
+		material.name = mat("name", std::string("NoName"));
+		material.baseColorFactor = mat["pbrMetallicRoughness"]("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+		material.metallicFactor = mat["pbrMetallicRoughness"]("metallicFactor", 1.0f);
+		material.roughnessFactor = mat["pbrMetallicRoughness"]("roughnessFactor", 1.0f);
 		const auto& texture = object["textures"][mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>()];
 		material.textures["baseColor"] = Material::Texture{
 			.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
 			.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
 		};
+		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
+			const auto& metallicRoughnessTexture = object["textures"][mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>()];
+			material.textures["metallicRoughness"] = Material::Texture{
+				.source = path.parent_path() / object["images"][metallicRoughnessTexture["source"].as<int>()]["uri"].asString(),
+				.samplerDescription = object["samplers"][metallicRoughnessTexture["sampler"].as<int>()].asObject(),
+			};
+		}
+		if(mat.contains("normalTexture")) {
+			const auto& normalTexture = object["textures"][mat["normalTexture"]["index"].as<int>()];
+			material.textures["normalTexture"] = Material::Texture{
+				.source = path.parent_path() / object["images"][normalTexture["source"].as<int>()]["uri"].asString(),
+				.samplerDescription = object["samplers"][normalTexture["sampler"].as<int>()].asObject(),
+			};
+		}
 		Materials.push_back(material);
 	}
 
@@ -62,7 +87,7 @@ void glTF::load(std::filesystem::path path) {
 			}
 
 			Primitive primitive{
-				.mode = static_cast<RenderingMode>(p["mode"].as<int>()),
+				.mode = static_cast<RenderingMode>(p.asObject().contains("mode") ? p["mode"].as<int>() : 0),
 				.material = static_cast<size_t>(p["material"].as<int>()),
 			};
 			const auto& positionAccessor = object["accessors"][p["attributes"]["POSITION"].as<int>()];
@@ -80,14 +105,14 @@ void glTF::load(std::filesystem::path path) {
 			if(positionAccessor["type"].asString() == "VEC3") {
 				assert(static_cast<ComponentType>(positionAccessor["componentType"].as<int>()) == ComponentType::Float); // TODO
 				assert(static_cast<ComponentType>(normalAccessor["componentType"].as<int>()) == ComponentType::Float);	 // TODO
-				size_t positionCursor = positionAccessor["byteOffset"].as<int>() + positionBufferView["byteOffset"].as<int>();
-				size_t positionStride = positionBufferView.asObject().contains("byteStride") ? positionBufferView["byteStride"].as<int>() : 3 * sizeof(float);
+				size_t positionCursor = positionAccessor("byteOffset", 0) + positionBufferView("byteOffset", 0);
+				size_t positionStride = positionBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
 
-				size_t normalCursor = normalAccessor["byteOffset"].as<int>() + normalBufferView["byteOffset"].as<int>();
-				size_t normalStride = normalBufferView.asObject().contains("byteStride") ? normalBufferView["byteStride"].as<int>() : 3 * sizeof(float);
+				size_t normalCursor = normalAccessor("byteOffset", 0) + normalBufferView("byteOffset", 0);
+				size_t normalStride = normalBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
 
-				size_t texCoordCursor = texCoordAccessor["byteOffset"].as<int>() + texCoordBufferView["byteOffset"].as<int>();
-				size_t texCoordStride = texCoordBufferView.asObject().contains("byteStride") ? texCoordBufferView["byteStride"].as<int>() : 2 * sizeof(float);
+				size_t texCoordCursor = texCoordAccessor("byteOffset", 0) + texCoordBufferView("byteOffset", 0);
+				size_t texCoordStride = texCoordBufferView("byteStride", static_cast<int>(2 * sizeof(float)));
 
 				assert(positionAccessor["count"].as<int>() == normalAccessor["count"].as<int>());
 				for(size_t i = 0; i < positionAccessor["count"].as<int>(); ++i) {
@@ -114,8 +139,8 @@ void glTF::load(std::filesystem::path path) {
 			const auto& indicesBuffer = buffers[indicesBufferView["buffer"].as<int>()];
 			if(indicesAccessor["type"].asString() == "SCALAR") {
 				assert(static_cast<ComponentType>(indicesAccessor["componentType"].as<int>()) == ComponentType::UnsignedShort); // TODO
-				size_t cursor = indicesAccessor["byteOffset"].as<int>() + indicesBufferView["byteOffset"].as<int>();
-				size_t stride = indicesBufferView.asObject().contains("byteStride") ? indicesBufferView["byteStride"].as<int>() : sizeof(unsigned short);
+				size_t cursor = indicesAccessor("byteOffset", 0) + indicesBufferView("byteOffset", 0);
+				size_t stride = indicesBufferView("byteStride", static_cast<int>(sizeof(unsigned short)));
 				for(size_t i = 0; i < indicesAccessor["count"].as<int>(); ++i) {
 					const unsigned short idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
 					cursor += stride;

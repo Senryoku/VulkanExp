@@ -77,7 +77,8 @@ class Application {
 			else
 				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
 		};
-		mesure("glTF load", [&]() { _scene.load("./data/models/Sponza/glTF/Sponza.gltf"); });
+		mesure("glTF load", [&]() { _scene.load("./data/models/Sponza/Sponza.gltf"); });
+		// mesure("glTF load", [&]() { _scene.load("./data/models/Helmet/DamagedHelmet.gltf"); });
 		mesure("initWindow", [&]() { initWindow(); });
 		mesure("initVulkan", [&]() { initVulkan(); });
 		mainLoop();
