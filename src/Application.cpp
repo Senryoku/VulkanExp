@@ -59,11 +59,9 @@ void Application::drawFrame() {
 
 	// Dear IMGUI
 	auto imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
-	if(vkResetCommandPool(_device, _imguiCommandPool, 0) != VK_SUCCESS)
-		throw std::runtime_error("vkResetCommandPool error");
+	//	VK_CHECK(vkResetCommandPool(_device, _imguiCommandPool, 0)); // Actually implied by vkBeginCommandBuffer
 	VkCommandBufferBeginInfo info{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
-	if(vkBeginCommandBuffer(imguiCmdBuff, &info) != VK_SUCCESS)
-		throw std::runtime_error("vkBeginCommandBuffer error");
+	VK_CHECK(vkBeginCommandBuffer(imguiCmdBuff, &info));
 	std::array<VkClearValue, 1> clearValues{
 		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 1.0f}},
 	};

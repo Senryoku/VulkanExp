@@ -370,6 +370,7 @@ void Application::createRaytracingDescriptorSets() {
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.pImageInfo = &image_descriptor,
 	};
+
 	VkWriteDescriptorSet uniform_buffer_write{
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
@@ -437,7 +438,7 @@ void Application::recordRayTracingCommands() {
 	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
 	for(size_t i = 0; i < _rayTraceCommandBuffers.getBuffers().size(); i++) {
-		auto cmdBuff = _rayTraceCommandBuffers.getBuffers()[i];
+		auto& cmdBuff = _rayTraceCommandBuffers.getBuffers()[i];
 		cmdBuff.begin();
 
 		/*

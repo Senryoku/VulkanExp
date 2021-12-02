@@ -160,7 +160,7 @@ void Application::initSwapChain() {
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.pImmutableSamplers = nullptr, // Optional
+		.pImmutableSamplers = nullptr,
 	});
 	builder.add({
 		.binding = 1,
@@ -318,7 +318,7 @@ void Application::initSwapChain() {
 
 void Application::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
-		auto b = _commandBuffers.getBuffers()[i];
+		auto& b = _commandBuffers.getBuffers()[i];
 		b.begin();
 		b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
 		_pipeline.bind(b);
