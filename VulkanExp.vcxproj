@@ -29,6 +29,7 @@
     <ClCompile Include="ext\stb_image.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\glTF.cpp" />
+    <ClCompile Include="src\Raytracing.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
     <ClCompile Include="src\main.cpp" />
