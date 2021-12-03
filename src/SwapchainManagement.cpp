@@ -219,7 +219,11 @@ void Application::initSwapChain() {
 		}
 	}
 
-	_descriptorPool.create(_device, _swapChainImages.size() * Materials.size());
+	uint32_t			  descriptorSetsCount = _swapChainImages.size() * Materials.size();
+	DescriptorPoolBuilder poolBuilder;
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * descriptorSetsCount);
+	_descriptorPool = poolBuilder.build(_device, descriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
