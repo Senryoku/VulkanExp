@@ -57,7 +57,7 @@ void Image::allocate(VkMemoryPropertyFlags properties) {
 	}
 }
 
-void Image::upload(const STBImage& image, uint32_t queueFamilyIndex) {
+void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat format) {
 	// Prepare staging buffer
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
@@ -70,12 +70,11 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex) {
 	// Copy image data to the staging buffer
 	stagingMemory.fill(image.getData(), image.byteSize());
 
-	create(getDevice(), static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+	create(getDevice(), static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()), format, VK_IMAGE_TILING_OPTIMAL,
 		   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, true);
 	allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	transitionLayout(queueFamilyIndex, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-					 VK_PIPELINE_STAGE_TRANSFER_BIT);
+	transitionLayout(queueFamilyIndex, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	// Copy to the actual device memory
 	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) {
@@ -102,10 +101,10 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex) {
 	});
 
 	VkFormatProperties formatProperties;
-	vkGetPhysicalDeviceFormatProperties(getDevice().getPhysicalDevice(), VK_FORMAT_R8G8B8A8_SRGB, &formatProperties);
+	vkGetPhysicalDeviceFormatProperties(getDevice().getPhysicalDevice(), format, &formatProperties);
 	if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-		warn("Texture image format does not support linear blitting.");
-		transitionLayout(queueFamilyIndex, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		warn("Texture image format does not support linear blitting.\n");
+		transitionLayout(queueFamilyIndex, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
 						 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	} else {
 		// generateMipmaps takes care of the layout transition.

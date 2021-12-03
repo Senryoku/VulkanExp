@@ -20,13 +20,6 @@ void main() {
 
     vec3 tangentSpaceNormal = normalize(2.0 * texture(normalTexSampler, texCoord).rgb - 1.0);
     vec3 finalNormal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
-    
-    outColor = vec4(clamp(dot(lightDir, normal), 0.3, 1.0) * texColor.rgb, 1.0);
-    outColor = vec4(clamp(dot(lightDir, finalNormal), 0.3, 1.0) * texColor.rgb, 1.0);
 
-    // NORMAL MAPPING DEBUG
-    outColor = vec4(tangentSpaceNormal, 1.0);             // Seems fine
-    outColor = vec4(normal, 1.0);                         // Seems fine
-    outColor = vec4(vec3(dot(normal, finalNormal)), 1.0); // Seems fine (perturbed normals are close to the primitive normal)
-    outColor = vec4(finalNormal, 1.0);                    // Seems completly wrong (very different from normal)
+    outColor = vec4(clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
 }

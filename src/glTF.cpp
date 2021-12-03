@@ -63,6 +63,7 @@ void glTF::load(std::filesystem::path path) {
 			const auto& normalTexture = object["textures"][mat["normalTexture"]["index"].as<int>()];
 			material.textures["normal"] = Material::Texture{
 				.source = path.parent_path() / object["images"][normalTexture["source"].as<int>()]["uri"].asString(),
+				.format = VK_FORMAT_R8G8B8A8_UNORM,
 				.samplerDescription = object["samplers"][normalTexture["sampler"].as<int>()].asObject(),
 			};
 		}

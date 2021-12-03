@@ -28,8 +28,8 @@ void Material::uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 			STBImage image{texR.source.c_str()};
 			Images.try_emplace(path);
 			Images[path].image.setDevice(device);
-			Images[path].image.upload(image, queueFamilyIndex);
-			Images[path].imageView.create(device, Images[path].image, VK_FORMAT_R8G8B8A8_SRGB);
+			Images[path].image.upload(image, queueFamilyIndex, texR.format);
+			Images[path].imageView.create(device, Images[path].image, texR.format);
 			VkPhysicalDeviceProperties properties{};
 			vkGetPhysicalDeviceProperties(device.getPhysicalDevice(), &properties);
 			texR.sampler.create(device, VkSamplerCreateInfo{

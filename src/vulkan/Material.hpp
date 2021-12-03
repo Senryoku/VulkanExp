@@ -26,6 +26,7 @@ class Material {
   public:
 	struct Texture {
 		std::filesystem::path source;
+		VkFormat			  format = VK_FORMAT_R8G8B8A8_SRGB;
 		JSON::object		  samplerDescription;
 		Sampler				  sampler;
 		GPUImage*			  gpuImage = nullptr;

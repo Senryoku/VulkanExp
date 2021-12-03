@@ -57,10 +57,12 @@ void Application::drawFrame() {
 
 	auto commandBuffer = _raytracingDebug ? _rayTraceCommandBuffers.getBuffers()[imageIndex].getHandle() : _commandBuffers.getBuffers()[imageIndex].getHandle();
 
-	// Dear IMGUI
-	auto imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
-	//	VK_CHECK(vkResetCommandPool(_device, _imguiCommandPool, 0)); // Actually implied by vkBeginCommandBuffer
-	VkCommandBufferBeginInfo info{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
+	// Re-record Dear IMGUI command buffer for this frame.
+	auto					 imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
+	VkCommandBufferBeginInfo info{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
 	VK_CHECK(vkBeginCommandBuffer(imguiCmdBuff, &info));
 	std::array<VkClearValue, 1> clearValues{
 		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 1.0f}},
@@ -76,7 +78,7 @@ void Application::drawFrame() {
 	vkCmdBeginRenderPass(imguiCmdBuff, &rpinfo, VK_SUBPASS_CONTENTS_INLINE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguiCmdBuff);
 	vkCmdEndRenderPass(imguiCmdBuff);
-	vkEndCommandBuffer(imguiCmdBuff);
+	VK_CHECK(vkEndCommandBuffer(imguiCmdBuff));
 
 	VkCommandBuffer cmdbuff[2]{commandBuffer, imguiCmdBuff};
 
@@ -91,10 +93,8 @@ void Application::drawFrame() {
 		.pSignalSemaphores = signalSemaphores,
 	};
 
-	vkResetFences(_device, 1, &currentFence);
-	if(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to submit draw command buffer!");
-	}
+	VK_CHECK(vkResetFences(_device, 1, &currentFence));
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence));
 
 	VkSwapchainKHR	 swapChains[] = {_swapChain};
 	VkPresentInfoKHR presentInfo{
@@ -112,7 +112,7 @@ void Application::drawFrame() {
 		_framebufferResized = false;
 		recreateSwapChain();
 	} else if(result != VK_SUCCESS) {
-		throw std::runtime_error(fmt::format("Failed to present swap chain image. (Error: {})", result));
+		throw std::runtime_error(fmt::format("Failed to present swap chain image. (Error: {})", toString(result)));
 	}
 
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -156,19 +156,19 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 
 	cameraControl(time);
 
-	UniformBufferObject ubo{};
-
 	_camera.updateView();
 	_camera.updateProjection(_swapChainExtent.width / (float)_swapChainExtent.height);
 
-	ubo.model = glm::mat4(1.0f);
-	ubo.view = _camera.getViewMatrix();
-	ubo.proj = _camera.getProjectionMatrix(); // glm::perspective(glm::radians(45.0f), _swapChainExtent.width / (float)_swapChainExtent.height, _camera.nearPlane, _farPlane);
+	UniformBufferObject ubo{
+		.model = glm::mat4(1.0f),
+		.view = _camera.getViewMatrix(),
+		.proj = _camera.getProjectionMatrix(),
+	};
 	ubo.proj[1][1] *= -1;
 
 	void*  data;
 	size_t offset = static_cast<size_t>(currentImage) * 256; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
-	vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data);
+	VK_CHECK(vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data));
 	memcpy(data, &ubo, sizeof(ubo));
 	vkUnmapMemory(_device, _uniformBuffersMemory);
 }
