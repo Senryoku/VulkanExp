@@ -81,6 +81,8 @@ void Application::initVulkan() {
 
 	createAccelerationStructure();
 
+	_pipelineCache.create(_device, PipelineCacheFilepath);
+
 	initSwapChain();
 
 	_renderFinishedSemaphore.resize(MAX_FRAMES_IN_FLIGHT);
@@ -178,6 +180,10 @@ void Application::cleanupVulkan() {
 		s.destroy();
 
 	cleanupSwapChain();
+
+	_pipelineCache.save(PipelineCacheFilepath);
+	_pipelineCache.destroy();
+
 	cleanupUI();
 	_commandPool.destroy();
 	_tempCommandPool.destroy();

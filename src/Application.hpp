@@ -38,6 +38,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <vulkan/PipelineCache.hpp>
 
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -132,6 +133,9 @@ class Application {
 	VkFormat  _depthFormat;
 	Image	  _depthImage;
 	ImageView _depthImageView;
+
+	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
+	PipelineCache						_pipelineCache;
 
 	RenderPass						 _renderPass;
 	std::vector<DescriptorSetLayout> _descriptorSetLayouts;

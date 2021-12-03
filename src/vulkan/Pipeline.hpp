@@ -43,7 +43,7 @@ class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
 class Pipeline : public HandleWrapper<VkPipeline> {
   public:
 	void create(VkDevice device, const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, const RenderPass& renderPass, VkExtent2D swapChainExtent,
-				const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}) {
+				const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
@@ -168,16 +168,16 @@ class Pipeline : public HandleWrapper<VkPipeline> {
 			.basePipelineIndex = -1,			  // Optional
 		};
 
-		create(device, pipelineInfo);
+		create(device, pipelineInfo, pipelineCache);
 	}
 
-	void create(VkDevice device, const VkGraphicsPipelineCreateInfo& info) {
-		VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &_handle));
+	void create(VkDevice device, const VkGraphicsPipelineCreateInfo& info, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
+		VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &info, nullptr, &_handle));
 		_device = device;
 	}
 
-	void create(VkDevice device, const VkRayTracingPipelineCreateInfoKHR& info) {
-		VK_CHECK(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &info, nullptr, &_handle));
+	void create(VkDevice device, const VkRayTracingPipelineCreateInfoKHR& info, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
+		VK_CHECK(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, pipelineCache, 1, &info, nullptr, &_handle));
 		_device = device;
 	}
 

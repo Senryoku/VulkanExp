@@ -72,6 +72,7 @@
     <ClInclude Include="src\vulkan\Mesh.hpp" />
     <ClInclude Include="src\vulkan\PhysicalDevice.hpp" />
     <ClInclude Include="src\vulkan\Pipeline.hpp" />
+    <ClInclude Include="src\vulkan\PipelineCache.hpp" />
     <ClInclude Include="src\vulkan\RenderPass.hpp" />
     <ClInclude Include="src\vulkan\Sampler.hpp" />
     <ClInclude Include="src\vulkan\Semaphore.hpp" />

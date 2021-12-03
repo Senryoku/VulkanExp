@@ -322,7 +322,7 @@ void Application::createRayTracingPipeline() {
 		.maxPipelineRayRecursionDepth = 2,
 		.layout = _rayTracingPipelineLayout,
 	};
-	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info);
+	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info, _pipelineCache);
 }
 
 void Application::createRaytracingDescriptorSets() {
