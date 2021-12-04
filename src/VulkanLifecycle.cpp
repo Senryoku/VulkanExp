@@ -27,23 +27,25 @@ void Application::initVulkan() {
 	_commandPool.create(_device, graphicsFamily);
 	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_tempCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-	for(auto& m : _scene.getMeshes()) {
-		auto vertexDataSize = m.getVertexByteSize();
-
+	{
+		QuickTimer qt("Mesh Generation");
+		size_t	   buffSize = 0;
+		for(auto& m : _scene.getMeshes()) {
+			if(m.getVertexByteSize() > buffSize)
+				buffSize = m.getVertexByteSize();
+		}
 		// Prepare staging memory
 		Buffer		 stagingBuffer;
 		DeviceMemory stagingMemory;
-		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertexDataSize);
+		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, buffSize);
 		auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
-		stagingMemory.allocate(_device,
-							   _physicalDevice.findMemoryType(stagingBufferMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-							   stagingBufferMemReq.size);
-		vkBindBufferMemory(_device, stagingBuffer, stagingMemory, 0);
-		m.init(_device); // Pepare the final buffers
-		m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-		if(m.material) {
-			m.material->uploadTextures(_device, graphicsFamily);
+		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		for(auto& m : _scene.getMeshes()) {
+			m.init(_device); // Pepare the final buffers
+			m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
+			if(m.material) {
+				m.material->uploadTextures(_device, graphicsFamily);
+			}
 		}
 	}
 

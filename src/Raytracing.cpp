@@ -144,6 +144,7 @@ void Application::createAccelerationStructure() {
 
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 
+	QuickTimer qt("TLAS building");
 	for(const auto& blas : _bottomLevelAccelerationStructures) {
 		// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 		VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{

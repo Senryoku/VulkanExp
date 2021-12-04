@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Logger.hpp>
 #include <chrono>
@@ -10,11 +10,11 @@ class QuickTimer {
 	QuickTimer(const std::string& name) : _name(name) {
 		start();
 		reportStart();
-		_timerStack.push(this);
+		TimerStack.push(this);
 	}
 
 	~QuickTimer() {
-		_timerStack.pop();
+		TimerStack.pop();
 		stop();
 		report();
 	}
@@ -24,10 +24,14 @@ class QuickTimer {
 	void stop() { _end = std::chrono::high_resolution_clock::now(); }
 
 	void reportStart() {
-		if(_timerStack.empty())
-			print("{}... ", _name);
-		else
-			print("[{}... ", _name);
+		if(TimerStack.empty())
+			print("> {}...", _name);
+		else {
+			if(LastReportDepth < TimerStack.size())
+				print("\n");
+			print("{: >{}}> {}...", "", 2 * TimerStack.size(), _name);
+		}
+		LastReportDepth = TimerStack.size();
 	}
 
 	void report() {
@@ -47,13 +51,16 @@ class QuickTimer {
 
 	template<typename T>
 	void report(const T& d) {
-		success("Done");
-		if(_timerStack.empty()) {
-			print(" ({}).\n", d);
+		if(LastReportDepth > TimerStack.size()) {
+			success("{: >{}}< Done", "", 2 * TimerStack.size());
+			print(" ({})\n", d);
 		} else {
-			print(" ({})] ", d);
+			success("\tDone");
+			print(" ({})\n", d);
 		}
+		LastReportDepth = TimerStack.size();
 	}
 
-	inline static std::stack<QuickTimer*> _timerStack;
+	inline static std::stack<QuickTimer*> TimerStack;
+	inline static size_t				  LastReportDepth = 0;
 };
