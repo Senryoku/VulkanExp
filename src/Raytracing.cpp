@@ -44,6 +44,7 @@ void Application::createAccelerationStructure() {
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 rangeInfos;
 	rangeInfos.reserve(_scene.getMeshes().size()); // Avoid reallocation since pRangeInfos will refer to this.
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
+	std::vector<size_t>									   scratchBufferSizes;
 	size_t												   scratchBufferSize = 0;
 	for(const auto& mesh : _scene.getMeshes()) {
 		VkAccelerationStructureKHR blas;
@@ -105,8 +106,8 @@ void Application::createAccelerationStructure() {
 		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		accelerationBuildGeometryInfo.srcAccelerationStructure = VK_NULL_HANDLE;
 		accelerationBuildGeometryInfo.dstAccelerationStructure = blas;
-		if(accelerationStructureBuildSizesInfo.buildScratchSize > scratchBufferSize)
-			scratchBufferSize = accelerationStructureBuildSizesInfo.buildScratchSize;
+		scratchBufferSizes.push_back(accelerationStructureBuildSizesInfo.buildScratchSize);
+		scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
 
 		buildInfos.push_back(accelerationBuildGeometryInfo);
 
@@ -118,41 +119,25 @@ void Application::createAccelerationStructure() {
 		});
 	}
 	{
-		// Temporary buffer used for Acceleration Creation
-		Buffer		 scratchBuffer;
-		DeviceMemory scratchMemory;
-		scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
-		scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
-		for(auto& buildInfo : buildInfos)
-			buildInfo.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()};
-		for(auto& rangeInfo : rangeInfos)
-			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
-
 		{
-			QuickTimer qt("BLAS building");
-			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
-			VkBufferMemoryBarrier barrier{
-				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-				.pNext = nullptr,
-				.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
-				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-				.srcQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
-				.dstQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
-				.buffer = scratchBuffer,
-				.offset = 0,
-				.size = VK_WHOLE_SIZE,
-			};
-			immediateSubmit([&](const CommandBuffer& commandBuffer) {
-				// We can't build all structure at once because we're sharing the scratch buffer (We can back to one buffer per structure, or maybe another way of synchronisation I
-				// don't know yet!).
-				// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
+			QuickTimer	 qt("BLAS building");
+			Buffer		 scratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
+			DeviceMemory scratchMemory;
+			scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
+			scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+			size_t offset = 0;
+			for(size_t i = 0; i < buildInfos.size(); ++i) {
+				buildInfos[i].scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress() + offset};
+				offset += scratchBufferSizes[i];
+				assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
+			}
+			for(auto& rangeInfo : rangeInfos)
+				pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
 
-				// We can however submit everything using the same command buffer if we provide the appropriate barrier (slightly faster than calling immediateSubmit for each BLAS)
-				for(size_t i = 0; i < buildInfos.size(); ++i) {
-					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 0,
-										 nullptr, 1, &barrier, 0, nullptr);
-					vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
-				}
+			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
+			immediateSubmit([&](const CommandBuffer& commandBuffer) {
+				// Build all BLAS in a single call. Note: This might cause sync. issues if buffers are shared (We made sure the scratchBuffer is not.)
+				vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
 			});
 		}
 	}
