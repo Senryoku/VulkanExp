@@ -38,9 +38,16 @@ void Application::createAccelerationStructure() {
 									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	_accStructTransformMemory.fill(&transformMatrix, 1);
 
+	std::vector<VkAccelerationStructureGeometryKHR> geometries;
+	geometries.reserve(_scene.getMeshes().size()); // Avoid reallocation since buildInfos will refer to this.
+	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 rangeInfos;
+	rangeInfos.reserve(_scene.getMeshes().size()); // Avoid reallocation since pRangeInfos will refer to this.
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
+	size_t												   scratchBufferSize = 0;
 	for(const auto& mesh : _scene.getMeshes()) {
-		VkAccelerationStructureKHR		   blas;
-		VkAccelerationStructureGeometryKHR acceleration_structure_geometry{
+		VkAccelerationStructureKHR blas;
+		geometries.push_back({
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 			.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
 			.geometry =
@@ -58,7 +65,7 @@ void Application::createAccelerationStructure() {
 						},
 				},
 			.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
-		};
+		});
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
 			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -66,7 +73,7 @@ void Application::createAccelerationStructure() {
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 			.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 			.geometryCount = 1,
-			.pGeometries = &acceleration_structure_geometry,
+			.pGeometries = &geometries.back(),
 			.ppGeometries = nullptr,
 		};
 
@@ -92,35 +99,48 @@ void Application::createAccelerationStructure() {
 			.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 		};
 		VK_CHECK(vkCreateAccelerationStructureKHR(_device, &accelerationStructureCreateInfo, nullptr, &blas));
-
-		// Temporary buffer used for Acceleration Creation
-		Buffer		 scratchBuffer;
-		DeviceMemory scratchMemory;
-		scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, accelerationStructureBuildSizesInfo.buildScratchSize);
-		scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+		_bottomLevelAccelerationStructures.push_back(blas);
 
 		// Complete the build infos.
 		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		accelerationBuildGeometryInfo.srcAccelerationStructure = VK_NULL_HANDLE;
 		accelerationBuildGeometryInfo.dstAccelerationStructure = blas;
-		accelerationBuildGeometryInfo.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()};
+		if(accelerationStructureBuildSizesInfo.buildScratchSize > scratchBufferSize)
+			scratchBufferSize = accelerationStructureBuildSizesInfo.buildScratchSize;
 
-		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{
+		buildInfos.push_back(accelerationBuildGeometryInfo);
+
+		rangeInfos.push_back({
 			.primitiveCount = primitiveCount,
 			.primitiveOffset = 0,
 			.firstVertex = 0,
 			.transformOffset = 0,
-		};
-		std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> accelerationStructureBuildRangeInfos = {&accelerationStructureBuildRangeInfo};
-
-		// Build the acceleration structure on the device via a one-time command buffer submission
-		// Some implementations may support acceleration structure building on the host (vkBuildAccelerationStructuresKHR), but we
-		// prefer device builds
-		immediateSubmit([&](const CommandBuffer& commandBuffer) {
-			vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationBuildGeometryInfo, accelerationStructureBuildRangeInfos.data());
 		});
+	}
+	{
+		// Temporary buffer used for Acceleration Creation
+		Buffer		 scratchBuffer;
+		DeviceMemory scratchMemory;
+		scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
+		scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+		for(auto& buildInfo : buildInfos)
+			buildInfo.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()};
+		for(auto& rangeInfo : rangeInfos)
+			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
 
-		_bottomLevelAccelerationStructures.push_back(blas);
+		// Build all the bottom acceleration structure on the device via a one-time command buffer submission
+		for(size_t i = 0; i < buildInfos.size(); ++i)
+			immediateSubmit([&](const CommandBuffer& commandBuffer) {
+				// We can't build all structure at once because we're sharing the scratch buffer (Would need synchronisation, or go back to one buffer per structure).
+				// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
+
+				// We can do that either, probably because of dependencies between structures (shared buffers)
+				// for(size_t i = 0; i < buildInfos.size(); ++i)
+				//	vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
+
+				// So we're back to brute force synchronisation for now :)
+				vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
+			});
 	}
 
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
