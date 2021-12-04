@@ -51,6 +51,7 @@
     <ClInclude Include="src\Application.hpp" />
     <ClInclude Include="src\Camera.hpp" />
     <ClInclude Include="src\glTF.hpp" />
+    <ClInclude Include="src\QuickTimer.hpp" />
     <ClInclude Include="src\STBImage.hpp" />
     <ClInclude Include="src\JSON.hpp" />
     <ClInclude Include="src\Logger.hpp" />

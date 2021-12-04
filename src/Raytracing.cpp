@@ -128,33 +128,33 @@ void Application::createAccelerationStructure() {
 		for(auto& rangeInfo : rangeInfos)
 			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
 
-		auto t1 = std::chrono::high_resolution_clock::now();
-		// Build all the bottom acceleration structure on the device via a one-time command buffer submission
-		immediateSubmit([&](const CommandBuffer& commandBuffer) {
-			// We can't build all structure at once because we're sharing the scratch buffer (We can back to one buffer per structure, or maybe another way of synchronisation I
-			// don't know yet!).
-			// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
+		{
+			QuickTimer qt("BLAS building");
+			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
+			VkBufferMemoryBarrier barrier{
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				.pNext = nullptr,
+				.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+				.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+				.srcQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
+				.dstQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
+				.buffer = scratchBuffer,
+				.offset = 0,
+				.size = VK_WHOLE_SIZE,
+			};
+			immediateSubmit([&](const CommandBuffer& commandBuffer) {
+				// We can't build all structure at once because we're sharing the scratch buffer (We can back to one buffer per structure, or maybe another way of synchronisation I
+				// don't know yet!).
+				// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
 
-			// We can however submit everything using the same command buffer if we provide the appropriate barrier (slightly faster than calling immediateSubmit for each BLAS)
-			for(size_t i = 0; i < buildInfos.size(); ++i) {
-				VkBufferMemoryBarrier barrier{
-					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-					.pNext = nullptr,
-					.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
-					.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-					.srcQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
-					.dstQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
-					.buffer = scratchBuffer,
-					.offset = 0,
-					.size = VK_WHOLE_SIZE,
-				};
-				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 0, nullptr,
-									 1, &barrier, 0, nullptr);
-				vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
-			}
-		});
-		auto t2 = std::chrono::high_resolution_clock::now();
-		std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1) << std::endl;
+				// We can however submit everything using the same command buffer if we provide the appropriate barrier (slightly faster than calling immediateSubmit for each BLAS)
+				for(size_t i = 0; i < buildInfos.size(); ++i) {
+					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 0,
+										 nullptr, 1, &barrier, 0, nullptr);
+					vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
+				}
+			});
+		}
 	}
 
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
@@ -243,50 +243,19 @@ void Application::createAccelerationStructure() {
 }
 
 void Application::createRayTracingPipeline() {
-
-	// Slot for binding top level acceleration structures to the ray generation shader
-	VkDescriptorSetLayoutBinding acceleration_structure_layout_binding{
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	};
-
-	VkDescriptorSetLayoutBinding result_image_layout_binding{
-		.binding = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	VkDescriptorSetLayoutBinding uniform_buffer_binding{
-		.binding = 2,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-	};
-
-	uint32_t size = 0;
+	uint32_t texturesCount = 0;
 	for(const auto& m : Materials) {
 		for(const auto& t : m.textures)
-			++size;
+			++texturesCount;
 	}
+	DescriptorSetLayoutBuilder dslBuilder;
+	// Slot for binding top level acceleration structures to the ray generation shader
+	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, texturesCount);
 
-	VkDescriptorSetLayoutBinding textures_layout_binding{
-		.binding = 3,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = size,
-		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-	};
-
-	std::array<VkDescriptorSetLayoutBinding, 4> bindings = {acceleration_structure_layout_binding, result_image_layout_binding, uniform_buffer_binding, textures_layout_binding};
-
-	VkDescriptorSetLayoutCreateInfo layout_info{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = static_cast<uint32_t>(bindings.size()),
-		.pBindings = bindings.data(),
-	};
-	_rayTracingDescriptorSetLayout.create(_device, layout_info);
+	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,

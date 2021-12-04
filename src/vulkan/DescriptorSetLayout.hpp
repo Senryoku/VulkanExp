@@ -13,6 +13,8 @@ class DescriptorSetLayout : public HandleWrapper<VkDescriptorSetLayout> {
 	DescriptorSetLayout(DescriptorSetLayout&&) noexcept;
 	~DescriptorSetLayout() { destroy(); }
 
+	DescriptorSetLayout& operator=(DescriptorSetLayout&&) noexcept;
+
 	void create(VkDevice device, const VkDescriptorSetLayoutCreateInfo& info);
 	void destroy();
 
@@ -22,7 +24,19 @@ class DescriptorSetLayout : public HandleWrapper<VkDescriptorSetLayout> {
 
 class DescriptorSetLayoutBuilder {
   public:
-	void add(const VkDescriptorSetLayoutBinding& binding) { bindings.push_back(binding); }
+	DescriptorSetLayoutBuilder& add(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t count = 1) {
+		return add(VkDescriptorSetLayoutBinding{
+			.binding = static_cast<uint32_t>(bindings.size()),
+			.descriptorType = type,
+			.descriptorCount = count,
+			.stageFlags = stageFlags,
+		});
+	}
+
+	DescriptorSetLayoutBuilder& add(const VkDescriptorSetLayoutBinding& binding) {
+		bindings.push_back(binding);
+		return *this;
+	}
 
 	DescriptorSetLayout build(const Device& device) const {
 		return DescriptorSetLayout{

@@ -3,8 +3,6 @@
 #include <vulkan/Extension.hpp>
 
 void Application::initVulkan() {
-	fmt::print("Vulkan initialisation... ");
-
 	if(!glfwVulkanSupported()) {
 		error("GLFW: Vulkan Not Supported\n");
 		return;
@@ -78,8 +76,6 @@ void Application::initVulkan() {
 		f.create(_device);
 
 	initImGui(graphicsFamily);
-
-	success("Done.\n");
 }
 
 void Application::createInstance() {
@@ -95,7 +91,7 @@ void Application::createInstance() {
 	if(_enableValidationLayers && !checkValidationLayerSupport()) {
 		throw std::runtime_error("validation layers requested, but not available!");
 	}
-
+	/*
 	uint32_t extensionCount = 0;
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 	std::vector<VkExtensionProperties> extensions(extensionCount);
@@ -103,6 +99,7 @@ void Application::createInstance() {
 	fmt::print("Available vulkan extensions ({}):\n", extensionCount);
 	for(uint32_t i = 0; i < extensionCount; ++i)
 		fmt::print("\t{}\n", extensions[i].extensionName);
+	*/
 
 	uint32_t	 glfwExtensionCount = 0;
 	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -125,11 +122,12 @@ void Application::createInstance() {
 	auto result = vkCreateInstance(&createInfo, nullptr, &_instance);
 	if(result != VK_SUCCESS) {
 		throw std::runtime_error(fmt::format("Failed to create Vulkan Instance (Error: {}).", result));
-	} else {
-		fmt::print("Created Vulkan Instance with {} extensions:\n", glfwExtensionCount);
-		for(uint32_t i = 0; i < glfwExtensionCount; ++i)
-			fmt::print("\t{}\n", glfwExtensions[i]);
 	}
+	/*
+	fmt::print("Created Vulkan Instance with {} extensions:\n", glfwExtensionCount);
+	for(uint32_t i = 0; i < glfwExtensionCount; ++i)
+		fmt::print("\t{}\n", glfwExtensions[i]);
+	*/
 }
 
 void Application::cleanupVulkan() {

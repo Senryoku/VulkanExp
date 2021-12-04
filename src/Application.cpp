@@ -3,8 +3,6 @@
 #include <vulkan/Extension.hpp>
 
 void Application::initWindow() {
-	fmt::print("Window initialisation... ");
-
 	if(!glfwInit())
 		error("Error intialising GLFW.\n");
 
@@ -23,8 +21,6 @@ void Application::initWindow() {
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 	glfwSetMouseButtonCallback(_window, mouse_button_callback);
 	glfwSetScrollCallback(_window, scroll_callback);
-
-	success("Done.\n");
 }
 
 void Application::drawFrame() {

@@ -43,7 +43,7 @@ inline Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter mi
 										 .compareEnable = VK_FALSE,
 										 .compareOp = VK_COMPARE_OP_ALWAYS,
 										 .minLod = 0.0f,
-										 .maxLod = maxLod, // Images[path].image.getMipLevels())
+										 .maxLod = maxLod,
 										 .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 										 .unnormalizedCoordinates = VK_FALSE,
 									 });

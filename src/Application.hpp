@@ -36,6 +36,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <QuickTimer.hpp>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 #include <vulkan/PipelineCache.hpp>
@@ -66,22 +67,18 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMesse
 class Application {
   public:
 	void run() {
-		const auto& mesure = [&](const std::string& name, const std::function<void()>& call) {
-			auto t1 = std::chrono::high_resolution_clock::now();
-			call();
-			auto t2 = std::chrono::high_resolution_clock::now();
-			auto d = t2 - t1;
-			if(d.count() > 10000000)
-				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::milliseconds>(d) << '\n';
-			else if(d.count() > 10000)
-				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::microseconds>(d) << '\n';
-			else
-				std::cout << name << ": " << std::chrono::duration_cast<std::chrono::nanoseconds>(d) << '\n';
-		};
-		mesure("glTF load", [&]() { _scene.load("./data/models/Sponza/Sponza.gltf"); });
-		// mesure("glTF load", [&]() { _scene.load("./data/models/Helmet/DamagedHelmet.gltf"); });
-		mesure("initWindow", [&]() { initWindow(); });
-		mesure("initVulkan", [&]() { initVulkan(); });
+		{
+			QuickTimer qt("glTF load");
+			_scene.load("./data/models/Sponza/Sponza.gltf");
+		}
+		{
+			QuickTimer qt("initWindow");
+			initWindow();
+		}
+		{
+			QuickTimer qt("initVulkan");
+			initVulkan();
+		}
 		mainLoop();
 		cleanup();
 	}
