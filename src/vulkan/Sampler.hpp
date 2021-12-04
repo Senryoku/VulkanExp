@@ -55,6 +55,7 @@ class Sampler : public HandleWrapper<VkSampler> {
 		if(isValid()) {
 			vkDestroySampler(getDevice(), _handle, nullptr);
 			_handle = VK_NULL_HANDLE;
+			_device = nullptr;
 		}
 	}
 

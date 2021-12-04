@@ -17,8 +17,10 @@
 
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 3, set = 0) uniform sampler2D textures[];
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 layout(location = 1) rayPayloadEXT bool isShadowed;
@@ -30,8 +32,11 @@ void main()
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
 	vec3 P = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-
-	hitValue = barycentricCoords;
+	
+	// TODO: - Get actual Vertex Data (particularly texCoord)
+	//       - Get actual Material Data
+	vec3 color = texture(textures[min(nonuniformEXT(gl_InstanceID), 16)], barycentricCoords.xy).xyz;
+	hitValue = color;
 
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
@@ -53,6 +58,6 @@ void main()
 		attenuation = 1.0;
 	}
 		
-	hitValue = attenuation * barycentricCoords;
+	hitValue = attenuation * color;
 	
 }

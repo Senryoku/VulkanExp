@@ -231,7 +231,21 @@ void Application::createRayTracingPipeline() {
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 	};
-	std::array<VkDescriptorSetLayoutBinding, 3> bindings = {acceleration_structure_layout_binding, result_image_layout_binding, uniform_buffer_binding};
+
+	uint32_t size = 0;
+	for(const auto& m : Materials) {
+		for(const auto& t : m.textures)
+			++size;
+	}
+
+	VkDescriptorSetLayoutBinding textures_layout_binding{
+		.binding = 3,
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = size,
+		.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+	};
+
+	std::array<VkDescriptorSetLayoutBinding, 4> bindings = {acceleration_structure_layout_binding, result_image_layout_binding, uniform_buffer_binding, textures_layout_binding};
 
 	VkDescriptorSetLayoutCreateInfo layout_info{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -330,7 +344,7 @@ void Application::createRaytracingDescriptorSets() {
 	_rayTracingDescriptorPool.create(_device, 1,
 									 std::array<VkDescriptorPoolSize, 3>{
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4096},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 									 });
 	_rayTracingDescriptorPool.allocate({_rayTracingDescriptorSetLayout.getHandle()});
@@ -362,6 +376,18 @@ void Application::createRaytracingDescriptorSets() {
 		.range = sizeof(UniformBufferObject),
 	};
 
+	// Bind all textures used in the scene.
+	std::vector<VkDescriptorImageInfo> textureInfos;
+	for(const auto& material : Materials) {
+		for(const auto& texture : material.textures) {
+			textureInfos.push_back(VkDescriptorImageInfo{
+				.sampler = *texture.second.sampler,
+				.imageView = texture.second.gpuImage->imageView,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			});
+		}
+	}
+
 	VkWriteDescriptorSet result_image_write{
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
@@ -380,7 +406,16 @@ void Application::createRaytracingDescriptorSets() {
 		.pBufferInfo = &buffer_descriptor,
 	};
 
-	std::vector<VkWriteDescriptorSet> write_descriptor_sets = {acceleration_structure_write, result_image_write, uniform_buffer_write};
+	VkWriteDescriptorSet textures_write{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
+		.dstBinding = 3,
+		.descriptorCount = static_cast<uint32_t>(textureInfos.size()),
+		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.pImageInfo = textureInfos.data(),
+	};
+
+	std::vector<VkWriteDescriptorSet> write_descriptor_sets = {acceleration_structure_write, result_image_write, uniform_buffer_write, textures_write};
 	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, VK_NULL_HANDLE);
 }
 

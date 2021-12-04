@@ -26,7 +26,7 @@ class PipelineCache : public HandleWrapper<VkPipelineCache> {
 		fileSize = file.tellg();
 		file.seekg(0, std::ios::beg);
 		std::vector<char> data;
-		data.reserve(fileSize);
+		data.resize(fileSize);
 		file.read(reinterpret_cast<std::ifstream::char_type*>(&data.front()), fileSize);
 		create(device, data.size(), data.data());
 	}

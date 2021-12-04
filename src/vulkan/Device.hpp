@@ -44,6 +44,8 @@ class Device : public HandleWrapper<VkDevice> {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 			.pNext = &deviceFeaturesAccStruct,
 			.descriptorIndexing = VK_TRUE,
+			.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+			.runtimeDescriptorArray = VK_TRUE,
 			.bufferDeviceAddress = VK_TRUE,
 		};
 		VkDeviceCreateInfo createInfo{

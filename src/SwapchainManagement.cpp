@@ -240,7 +240,7 @@ void Application::initSwapChain() {
 				.range = sizeof(UniformBufferObject),
 			};
 			VkDescriptorImageInfo imageInfo{
-				.sampler = Materials[m].textures["baseColor"].sampler,
+				.sampler = *Materials[m].textures["baseColor"].sampler,
 				.imageView = Materials[m].textures["baseColor"].gpuImage->imageView,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			};
@@ -272,7 +272,7 @@ void Application::initSwapChain() {
 			// Use a blank texture if this mesh doesn't have a normal map
 			auto&				  normals = Materials[m].textures.contains("normal") ? Materials[m].textures["normal"] : _blankTexture;
 			VkDescriptorImageInfo normalInfo{
-				.sampler = normals.sampler,
+				.sampler = *normals.sampler,
 				.imageView = normals.gpuImage->imageView,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			};
