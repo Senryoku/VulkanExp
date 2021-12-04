@@ -128,19 +128,33 @@ void Application::createAccelerationStructure() {
 		for(auto& rangeInfo : rangeInfos)
 			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
 
+		auto t1 = std::chrono::high_resolution_clock::now();
 		// Build all the bottom acceleration structure on the device via a one-time command buffer submission
-		for(size_t i = 0; i < buildInfos.size(); ++i)
-			immediateSubmit([&](const CommandBuffer& commandBuffer) {
-				// We can't build all structure at once because we're sharing the scratch buffer (Would need synchronisation, or go back to one buffer per structure).
-				// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
+		immediateSubmit([&](const CommandBuffer& commandBuffer) {
+			// We can't build all structure at once because we're sharing the scratch buffer (We can back to one buffer per structure, or maybe another way of synchronisation I
+			// don't know yet!).
+			// vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
 
-				// We can do that either, probably because of dependencies between structures (shared buffers)
-				// for(size_t i = 0; i < buildInfos.size(); ++i)
-				//	vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
-
-				// So we're back to brute force synchronisation for now :)
+			// We can however submit everything using the same command buffer if we provide the appropriate barrier (slightly faster than calling immediateSubmit for each BLAS)
+			for(size_t i = 0; i < buildInfos.size(); ++i) {
+				VkBufferMemoryBarrier barrier{
+					.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+					.pNext = nullptr,
+					.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+					.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+					.srcQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
+					.dstQueueFamilyIndex = _device.getPhysicalDevice().getQueues(_surface).graphicsFamily.value(),
+					.buffer = scratchBuffer,
+					.offset = 0,
+					.size = VK_WHOLE_SIZE,
+				};
+				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 0, nullptr,
+									 1, &barrier, 0, nullptr);
 				vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &buildInfos[i], &pRangeInfos[i]);
-			});
+			}
+		});
+		auto t2 = std::chrono::high_resolution_clock::now();
+		std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1) << std::endl;
 	}
 
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
