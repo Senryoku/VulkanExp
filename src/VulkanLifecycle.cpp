@@ -42,6 +42,9 @@ void Application::initVulkan() {
 		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		for(auto& m : _scene.getMeshes()) {
 			m.init(_device); // Pepare the final buffers
+		}
+		Mesh::allocate(_device, _scene.getMeshes()); // Allocate memory for all meshes and bind the buffers
+		for(auto& m : _scene.getMeshes()) {
 			m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 			if(m.material) {
 				m.material->uploadTextures(_device, graphicsFamily);
@@ -172,6 +175,7 @@ void Application::cleanupVulkan() {
 	for(auto& m : _scene.getMeshes()) {
 		m.destroy();
 	}
+	Mesh::free();
 	Materials.clear();
 	Images.clear();
 	Samplers.clear();

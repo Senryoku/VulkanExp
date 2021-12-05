@@ -145,6 +145,7 @@ void Application::createAccelerationStructure() {
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 
 	QuickTimer qt("TLAS building");
+	uint32_t   customIndex = 0;
 	for(const auto& blas : _bottomLevelAccelerationStructures) {
 		// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 		VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
@@ -155,12 +156,13 @@ void Application::createAccelerationStructure() {
 
 		_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 			.transform = transformMatrix,
-			.instanceCustomIndex = 0,
+			.instanceCustomIndex = customIndex,
 			.mask = 0xFF,
 			.instanceShaderBindingTableRecordOffset = 0,
 			.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
 			.accelerationStructureReference = BLASDeviceAddress,
 		});
+		++customIndex;
 	}
 
 	_accStructInstancesBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -239,7 +241,10 @@ void Application::createRayTracingPipeline() {
 	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, texturesCount);
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, texturesCount)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1);
 
 	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
 
@@ -331,9 +336,11 @@ void Application::createRayTracingPipeline() {
 void Application::createRaytracingDescriptorSets() {
 	assert(_topLevelAccelerationStructure != VK_NULL_HANDLE);
 	_rayTracingDescriptorPool.create(_device, 1,
-									 std::array<VkDescriptorPoolSize, 3>{
+									 std::array<VkDescriptorPoolSize, 5>{
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4096},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
 									 });
 	_rayTracingDescriptorPool.allocate({_rayTracingDescriptorSetLayout.getHandle()});
@@ -377,6 +384,24 @@ void Application::createRaytracingDescriptorSets() {
 		}
 	}
 
+	VkDescriptorBufferInfo verticesInfos{
+		.buffer = Mesh::VertexBuffer,
+		.offset = 0,
+		.range = Mesh::NextVertexMemoryOffset,
+	};
+
+	VkDescriptorBufferInfo indicesInfos{
+		.buffer = Mesh::IndexBuffer,
+		.offset = 0,
+		.range = Mesh::NextIndexMemoryOffset,
+	};
+
+	VkDescriptorBufferInfo offsetsInfos{
+		.buffer = Mesh::OffsetTableBuffer,
+		.offset = 0,
+		.range = Mesh::OffsetTableSize,
+	};
+
 	VkWriteDescriptorSet result_image_write{
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
@@ -404,7 +429,35 @@ void Application::createRaytracingDescriptorSets() {
 		.pImageInfo = textureInfos.data(),
 	};
 
-	std::vector<VkWriteDescriptorSet> write_descriptor_sets = {acceleration_structure_write, result_image_write, uniform_buffer_write, textures_write};
+	VkWriteDescriptorSet vertices_write{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
+		.dstBinding = 4,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.pBufferInfo = &verticesInfos,
+	};
+
+	VkWriteDescriptorSet indices_write{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
+		.dstBinding = 5,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.pBufferInfo = &indicesInfos,
+	};
+
+	VkWriteDescriptorSet offsets_write{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = _rayTracingDescriptorPool.getDescriptorSets()[0],
+		.dstBinding = 6,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.pBufferInfo = &offsetsInfos,
+	};
+
+	std::vector<VkWriteDescriptorSet> write_descriptor_sets = {
+		acceleration_structure_write, result_image_write, uniform_buffer_write, textures_write, vertices_write, indices_write, offsets_write};
 	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, VK_NULL_HANDLE);
 }
 

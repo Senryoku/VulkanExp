@@ -7,21 +7,36 @@
 
 class QuickTimer {
   public:
-	QuickTimer(const std::string& name) : _name(name) {
+	QuickTimer(const std::string& name) : _name(name) { begin(); }
+
+	~QuickTimer() {
+		if(_running)
+			end();
+	}
+
+	void begin() {
+		assert(!_running);
 		start();
 		reportStart();
 		TimerStack.push(this);
 	}
 
-	~QuickTimer() {
+	void end() {
+		assert(_running);
 		TimerStack.pop();
 		stop();
 		report();
 	}
 
-	void start() { _start = std::chrono::high_resolution_clock::now(); }
+	void start() {
+		_start = std::chrono::high_resolution_clock::now();
+		_running = true;
+	}
 
-	void stop() { _end = std::chrono::high_resolution_clock::now(); }
+	void stop() {
+		_end = std::chrono::high_resolution_clock::now();
+		_running = false;
+	}
 
 	void reportStart() {
 		if(TimerStack.empty())
@@ -48,6 +63,7 @@ class QuickTimer {
 	std::string									   _name;
 	std::chrono::high_resolution_clock::time_point _start;
 	std::chrono::high_resolution_clock::time_point _end;
+	bool										   _running = false;
 
 	template<typename T>
 	void report(const T& d) {

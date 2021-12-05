@@ -48,6 +48,8 @@ void glTF::load(std::filesystem::path path) {
 		}
 	}
 
+	for(const auto& bufferDesc : object["textures"]) {}
+
 	for(const auto& mat : object["materials"]) {
 		Material material;
 		material.name = mat("name", std::string("NoName"));
@@ -149,6 +151,7 @@ void glTF::load(std::filesystem::path path) {
 
 					v.texCoord = *reinterpret_cast<const glm::vec2*>(texCoordBuffer.data() + texCoordCursor);
 					texCoordCursor += texCoordStride;
+					v.material = primitive.material;
 					mesh.getVertices().push_back(v);
 				}
 			} else {
