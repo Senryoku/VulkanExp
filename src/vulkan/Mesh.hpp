@@ -67,8 +67,8 @@ class Mesh {
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
 			offsetTable.push_back(OffsetEntry{totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)), totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
-			totalVertexSize += vertexBufferMemReq.size;
-			totalIndexSize += indexBufferMemReq.size;
+			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
+			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
 		}
 		VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
 		IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);

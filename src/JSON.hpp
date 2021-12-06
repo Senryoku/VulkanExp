@@ -44,6 +44,13 @@ class JSON {
 		operator const float&() const { return asReal(); }
 		operator const int&() const { return asInteger(); }
 
+		float toReal() const {
+			if(_type == Type::real)
+				return _value.as_float;
+			else
+				return static_cast<float>(_value.as_int);
+		}
+
 	  private:
 		enum class Type
 		{
@@ -173,6 +180,7 @@ class JSON {
 			return _value.as_string;
 		}
 
+		// Interpret value as of type T
 		template<class T>
 		const T& as() const;
 
@@ -195,6 +203,23 @@ class JSON {
 			if(_type == Type::null)
 				return defaultValue;
 			return as<T>();
+		}
+
+		// as() variant returning by value and allowing for implicit conversion
+		// (e.g. integer to float)
+		template<class T>
+		T to() const;
+
+		template<>
+		float to<float>() const {
+			return asNumber().toReal();
+		}
+
+		template<class T>
+		T to(const T& defaultValue) const {
+			if(_type == Type::null)
+				return defaultValue;
+			return to<T>();
 		}
 
 		class iterator {
@@ -409,11 +434,21 @@ class JSON {
 			return _value.as_object[key];
 		}
 
+		// Quick access to property with cast to specified type and default value
 		template<typename T>
 		inline const T& operator()(const string& key, const T& defaultValue) const {
 			assert(_type == Type::object);
 			if(_value.as_object.contains(key) && _value.as_object.at(key).getType() != Type::null)
 				return _value.as_object.at(key).as<T>();
+			return defaultValue;
+		}
+
+		// Same as operator(), but return by value and allow for implicit type conversion
+		template<typename T>
+		inline T get(const string& key, const T& defaultValue) const {
+			assert(_type == Type::object);
+			if(_value.as_object.contains(key) && _value.as_object.at(key).getType() != Type::null)
+				return _value.as_object.at(key).to<T>();
 			return defaultValue;
 		}
 

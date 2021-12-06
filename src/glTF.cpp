@@ -60,7 +60,7 @@ void glTF::load(std::filesystem::path path) {
 		Material material;
 		material.name = mat("name", std::string("NoName"));
 		material.baseColorFactor = mat["pbrMetallicRoughness"]("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-		material.metallicFactor = mat["pbrMetallicRoughness"]("metallicFactor", 1.0f);
+		material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
 		material.roughnessFactor = mat["pbrMetallicRoughness"]("roughnessFactor", 1.0f);
 		material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
 		if(mat.contains("normalTexture")) {
@@ -155,13 +155,26 @@ void glTF::load(std::filesystem::path path) {
 			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
 			const auto& indicesBuffer = buffers[indicesBufferView["buffer"].as<int>()];
 			if(indicesAccessor["type"].asString() == "SCALAR") {
-				assert(static_cast<ComponentType>(indicesAccessor["componentType"].as<int>()) == ComponentType::UnsignedShort); // TODO
+				ComponentType compType = static_cast<ComponentType>(indicesAccessor["componentType"].as<int>());
+				assert(compType == ComponentType::UnsignedShort || compType == ComponentType::UnsignedInt); // TODO
 				size_t cursor = indicesAccessor("byteOffset", 0) + indicesBufferView("byteOffset", 0);
-				size_t stride = indicesBufferView("byteStride", static_cast<int>(sizeof(unsigned short)));
+				int	   defaultStride = 0;
+				switch(compType) {
+					case ComponentType::UnsignedShort: defaultStride = sizeof(unsigned short); break;
+					case ComponentType::UnsignedInt: defaultStride = sizeof(unsigned int); break;
+					default: assert(false);
+				}
+				size_t stride = indicesBufferView("byteStride", defaultStride);
 				for(size_t i = 0; i < indicesAccessor["count"].as<int>(); ++i) {
-					const unsigned short idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
-					cursor += stride;
+					uint32_t idx = 0;
+					switch(compType) {
+						case ComponentType::UnsignedShort: idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor); break;
+						case ComponentType::UnsignedInt: idx = *reinterpret_cast<const unsigned int*>(indicesBuffer.data() + cursor); break;
+						default: assert(false);
+					}
+					idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
 					mesh.getIndices().push_back(idx);
+					cursor += stride;
 				}
 
 			} else {
