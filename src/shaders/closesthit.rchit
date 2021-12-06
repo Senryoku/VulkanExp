@@ -93,7 +93,7 @@ vec3 lightDir = normalize(vec3(-1, 4, 1));
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
-float mipmapLevel(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy, uint mipLevels) {
+vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy) {
     vec3 dpdu, dpdv;
     vec3 p01 = v1.pos - v0.pos;
     vec3 p02 = v2.pos - v0.pos;
@@ -120,7 +120,7 @@ float mipmapLevel(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex 
 	vec3 dpdx = (gl_WorldRayOriginEXT + raydx * tx) - worldPosition;
 	vec3 dpdy = (gl_WorldRayOriginEXT + raydy * ty) - worldPosition;
 
-	float dudx, dvdx, dudy, dvdy;
+	float dudx = 0, dvdx = 0, dudy = 0, dvdy = 0;
     {
         uint dim0 = 0, dim1 = 1;
         vec3 a = abs(normal);
@@ -132,13 +132,13 @@ float mipmapLevel(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex 
             dim1 = 2;
         }
 
-        float a00 = dpdu[dim0]; float a01 = dpdv[dim0];
-        float a10 = dpdu[dim1]; float a11 = dpdv[dim1];
+        float a00 = dpdu[dim0];
+		float a01 = dpdv[dim0];
+        float a10 = dpdu[dim1];
+		float a11 = dpdv[dim1];
 
         float det = a00 * a11 - a01 * a10;
-        if (abs(det) < 1e-10)
-            dudx = dvdx = dudy = dvdy = 0;
-        else {
+        if (abs(det) > 1e-10) {
             float inv_det = 1.0/det;
             dudx = ( a11 * dpdx[dim0] - a01 * dpdx[dim1]) * inv_det;
             dvdx = (-a10 * dpdx[dim0] - a00 * dpdx[dim1]) * inv_det;
@@ -148,10 +148,9 @@ float mipmapLevel(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex 
         }
     }
 
-    float filterWidth = max(length(vec2(dudx, dvdx)), length(vec2(dudy, dvdy)));
-
-    return mipLevels - 1 + log2(clamp(filterWidth, 1e-6, 1.0));
+	return vec4(dudx, dvdx, dudy, dvdy);
 }
+
 
 void main()
 {		
@@ -172,12 +171,10 @@ void main()
 	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
 	vec3 normal = v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z;
 	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
-
-	int maxMipLevel = textureQueryLevels(textures[m.albedoTexture]);
-	float mipLevel = mipmapLevel(P, normal, v0, v1, v2, payload.raydx, payload.raydy, maxMipLevel); 
-	//float mipLevel = 0;
-	vec3 texColor = textureLod(textures[m.albedoTexture], texCoord, mipLevel).xyz;
 	
+	vec4 grad = texDerivative(P, normal, v0, v1, v2, payload.raydx, payload.raydy); 
+	vec3 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw).xyz;
+
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
 				gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
@@ -187,8 +184,8 @@ void main()
 				1,                 // missIndex
 				P,                 // ray origin
 				0.1,               // ray min range
-				lightDir,            // ray direction
-				10000,              // ray max range
+				lightDir,          // ray direction
+				10000,             // ray max range
 				1                  // payload (location = 1)
 	);
 	float attenuation = 1.0;
@@ -197,9 +194,9 @@ void main()
 	} else {
 		attenuation = 1.0;
 	}
-		
-    vec3 tangentSpaceNormal = normalize(2.0 * texture(textures[m.normalTexture], texCoord).rgb - 1.0);
-    vec3 finalNormal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
+
+    vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
+	vec3 finalNormal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
 
     vec3 color = clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb;
 
