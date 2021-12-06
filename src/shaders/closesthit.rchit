@@ -26,7 +26,14 @@ layout(binding = 5, set = 0) buffer Indices { uint  i[]; } indices;
 layout(binding = 6, set = 0) buffer Offsets { uint  o[]; } offsets;
 layout(binding = 7, set = 0) buffer Materials { uint m[]; } materials;
 
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+struct rayPayload {
+	vec3 raydx;
+	vec3 raydy;
+
+	vec3 color; // Result
+};
+
+layout(location = 0) rayPayloadInEXT rayPayload payload;
 layout(location = 1) rayPayloadEXT bool isShadowed;
 
 hitAttributeEXT vec3 attribs;
@@ -82,7 +89,69 @@ Material unpackMaterial(uint index) {
 	return m;
 }
 
-vec3 lightDir = normalize(vec3(-1, 3, 1));
+vec3 lightDir = normalize(vec3(-1, 4, 1));
+
+// Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
+// https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
+float mipmapLevel(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy, uint mipLevels) {
+    vec3 dpdu, dpdv;
+    vec3 p01 = v1.pos - v0.pos;
+    vec3 p02 = v2.pos - v0.pos;
+
+	vec2 tex01 = v1.texCoord - v0.texCoord;
+	vec2 tex02 = v2.texCoord - v0.texCoord;
+
+    float det = tex01[0] * tex02[1] - tex01[1] * tex02[0];
+    if (abs(det) < 1e-10) {
+		dpdu = normalize(abs(normal.x) > abs(normal.y) ? 
+				vec3(-normal.z, 0, normal.x) : 
+				vec3(0, -normal.z, normal.y)
+		);
+		dpdv = cross(normal, dpdu);
+    } else {
+        float inv_det = 1.0/det;
+        dpdu = ( tex02[1] * p01 - tex01[1] * p02) * inv_det;
+        dpdv = (-tex02[0] * p01 + tex01[0] * p02) * inv_det;
+    }
+
+	// Compute intersection of primitive plane and differential rays (raydx and raydy).
+	float tx = dot((worldPosition - gl_WorldRayOriginEXT), normal) / dot(raydx, normal);
+	float ty = dot((worldPosition - gl_WorldRayOriginEXT), normal) / dot(raydy, normal);
+	vec3 dpdx = (gl_WorldRayOriginEXT + raydx * tx) - worldPosition;
+	vec3 dpdy = (gl_WorldRayOriginEXT + raydy * ty) - worldPosition;
+
+	float dudx, dvdx, dudy, dvdy;
+    {
+        uint dim0 = 0, dim1 = 1;
+        vec3 a = abs(normal);
+        if (a.x > a.y && a.x > a.z) {
+            dim0 = 1;
+            dim1 = 2;
+        } else if (a.y > a.z) {
+            dim0 = 0;
+            dim1 = 2;
+        }
+
+        float a00 = dpdu[dim0]; float a01 = dpdv[dim0];
+        float a10 = dpdu[dim1]; float a11 = dpdv[dim1];
+
+        float det = a00 * a11 - a01 * a10;
+        if (abs(det) < 1e-10)
+            dudx = dvdx = dudy = dvdy = 0;
+        else {
+            float inv_det = 1.0/det;
+            dudx = ( a11 * dpdx[dim0] - a01 * dpdx[dim1]) * inv_det;
+            dvdx = (-a10 * dpdx[dim0] - a00 * dpdx[dim1]) * inv_det;
+
+            dudy = ( a11 * dpdy[dim0] - a01 * dpdy[dim1]) * inv_det;
+            dvdy = (-a10 * dpdy[dim0] - a00 * dpdy[dim1]) * inv_det;
+        }
+    }
+
+    float filterWidth = max(length(vec2(dudx, dvdx)), length(vec2(dudy, dvdy)));
+
+    return mipLevels - 1 + log2(clamp(filterWidth, 1e-6, 1.0));
+}
 
 void main()
 {		
@@ -104,8 +173,11 @@ void main()
 	vec3 normal = v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z;
 	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
 
-	vec3 texColor = texture(textures[m.albedoTexture], texCoord).xyz;
-
+	int maxMipLevel = textureQueryLevels(textures[m.albedoTexture]);
+	float mipLevel = mipmapLevel(P, normal, v0, v1, v2, payload.raydx, payload.raydy, maxMipLevel); 
+	//float mipLevel = 0;
+	vec3 texColor = textureLod(textures[m.albedoTexture], texCoord, mipLevel).xyz;
+	
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
 				gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
@@ -131,6 +203,6 @@ void main()
 
     vec3 color = clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb;
 
-	hitValue = attenuation * color;
+	payload.color = attenuation * color;
 	
 }
