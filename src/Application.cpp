@@ -61,7 +61,7 @@ void Application::drawFrame() {
 	};
 	VK_CHECK(vkBeginCommandBuffer(imguiCmdBuff, &info));
 	std::array<VkClearValue, 1> clearValues{
-		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 1.0f}},
+		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 	};
 	VkRenderPassBeginInfo rpinfo{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,

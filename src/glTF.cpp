@@ -5,6 +5,9 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
+
 #include "JSON.hpp"
 #include "Logger.hpp"
 #include "STBImage.hpp"
@@ -13,10 +16,31 @@
 #include <vulkan/Material.hpp>
 
 template<>
+const glm::vec3& JSON::value::as<glm::vec3>() const {
+	assert(_type == Type::array);
+	assert(_value.as_array.size() == 3);
+	return *reinterpret_cast<const glm::vec3*>(_value.as_array.data());
+}
+
+template<>
 const glm::vec4& JSON::value::as<glm::vec4>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 4);
 	return *reinterpret_cast<const glm::vec4*>(_value.as_array.data());
+}
+
+template<>
+const glm::quat& JSON::value::as<glm::quat>() const {
+	assert(_type == Type::array);
+	assert(_value.as_array.size() == 4);
+	return *reinterpret_cast<const glm::quat*>(_value.as_array.data());
+}
+
+template<>
+const glm::mat4& JSON::value::as<glm::mat4>() const {
+	assert(_type == Type::array);
+	assert(_value.as_array.size() == 16);
+	return *reinterpret_cast<const glm::mat4*>(_value.as_array.data());
 }
 
 glTF::glTF(std::filesystem::path path) {
@@ -180,6 +204,34 @@ void glTF::load(std::filesystem::path path) {
 				error("Error: Unsupported accessor type '{}'.", indicesAccessor["type"].asString());
 			}
 		}
+	}
+
+	for(const auto& node : object["nodes"]) {
+		Node n;
+		n.name = node("name", std::string("Unamed Node"));
+		if(node.contains("matrix")) {
+			n.transform = node["matrix"].as<glm::mat4>();
+		} else {
+			n.transform =
+				glm::translate(glm::toMat4(node("rotation", glm::quat())) * glm::scale(glm::mat4(1.0f), node("scale", glm::vec3(1.0))), node("translation", glm::vec3(0.0f)));
+		}
+		if(node.contains("children")) {
+			for(const auto& c : node["children"]) {
+				n.children.push_back(c.as<int>());
+			}
+		}
+		_nodes.push_back(n);
+	}
+
+	for(const auto& scene : object["scenes"]) {
+		Scene s;
+		s.name = scene("name", std::string("Unamed Scene"));
+		if(scene.contains("nodes")) {
+			for(const auto& c : scene["nodes"]) {
+				s.nodes.push_back(c.as<int>());
+			}
+		}
+		_scenes.push_back(s);
 	}
 }
 

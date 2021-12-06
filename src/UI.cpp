@@ -15,6 +15,7 @@ void Application::initImGui(uint32_t queueFamily) {
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
+	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.2f;
 	// ImGui::StyleColorsClassic();
 
 	// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
@@ -83,6 +84,29 @@ void Application::drawUI() {
 	if(ImGui::Begin("Logs?")) {
 		ImGui::End();
 	}
+	if(ImGui::Begin("Scenes")) {
+		const auto						  nodes = _scene.getNodes();
+		const std::function<void(size_t)> displayNode = [&](size_t n) {
+			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
+				ImGui::Text("Todo: Display transform here.");
+				for(const auto& c : nodes[n].children) {
+					displayNode(c);
+				}
+				ImGui::TreePop();
+			}
+		};
+
+		for(const auto& s : _scene.getScenes()) {
+			if(ImGui::TreeNode(s.name.c_str())) {
+				for(const auto& n : s.nodes) {
+					displayNode(n);
+				}
+				ImGui::TreePop();
+			}
+		}
+		ImGui::End();
+	}
+	ImGui::SetNextWindowBgAlpha(0.35f);
 	if(ImGui::Begin("Rendering Settings")) {
 
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
@@ -108,7 +132,6 @@ void Application::drawUI() {
 		}
 		ImGui::End();
 	}
-	ImGui::ShowDemoWindow();
 }
 
 void Application::cleanupUI() {

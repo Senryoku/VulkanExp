@@ -9,15 +9,6 @@ inline std::vector<Material> Materials;
 
 class glTF {
   public:
-	glTF() = default;
-	glTF(std::filesystem::path path);
-	~glTF();
-
-	void load(std::filesystem::path path);
-
-	std::vector<Mesh>&		 getMeshes() { return _meshes; }
-	const std::vector<Mesh>& getMeshes() const { return _meshes; }
-
 	enum class RenderingMode
 	{
 		Points = 0,
@@ -43,14 +34,38 @@ class glTF {
 
 	class Attributes {};
 
-	class Scene {};
-	class Node {};
+	struct Scene {
+		std::string			  name;
+		std::vector<uint32_t> nodes;
+	};
+
+	struct Node {
+		std::string			  name;
+		glm::mat4			  transform;
+		std::vector<uint32_t> children;
+	};
+
 	struct Primitive {
 		RenderingMode mode;
 		Attributes	  attributes;
 		size_t		  material;
 	};
 
+	glTF() = default;
+	glTF(std::filesystem::path path);
+	~glTF();
+
+	void load(std::filesystem::path path);
+
+	std::vector<Mesh>&		  getMeshes() { return _meshes; }
+	const std::vector<Mesh>&  getMeshes() const { return _meshes; }
+	std::vector<Scene>&		  getScenes() { return _scenes; }
+	const std::vector<Scene>& getScenes() const { return _scenes; }
+	std::vector<Node>&		  getNodes() { return _nodes; }
+	const std::vector<Node>&  getNodes() const { return _nodes; }
+
   private:
-	std::vector<Mesh> _meshes;
+	std::vector<Mesh>  _meshes;
+	std::vector<Scene> _scenes;
+	std::vector<Node>  _nodes;
 };
