@@ -158,15 +158,16 @@ void main()
 	
 	vec3 P = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 	
-	uint vertexInstanceOffset = offsets.o[2 * gl_InstanceID];
-	uint indexInstanceOffset = offsets.o[2 * gl_InstanceID + 1];
+	uint materialInstanceIndex = offsets.o[3 * gl_InstanceID + 0];
+	uint vertexInstanceOffset = offsets.o[3 * gl_InstanceID + 1];
+	uint indexInstanceOffset = offsets.o[3 * gl_InstanceID + 2];
 	uint indexOffset = indexInstanceOffset + 3 * gl_PrimitiveID;
 
 	ivec3 index = ivec3(indices.i[indexOffset], indices.i[indexOffset + 1], indices.i[indexOffset + 2]);
 	Vertex v0 = unpack(vertexInstanceOffset + index.x);
 	Vertex v1 = unpack(vertexInstanceOffset + index.y);
 	Vertex v2 = unpack(vertexInstanceOffset + index.z);
-	Material m = unpackMaterial(v0.material);
+	Material m = unpackMaterial(materialInstanceIndex);
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
 	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
 	vec3 normal = v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z;

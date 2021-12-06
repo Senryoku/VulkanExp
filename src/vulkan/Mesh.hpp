@@ -53,6 +53,7 @@ class Mesh {
 	Material* material = nullptr;
 
 	struct OffsetEntry {
+		uint32_t materialIndex;
 		uint32_t vertexOffset;
 		uint32_t indexOffset;
 	};
@@ -66,7 +67,8 @@ class Mesh {
 			auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
-			offsetTable.push_back(OffsetEntry{totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)), totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
+			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
+											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
 			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
 			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
 		}
