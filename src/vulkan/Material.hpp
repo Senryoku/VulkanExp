@@ -19,9 +19,20 @@ struct GPUImage {
 	Image	  image;
 	ImageView imageView;
 };
-// FIXME: Move this (Resource Managment class/singleton?)
+struct Texture {
+	std::filesystem::path source;
+	VkFormat			  format = VK_FORMAT_R8G8B8A8_SRGB;
+	JSON::object		  samplerDescription;
+	Sampler*			  sampler = nullptr;
+	GPUImage*			  gpuImage = nullptr;
+};
+// FIXME: Move this (Resource Managment class/singleton? Scene?)
+inline std::vector<Texture>						 Textures;
 inline std::unordered_map<std::string, GPUImage> Images;
 inline std::unordered_map<size_t, Sampler>		 Samplers;
+void											 uploadTextures(const Device& device, uint32_t queueFamilyIndex);
+inline Buffer									 MaterialBuffer;
+inline DeviceMemory								 MaterialMemory;
 
 inline Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT, float maxLod) {
 	size_t key = magFilter | (minFilter << 8) | (wrapS << 16) | (wrapT << 24) | (static_cast<size_t>(maxLod) << 32);
@@ -53,22 +64,24 @@ inline Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter mi
 
 class Material {
   public:
-	struct Texture {
-		std::filesystem::path source;
-		VkFormat			  format = VK_FORMAT_R8G8B8A8_SRGB;
-		JSON::object		  samplerDescription;
-		Sampler*			  sampler = nullptr;
-		GPUImage*			  gpuImage = nullptr;
-	};
-
-	std::unordered_map<std::string, Texture> textures;
-
 	std::string name;
 	glm::vec4	baseColorFactor{1.0, 1.0, 1.0, 1.0};
 	float		metallicFactor = 1.0;
 	float		roughnessFactor = 1.0;
+	uint32_t	albedoTexture = -1;
+	uint32_t	normalTexture = -1;
+	uint32_t	metallicRoughnessTexture = -1;
 
-	void uploadTextures(const Device& device, uint32_t queueFamilyIndex);
+	// TODO: Move this (to a Scene class?)
+	struct GPUData {
+		float	 metallicFactor = 1.0;
+		float	 roughnessFactor = 1.0;
+		uint32_t albedoTexture = -1;
+		uint32_t normalTexture = -1;
+		uint32_t metallicRoughnessTexture = -1;
+	};
+
+	GPUData getGPUData() const { return GPUData{metallicFactor, roughnessFactor, albedoTexture, normalTexture, metallicRoughnessTexture}; }
 
   private:
 };

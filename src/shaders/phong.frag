@@ -12,7 +12,7 @@ layout(location = 4) in vec2 texCoord;
 
 layout(location = 0) out vec4 outColor;
 
-vec3 lightDir = normalize(vec3(-1, 1, 1));
+vec3 lightDir = normalize(vec3(-1, 3, 1));
 
 void main() {
     vec4 texColor = texture(texSampler, texCoord);

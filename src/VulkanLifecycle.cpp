@@ -46,11 +46,23 @@ void Application::initVulkan() {
 		Mesh::allocate(_device, _scene.getMeshes()); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes()) {
 			m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-			if(m.material) {
-				m.material->uploadTextures(_device, graphicsFamily);
-			}
 		}
+		uploadTextures(_device, graphicsFamily);
 	}
+	std::vector<Material::GPUData> materialGpu;
+	for(const auto& material : Materials) {
+		materialGpu.push_back(material.getGPUData());
+	}
+	Buffer		 stagingBuffer;
+	DeviceMemory stagingMemory;
+	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, materialGpu.size() * sizeof(Material::GPUData));
+	auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
+	stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+						  materialGpu.size() * sizeof(Material::GPUData));
+	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	stagingMemory.fill(materialGpu.data(), materialGpu.size());
+	MaterialBuffer.copyFromStagingBuffer(_tempCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _graphicsQueue);
 
 	// Load a blank image
 	_blankTexture.source = "data/blank.png";
@@ -176,6 +188,8 @@ void Application::cleanupVulkan() {
 		m.destroy();
 	}
 	Mesh::free();
+	MaterialBuffer.destroy();
+	MaterialMemory.free();
 	Materials.clear();
 	Images.clear();
 	Samplers.clear();

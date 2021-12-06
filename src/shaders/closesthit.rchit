@@ -24,6 +24,7 @@ layout(binding = 3, set = 0) uniform sampler2D textures[];
 layout(binding = 4, set = 0) buffer Vertices { vec4 v[]; } vertices;
 layout(binding = 5, set = 0) buffer Indices { uint  i[]; } indices;
 layout(binding = 6, set = 0) buffer Offsets { uint  o[]; } offsets;
+layout(binding = 7, set = 0) buffer Materials { uint m[]; } materials;
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
 layout(location = 1) rayPayloadEXT bool isShadowed;
@@ -38,6 +39,14 @@ struct Vertex {
 	vec4 tangent;
 	vec2 texCoord;
 	uint material;
+};
+
+struct Material {
+	float metallicFactor;
+	float roughnessFactor;
+	uint albedoTexture;
+	uint normalTexture;
+	uint metallicRoughnessTexture;
 };
 
 Vertex unpack(uint index)
@@ -62,25 +71,40 @@ Vertex unpack(uint index)
 	return v;
 }
 
+Material unpackMaterial(uint index) {
+	uint offset = index * 5;
+	Material m;
+	m.metallicFactor = uintBitsToFloat(materials.m[offset + 0]);
+	m.roughnessFactor = uintBitsToFloat(materials.m[offset + 1]);
+	m.albedoTexture = materials.m[offset + 2];
+	m.normalTexture = materials.m[offset + 3];
+	m.metallicRoughnessTexture = materials.m[offset + 4];
+	return m;
+}
+
+vec3 lightDir = normalize(vec3(-1, 3, 1));
+
 void main()
 {		
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
 	vec3 P = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 	
-	uint vertexOffset = offsets.o[2 * gl_InstanceID];
-	uint indexOffset = offsets.o[2 * gl_InstanceID + 1];
+	uint vertexInstanceOffset = offsets.o[2 * gl_InstanceID];
+	uint indexInstanceOffset = offsets.o[2 * gl_InstanceID + 1];
+	uint indexOffset = indexInstanceOffset + 3 * gl_PrimitiveID;
 
-	ivec3 index = ivec3(indices.i[indexOffset + 3 * gl_PrimitiveID], indices.i[indexOffset + 3 * gl_PrimitiveID + 1], indices.i[indexOffset + 3 * gl_PrimitiveID + 2]);
-	Vertex v0 = unpack(vertexOffset + index.x);
-	Vertex v1 = unpack(vertexOffset + index.y);
-	Vertex v2 = unpack(vertexOffset + index.z);
+	ivec3 index = ivec3(indices.i[indexOffset], indices.i[indexOffset + 1], indices.i[indexOffset + 2]);
+	Vertex v0 = unpack(vertexInstanceOffset + index.x);
+	Vertex v1 = unpack(vertexInstanceOffset + index.y);
+	Vertex v2 = unpack(vertexInstanceOffset + index.z);
+	Material m = unpackMaterial(v0.material);
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
+	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
+	vec3 normal = v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z;
+	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
 
-	// TODO: - Get actual Vertex Data (particularly texCoord)
-	//       - Get actual Material Data
-	vec3 color = texture(textures[min(2 * v0.material, 64)], texCoord).xyz;
-	hitValue = color;
+	vec3 texColor = texture(textures[m.albedoTexture], texCoord).xyz;
 
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
@@ -91,7 +115,7 @@ void main()
 				1,                 // missIndex
 				P,                 // ray origin
 				0.1,               // ray min range
-				normalize(vec3(2, 4, 1)),            // ray direction
+				lightDir,            // ray direction
 				10000,              // ray max range
 				1                  // payload (location = 1)
 	);
@@ -102,6 +126,11 @@ void main()
 		attenuation = 1.0;
 	}
 		
+    vec3 tangentSpaceNormal = normalize(2.0 * texture(textures[m.normalTexture], texCoord).rgb - 1.0);
+    vec3 finalNormal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
+
+    vec3 color = clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb;
+
 	hitValue = attenuation * color;
 	
 }

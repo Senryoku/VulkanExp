@@ -119,7 +119,7 @@ class Application {
 	VkQueue					 _graphicsQueue;
 	VkQueue					 _presentQueue;
 
-	Material::Texture _blankTexture;
+	Texture _blankTexture;
 
 	VkSwapchainKHR		   _swapChain;
 	std::vector<VkImage>   _swapChainImages;

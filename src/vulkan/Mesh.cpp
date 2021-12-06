@@ -30,7 +30,7 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 		} else if(line[0] == 'f') {
 			char* cur = line.data() + 2;
 			for(size_t i = 0; i < 3; ++i)												   // Supports only triangles.
-				_indices.push_back(static_cast<uint16_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
+				_indices.push_back(static_cast<uint32_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
 		} else {
 			warn("Unsupported OBJ command: '{}' (Full line: '{}')\n", line[0], line);
 		}

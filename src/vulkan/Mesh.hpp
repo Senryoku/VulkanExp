@@ -29,7 +29,7 @@ class Mesh {
 	}
 
 	size_t getVertexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
-	size_t getIndexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
+	size_t getIndexByteSize() const { return sizeof(_indices[0]) * _indices.size(); }
 
 	const Buffer& getVertexBuffer() const { return _vertexBuffer; }
 	const Buffer& getIndexBuffer() const { return _indexBuffer; }
@@ -40,9 +40,9 @@ class Mesh {
 	}
 
 	const std::vector<Vertex>&	 getVertices() const { return _vertices; }
-	const std::vector<uint16_t>& getIndices() const { return _indices; }
+	const std::vector<uint32_t>& getIndices() const { return _indices; }
 	std::vector<Vertex>&		 getVertices() { return _vertices; }
-	std::vector<uint16_t>&		 getIndices() { return _indices; }
+	std::vector<uint32_t>&		 getIndices() { return _indices; }
 
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
@@ -53,12 +53,12 @@ class Mesh {
 	Material* material = nullptr;
 
 	struct OffsetEntry {
-		VkDeviceSize vertexOffset;
-		VkDeviceSize indexOffset;
+		uint32_t vertexOffset;
+		uint32_t indexOffset;
 	};
 	static void allocate(const Device& device, const std::vector<Mesh>& meshes) {
-		size_t							  totalVertexSize = 0;
-		size_t							  totalIndexSize = 0;
+		uint32_t						  totalVertexSize = 0;
+		uint32_t						  totalIndexSize = 0;
 		std::vector<VkMemoryRequirements> memReqs;
 		std::vector<OffsetEntry>		  offsetTable;
 		for(const auto& m : meshes) {
@@ -66,7 +66,7 @@ class Mesh {
 			auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
-			offsetTable.push_back(OffsetEntry{totalVertexSize, totalIndexSize});
+			offsetTable.push_back(OffsetEntry{totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)), totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
 			totalVertexSize += vertexBufferMemReq.size;
 			totalIndexSize += indexBufferMemReq.size;
 		}
@@ -82,11 +82,13 @@ class Mesh {
 		VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
 		vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
 		IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
-		vkBindBufferMemory(device, IndexBuffer, VertexMemory, 0);
+		vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
 
 		OffsetTableSize = sizeof(OffsetEntry) * offsetTable.size();
 		OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, OffsetTableSize);
-		OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		// FIXME: Remove VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT and use a staging buffer.
+		OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
 	}
 
 	static void free() {
@@ -113,7 +115,7 @@ class Mesh {
 	Buffer _indexBuffer;
 
 	std::vector<Vertex>	  _vertices;
-	std::vector<uint16_t> _indices;
+	std::vector<uint32_t> _indices;
 
 	/* Box
 		_vertices = {{-0.5f, -0.5f, 0.f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, -0.5f, 0.f}, {0.0f, 1.0f, 0.0f}}, {{0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f, 0.f},

@@ -22,10 +22,10 @@ VkSamplerAddressMode glTFtoVkSamplerAddressMode(int e) {
 	return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 }
 
-void Material::uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
-	for(auto& tex : textures) {
-		auto  path = tex.second.source.lexically_normal().string();
-		auto& texR = tex.second;
+void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
+	for(auto& tex : Textures) {
+		auto  path = tex.source.lexically_normal().string();
+		auto& texR = tex;
 		if(!Images.contains(path)) {
 			STBImage image{texR.source.c_str()};
 			Images.try_emplace(path);

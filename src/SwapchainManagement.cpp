@@ -240,8 +240,8 @@ void Application::initSwapChain() {
 				.range = sizeof(UniformBufferObject),
 			};
 			VkDescriptorImageInfo imageInfo{
-				.sampler = *Materials[m].textures["baseColor"].sampler,
-				.imageView = Materials[m].textures["baseColor"].gpuImage->imageView,
+				.sampler = *Textures[Materials[m].albedoTexture].sampler,
+				.imageView = Textures[Materials[m].albedoTexture].gpuImage->imageView,
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			};
 
@@ -270,7 +270,7 @@ void Application::initSwapChain() {
 				.pTexelBufferView = nullptr,
 			});
 			// Use a blank texture if this mesh doesn't have a normal map
-			auto&				  normals = Materials[m].textures.contains("normal") ? Materials[m].textures["normal"] : _blankTexture;
+			auto&				  normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : _blankTexture;
 			VkDescriptorImageInfo normalInfo{
 				.sampler = *normals.sampler,
 				.imageView = normals.gpuImage->imageView,
@@ -315,7 +315,7 @@ void Application::recordCommandBuffers() {
 			for(const auto& m : _scene.getMeshes()) {
 				if(m.materialIndex == mIdx) {
 					_commandBuffers[i].bind<1>({m.getVertexBuffer()});
-					vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+					vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 					vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(m.getIndices().size()), 1, 0, 0, 0);
 				}
 			}

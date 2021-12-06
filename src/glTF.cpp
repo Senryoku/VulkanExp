@@ -48,7 +48,13 @@ void glTF::load(std::filesystem::path path) {
 		}
 	}
 
-	for(const auto& bufferDesc : object["textures"]) {}
+	for(const auto& texture : object["textures"]) {
+		Textures.push_back(Texture{
+			.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
+			.format = VK_FORMAT_R8G8B8A8_UNORM, // FIXME: Use this for normal maps only! (or not?)
+			.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
+		});
+	}
 
 	for(const auto& mat : object["materials"]) {
 		Material material;
@@ -56,25 +62,12 @@ void glTF::load(std::filesystem::path path) {
 		material.baseColorFactor = mat["pbrMetallicRoughness"]("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 		material.metallicFactor = mat["pbrMetallicRoughness"]("metallicFactor", 1.0f);
 		material.roughnessFactor = mat["pbrMetallicRoughness"]("roughnessFactor", 1.0f);
-		const auto& texture = object["textures"][mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>()];
-		material.textures["baseColor"] = Material::Texture{
-			.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-			.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
-		};
+		material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
 		if(mat.contains("normalTexture")) {
-			const auto& normalTexture = object["textures"][mat["normalTexture"]["index"].as<int>()];
-			material.textures["normal"] = Material::Texture{
-				.source = path.parent_path() / object["images"][normalTexture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_UNORM,
-				.samplerDescription = object["samplers"][normalTexture["sampler"].as<int>()].asObject(),
-			};
+			material.normalTexture = mat["normalTexture"]["index"].as<int>();
 		}
 		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-			const auto& metallicRoughnessTexture = object["textures"][mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>()];
-			material.textures["metallicRoughness"] = Material::Texture{
-				.source = path.parent_path() / object["images"][metallicRoughnessTexture["source"].as<int>()]["uri"].asString(),
-				.samplerDescription = object["samplers"][metallicRoughnessTexture["sampler"].as<int>()].asObject(),
-			};
+			material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
 		}
 		Materials.push_back(material);
 	}
