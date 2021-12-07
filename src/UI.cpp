@@ -54,7 +54,7 @@ void Application::initImGui(uint32_t queueFamily) {
 		.Device = _device,
 		.QueueFamily = queueFamily,
 		.Queue = _graphicsQueue,
-		.PipelineCache = VK_NULL_HANDLE,
+		.PipelineCache = _pipelineCache,
 		.DescriptorPool = _imguiDescriptorPool,
 		.MinImageCount = 2,
 		.ImageCount = static_cast<uint32_t>(_swapChainImages.size()),
@@ -84,7 +84,7 @@ void Application::drawUI() {
 	if(ImGui::Begin("Logs?")) {
 		ImGui::End();
 	}
-	if(ImGui::Begin("Scenes")) {
+	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
 		const auto						  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
@@ -106,7 +106,7 @@ void Application::drawUI() {
 		}
 		ImGui::End();
 	}
-	ImGui::SetNextWindowBgAlpha(0.35f);
+	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
 
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
@@ -121,14 +121,11 @@ void Application::drawUI() {
 		float ffar = _camera.getFar();
 		if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 30.f, 120.f))
 			_camera.setFoV(ffar);
-		/*
-		ImGui::DragFloat("Far Plane", &camera._farPlane, 1, 0.1f, 10000.f);
-		ImGui::DragFloat("Far Plane", &_farPlane, 1, 0.1f, 10000.f);
-		*/
 		const char* values[4]{"VK_PRESENT_MODE_IMMEDIATE_KHR", "VK_PRESENT_MODE_MAILBOX_KHR", "VK_PRESENT_MODE_FIFO_KHR", "VK_PRESENT_MODE_FIFO_RELAXED_KHR"};
 		int			curr_choice = static_cast<int>(_preferedPresentMode);
 		if(ImGui::Combo("Present Mode", &curr_choice, values, 4)) {
 			_preferedPresentMode = static_cast<VkPresentModeKHR>(curr_choice);
+			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
 		}
 		ImGui::End();
 	}

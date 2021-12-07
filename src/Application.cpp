@@ -2,6 +2,26 @@
 
 #include <vulkan/Extension.hpp>
 
+void Application::run() {
+	{
+		QuickTimer qt("glTF load");
+		_scene.load("./data/models/Sponza/Sponza.gltf");
+		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
+	}
+	{
+		QuickTimer qt("initWindow");
+		initWindow();
+	}
+	{
+		QuickTimer qt("initVulkan");
+		initVulkan();
+	}
+
+	mainLoop();
+
+	cleanup();
+}
+
 void Application::initWindow() {
 	if(!glfwInit())
 		error("Error intialising GLFW.\n");

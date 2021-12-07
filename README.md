@@ -1,9 +1,13 @@
 # VulkanExp
 
 ## Todos
- - Watch shaders source file for change and auto re-compile (maybe also recompile on startup if older than source) (https://github.com/ThomasMonkman/filewatch ?)
- - Setup clang-format, again -.-"
- - load glTF and animation
+ - Scene structure
+ - Better lightning model
+ - RT: Discard hit on transparency.
+ - GI. Irradiance Volumes?
+ - load glTF by drag&drop?
+ - Multisampling (Raster & RT)
+ - Rigging
 
 Build using Visual Studio 2019 with c++20 preview support (/std:c++latest)
  - Aggregate initialization

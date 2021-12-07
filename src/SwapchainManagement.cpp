@@ -117,10 +117,10 @@ void Application::createSwapChain() {
 void Application::initSwapChain() {
 	_renderPass.create(_device, _swapChainImageFormat, _depthFormat);
 
-	VkAttachmentReference color_attachment = {};
-	color_attachment.attachment = 0;
-	color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
+	VkAttachmentReference colorAttachment = {
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
 	_imguiRenderPass.create(_device,
 							std::array<VkAttachmentDescription, 1>{VkAttachmentDescription{
 								.format = _swapChainImageFormat,
@@ -135,14 +135,14 @@ void Application::initSwapChain() {
 							std::array<VkSubpassDescription, 1>{VkSubpassDescription{
 								.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 								.colorAttachmentCount = 1,
-								.pColorAttachments = &color_attachment,
+								.pColorAttachments = &colorAttachment,
 							}},
 							std::array<VkSubpassDependency, 1>{VkSubpassDependency{
 								.srcSubpass = VK_SUBPASS_EXTERNAL,
 								.dstSubpass = 0,
 								.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 								.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-								.srcAccessMask = 0,
+								.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 								.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 							}});
 
@@ -155,27 +155,9 @@ void Application::initSwapChain() {
 	};
 
 	DescriptorSetLayoutBuilder builder;
-	builder.add({
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.pImmutableSamplers = nullptr,
-	});
-	builder.add({
-		.binding = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.pImmutableSamplers = nullptr,
-	});
-	builder.add({
-		.binding = 2,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.pImmutableSamplers = nullptr,
-	});
+	builder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	_descriptorSetLayouts.push_back(builder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> layouts;

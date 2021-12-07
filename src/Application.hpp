@@ -66,23 +66,7 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMesse
 
 class Application {
   public:
-	void run() {
-		{
-			QuickTimer qt("glTF load");
-			//_scene.load("./data/models/Sponza/Sponza.gltf");
-			_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
-		}
-		{
-			QuickTimer qt("initWindow");
-			initWindow();
-		}
-		{
-			QuickTimer qt("initVulkan");
-			initVulkan();
-		}
-		mainLoop();
-		cleanup();
-	}
+	void run();
 
   private:
 	const uint32_t InitialWidth = 1280;
