@@ -2,26 +2,6 @@
 
 #include <vulkan/Extension.hpp>
 
-void Application::run() {
-	{
-		QuickTimer qt("glTF load");
-		_scene.load("./data/models/Sponza/Sponza.gltf");
-		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
-	}
-	{
-		QuickTimer qt("initWindow");
-		initWindow();
-	}
-	{
-		QuickTimer qt("initVulkan");
-		initVulkan();
-	}
-
-	mainLoop();
-
-	cleanup();
-}
-
 void Application::initWindow() {
 	if(!glfwInit())
 		error("Error intialising GLFW.\n");
@@ -41,6 +21,26 @@ void Application::initWindow() {
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 	glfwSetMouseButtonCallback(_window, mouse_button_callback);
 	glfwSetScrollCallback(_window, scroll_callback);
+}
+
+void Application::run() {
+	{
+		QuickTimer qt("glTF load");
+		//_scene.load("./data/models/Sponza/Sponza.gltf");
+		_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
+	}
+	{
+		QuickTimer qt("initWindow");
+		initWindow();
+	}
+	{
+		QuickTimer qt("initVulkan");
+		initVulkan();
+	}
+
+	mainLoop();
+
+	cleanup();
 }
 
 void Application::drawFrame() {

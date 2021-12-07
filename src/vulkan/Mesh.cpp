@@ -66,3 +66,39 @@ void Mesh::computeVertexNormals() {
 	for(auto& v : _vertices)
 		v.normal = glm::normalize(v.normal);
 }
+
+void Mesh::allocate(const Device& device, const std::vector<Mesh>& meshes) {
+	uint32_t						  totalVertexSize = 0;
+	uint32_t						  totalIndexSize = 0;
+	std::vector<VkMemoryRequirements> memReqs;
+	std::vector<OffsetEntry>		  offsetTable;
+	for(const auto& m : meshes) {
+		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
+		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
+		memReqs.push_back(vertexBufferMemReq);
+		memReqs.push_back(indexBufferMemReq);
+		offsetTable.push_back(
+			OffsetEntry{static_cast<uint32_t>(m.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)), totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
+		totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
+		totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
+	}
+	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
+	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
+	for(size_t i = 0; i < meshes.size(); ++i) {
+		vkBindBufferMemory(device, meshes[i].getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
+		NextVertexMemoryOffset += memReqs[2 * i].size;
+		vkBindBufferMemory(device, meshes[i].getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
+		NextIndexMemoryOffset += memReqs[2 * i + 1].size;
+	}
+	// Create views to the entire dataset
+	VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
+	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
+	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
+	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
+
+	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * offsetTable.size());
+	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, OffsetTableSize);
+	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	// FIXME: Remove VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT and use a staging buffer.
+	OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
+}

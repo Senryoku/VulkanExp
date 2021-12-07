@@ -32,10 +32,11 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
 	}
 
 	template<typename T>
-	void fill(const T* data, size_t size) const {
+	void fill(const T* data, size_t size, size_t offset = 0) const {
 		const auto sizeInBytes = sizeof(T) * size;
-		auto	   mappedMemory = map(sizeInBytes);
-		memcpy(mappedMemory, data, sizeInBytes);
+		const auto offsetInBytes = sizeof(T) * offset;
+		char*	   mappedMemory = static_cast<char*>(map(sizeInBytes));
+		memcpy(mappedMemory + offsetInBytes, data, sizeInBytes);
 		unmap();
 	}
 

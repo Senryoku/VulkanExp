@@ -1,5 +1,7 @@
 #include "Application.hpp"
 
+#include <ImGuiExtensions.hpp>
+
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -88,7 +90,9 @@ void Application::drawUI() {
 		const auto						  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
-				ImGui::Text("Todo: Display transform here.");
+				ImGui::Matrix("Transform", nodes[n].transform);
+				if(nodes[n].mesh != -1)
+					ImGui::Text("Mesh: %s", _scene.getMeshes()[nodes[n].mesh].name.c_str());
 				for(const auto& c : nodes[n].children) {
 					displayNode(c);
 				}

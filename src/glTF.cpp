@@ -16,31 +16,48 @@
 #include <vulkan/Material.hpp>
 
 template<>
-const glm::vec3& JSON::value::as<glm::vec3>() const {
+glm::vec3 JSON::value::to<glm::vec3>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 3);
-	return *reinterpret_cast<const glm::vec3*>(_value.as_array.data());
+	const auto& a = _value.as_array;
+	return glm::vec3{a[0].to<float>(), a[1].to<float>(), a[2].to<float>()};
 }
 
 template<>
-const glm::vec4& JSON::value::as<glm::vec4>() const {
+glm::vec4 JSON::value::to<glm::vec4>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 4);
-	return *reinterpret_cast<const glm::vec4*>(_value.as_array.data());
+	const auto& a = _value.as_array;
+	return glm::vec4{
+		a[0].to<float>(),
+		a[1].to<float>(),
+		a[2].to<float>(),
+		a[3].to<float>(),
+	};
 }
 
 template<>
-const glm::quat& JSON::value::as<glm::quat>() const {
+glm::quat JSON::value::to<glm::quat>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 4);
-	return *reinterpret_cast<const glm::quat*>(_value.as_array.data());
+	const auto& a = _value.as_array;
+	return glm::quat{
+		a[0].to<float>(),
+		a[1].to<float>(),
+		a[2].to<float>(),
+		a[3].to<float>(),
+	};
 }
 
 template<>
-const glm::mat4& JSON::value::as<glm::mat4>() const {
+glm::mat4 JSON::value::to<glm::mat4>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 16);
-	return *reinterpret_cast<const glm::mat4*>(_value.as_array.data());
+	const auto& a = _value.as_array;
+	return glm::mat4{
+		a[0].to<float>(), a[1].to<float>(), a[2].to<float>(),  a[3].to<float>(),  a[4].to<float>(),	 a[5].to<float>(),	a[6].to<float>(),  a[7].to<float>(),
+		a[8].to<float>(), a[9].to<float>(), a[10].to<float>(), a[11].to<float>(), a[12].to<float>(), a[13].to<float>(), a[14].to<float>(), a[15].to<float>(),
+	};
 }
 
 glTF::glTF(std::filesystem::path path) {
@@ -83,7 +100,7 @@ void glTF::load(std::filesystem::path path) {
 	for(const auto& mat : object["materials"]) {
 		Material material;
 		material.name = mat("name", std::string("NoName"));
-		material.baseColorFactor = mat["pbrMetallicRoughness"]("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+		material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 		material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
 		material.roughnessFactor = mat["pbrMetallicRoughness"]("roughnessFactor", 1.0f);
 		material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
@@ -97,10 +114,11 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	for(const auto& m : object["meshes"]) {
+		_meshes.push_back({});
+		Mesh& mesh = _meshes.back();
+		mesh.name = m("name", std::string("NoName"));
 		const auto& primitives = m["primitives"];
 		for(const auto& p : primitives) {
-			_meshes.push_back({});
-			Mesh& mesh = _meshes.back();
 			if(p.asObject().contains("material")) {
 				mesh.materialIndex = p["material"].as<int>();
 				mesh.material = &Materials[p["material"].as<int>()];
@@ -210,16 +228,19 @@ void glTF::load(std::filesystem::path path) {
 		Node n;
 		n.name = node("name", std::string("Unamed Node"));
 		if(node.contains("matrix")) {
-			n.transform = node["matrix"].as<glm::mat4>();
+			n.transform = node["matrix"].to<glm::mat4>();
 		} else {
-			n.transform =
-				glm::translate(glm::toMat4(node("rotation", glm::quat())) * glm::scale(glm::mat4(1.0f), node("scale", glm::vec3(1.0))), node("translation", glm::vec3(0.0f)));
+			auto scale = glm::scale(glm::mat4(1.0f), node.get("scale", glm::vec3(1.0)));
+			auto rotation = glm::toMat4(node.get("rotation", glm::quat(0, 0, 0, 1)));
+			auto translation = glm::translate(glm::mat4(1.0f), node.get("translation", glm::vec3(0.0f)));
+			n.transform = translation * rotation * scale;
 		}
 		if(node.contains("children")) {
 			for(const auto& c : node["children"]) {
 				n.children.push_back(c.as<int>());
 			}
 		}
+		n.mesh = node("mesh", -1);
 		_nodes.push_back(n);
 	}
 
@@ -233,6 +254,8 @@ void glTF::load(std::filesystem::path path) {
 		}
 		_scenes.push_back(s);
 	}
+
+	_defaultScene = object("scene", 0);
 }
 
 glTF::~glTF() {}

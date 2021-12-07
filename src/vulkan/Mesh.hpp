@@ -28,80 +28,39 @@ class Mesh {
 		_indexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, indexDataSize, queue);
 	}
 
-	size_t getVertexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
-	size_t getIndexByteSize() const { return sizeof(_indices[0]) * _indices.size(); }
+	inline size_t getVertexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
+	inline size_t getIndexByteSize() const { return sizeof(_indices[0]) * _indices.size(); }
 
-	const Buffer& getVertexBuffer() const { return _vertexBuffer; }
-	const Buffer& getIndexBuffer() const { return _indexBuffer; }
+	inline const Buffer& getVertexBuffer() const { return _vertexBuffer; }
+	inline const Buffer& getIndexBuffer() const { return _indexBuffer; }
 
 	void destroy() {
 		_indexBuffer.destroy();
 		_vertexBuffer.destroy();
 	}
 
-	const std::vector<Vertex>&	 getVertices() const { return _vertices; }
-	const std::vector<uint32_t>& getIndices() const { return _indices; }
-	std::vector<Vertex>&		 getVertices() { return _vertices; }
-	std::vector<uint32_t>&		 getIndices() { return _indices; }
+	inline const std::vector<Vertex>&	getVertices() const { return _vertices; }
+	inline const std::vector<uint32_t>& getIndices() const { return _indices; }
+	inline std::vector<Vertex>&			getVertices() { return _vertices; }
+	inline std::vector<uint32_t>&		getIndices() { return _indices; }
 
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
 	void computeVertexNormals();
 
-	// FIXME
-	size_t	  materialIndex = 0;
-	Material* material = nullptr;
+	// FIXME: Probably only use the index?
+	size_t		materialIndex = 0;
+	Material*	material = nullptr;
+	std::string name;
 
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Static stuff I should get rid of :)
+	// TODO: Move this to a Scene class, probably
 	struct OffsetEntry {
 		uint32_t materialIndex;
 		uint32_t vertexOffset;
 		uint32_t indexOffset;
 	};
-	static void allocate(const Device& device, const std::vector<Mesh>& meshes) {
-		uint32_t						  totalVertexSize = 0;
-		uint32_t						  totalIndexSize = 0;
-		std::vector<VkMemoryRequirements> memReqs;
-		std::vector<OffsetEntry>		  offsetTable;
-		for(const auto& m : meshes) {
-			auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
-			auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
-			memReqs.push_back(vertexBufferMemReq);
-			memReqs.push_back(indexBufferMemReq);
-			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
-											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
-			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
-			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
-		}
-		VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
-		IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
-		for(size_t i = 0; i < meshes.size(); ++i) {
-			vkBindBufferMemory(device, meshes[i].getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
-			NextVertexMemoryOffset += memReqs[2 * i].size;
-			vkBindBufferMemory(device, meshes[i].getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
-			NextIndexMemoryOffset += memReqs[2 * i + 1].size;
-		}
-		// Create views to the entire dataset
-		VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
-		vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
-		IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
-		vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
-
-		OffsetTableSize = sizeof(OffsetEntry) * offsetTable.size();
-		OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, OffsetTableSize);
-		OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		// FIXME: Remove VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT and use a staging buffer.
-		OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
-	}
-
-	static void free() {
-		OffsetTableBuffer.destroy();
-		IndexBuffer.destroy();
-		VertexBuffer.destroy();
-		OffsetTableMemory.free();
-		VertexMemory.free();
-		IndexMemory.free();
-	}
-	// TODO: Move this to a Scene class, probably
 	inline static DeviceMemory OffsetTableMemory;
 	inline static DeviceMemory VertexMemory;
 	inline static DeviceMemory IndexMemory;
@@ -111,6 +70,17 @@ class Mesh {
 	inline static Buffer	   VertexBuffer;
 	inline static Buffer	   IndexBuffer;
 	inline static uint32_t	   OffsetTableSize;
+	// Allocate memory for ALL currently loaded Meshes (FIXME: Move this elsewhere)
+	static void allocate(const Device& device, const std::vector<Mesh>& meshes);
+	static void free() {
+		OffsetTableBuffer.destroy();
+		IndexBuffer.destroy();
+		VertexBuffer.destroy();
+		OffsetTableMemory.free();
+		VertexMemory.free();
+		IndexMemory.free();
+	}
+	///////////////////////////////////////////////////////////////////////////////////////
 
   private:
 	Buffer _vertexBuffer;
@@ -118,11 +88,4 @@ class Mesh {
 
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
-
-	/* Box
-		_vertices = {{-0.5f, -0.5f, 0.f}, {1.0f, 0.0f, 0.0f}}, {{0.5f, -0.5f, 0.f}, {0.0f, 1.0f, 0.0f}}, {{0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}}, {{-0.5f, 0.5f, 0.f},
-	   {1.0f, 1.0f, 1.0f}};
-
-		_indices = {0, 1, 2, 2, 3, 0};
-	 */
 };

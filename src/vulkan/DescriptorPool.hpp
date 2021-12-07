@@ -2,24 +2,15 @@
 
 #include <stdexcept>
 
+#include "DescriptorSetLayout.hpp"
 #include "HandleWrapper.hpp"
 
 class DescriptorPool : public HandleWrapper<VkDescriptorPool> {
   public:
 	DescriptorPool() = default;
 	DescriptorPool(const DescriptorPool&) = delete;
-	DescriptorPool(DescriptorPool&& p) noexcept : HandleWrapper(p._handle), _device(p._device), _descriptorSets(std::move(p._descriptorSets)) {
-		p._handle = VK_NULL_HANDLE;
-		p._device = VK_NULL_HANDLE;
-	}
-	DescriptorPool& operator=(DescriptorPool&& p) noexcept {
-		_handle = p._handle;
-		_device = p._device;
-		_descriptorSets = std::move(p._descriptorSets);
-		p._handle = VK_NULL_HANDLE;
-		p._device = VK_NULL_HANDLE;
-		return *this;
-	}
+	DescriptorPool(DescriptorPool&& p) noexcept;
+	DescriptorPool& operator=(DescriptorPool&& p) noexcept;
 	~DescriptorPool() { destroy(); }
 
 	template<int N>

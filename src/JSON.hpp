@@ -62,6 +62,12 @@ class JSON {
 			int	  as_int = 0;
 			float as_float;
 		} _value;
+		// FIXME: This union causes a lot of problem. We can't automatically cast number parsed as integer (because they had no decimal point in the file) to float
+		// automatically and return a reference to, forcing the use of the to() and get(). This is extremely confusing from a user point of view and may lead to difficult-to-fix
+		// bugs (integers interpreted as float and vice-versa). Possible fixes:
+		// - Store both representations at all times (more moery; prevents casting array of floats to vec4 quickly for example)
+		// - Store only the float representation. I think this is what javascript actually does. May cause problems when writing to files (which we can't do right now), even if we
+		// keep the _type field (or not, not sure about this one.)
 	};
 
 	using string = std::string;
