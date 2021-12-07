@@ -8,8 +8,12 @@
 #include "Material.hpp"
 #include "Vertex.hpp"
 
-class Mesh {
+class SubMesh {
   public:
+	SubMesh() = default;
+	SubMesh(const SubMesh&) = delete;
+	SubMesh(SubMesh&&) noexcept = default;
+
 	void init(const Device& device) {
 		const auto indexDataSize = getIndexByteSize();
 		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -53,6 +57,27 @@ class Mesh {
 	Material*	material = nullptr;
 	std::string name;
 
+  private:
+	Buffer _vertexBuffer;
+	Buffer _indexBuffer;
+
+	std::vector<Vertex>	  _vertices;
+	std::vector<uint32_t> _indices;
+};
+
+class Mesh {
+  public:
+	Mesh() = default;
+	Mesh(const Mesh&) = delete;
+	Mesh(Mesh&&) = default;
+
+	std::string			 name;
+	std::vector<SubMesh> SubMeshes;
+
+	void destroy() { SubMeshes.clear(); }
+
+	~Mesh() { destroy(); }
+
 	///////////////////////////////////////////////////////////////////////////////////////
 	// Static stuff I should get rid of :)
 	// TODO: Move this to a Scene class, probably
@@ -81,11 +106,4 @@ class Mesh {
 		IndexMemory.free();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////
-
-  private:
-	Buffer _vertexBuffer;
-	Buffer _indexBuffer;
-
-	std::vector<Vertex>	  _vertices;
-	std::vector<uint32_t> _indices;
 };

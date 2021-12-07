@@ -102,7 +102,7 @@ void glTF::load(std::filesystem::path path) {
 		material.name = mat("name", std::string("NoName"));
 		material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 		material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-		material.roughnessFactor = mat["pbrMetallicRoughness"]("roughnessFactor", 1.0f);
+		material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
 		material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
 		if(mat.contains("normalTexture")) {
 			material.normalTexture = mat["normalTexture"]["index"].as<int>();
@@ -114,20 +114,17 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	for(const auto& m : object["meshes"]) {
-		_meshes.push_back({});
-		Mesh& mesh = _meshes.back();
+		auto& mesh = _meshes.emplace_back();
 		mesh.name = m("name", std::string("NoName"));
-		const auto& primitives = m["primitives"];
-		for(const auto& p : primitives) {
+		for(const auto& p : m["primitives"]) {
+			auto& submesh = mesh.SubMeshes.emplace_back();
+			submesh.name = m("name", std::string("NoName"));
 			if(p.asObject().contains("material")) {
-				mesh.materialIndex = p["material"].as<int>();
-				mesh.material = &Materials[p["material"].as<int>()];
+				submesh.materialIndex = p["material"].as<int>();
+				submesh.material = &Materials[p["material"].as<int>()];
 			}
 
-			Primitive primitive{
-				.mode = static_cast<RenderingMode>(p.asObject().contains("mode") ? p["mode"].as<int>() : 0),
-				.material = static_cast<size_t>(p["material"].as<int>()),
-			};
+			assert(p["mode"].as<int>() == 4); // We only supports triangles
 			const auto& positionAccessor = object["accessors"][p["attributes"]["POSITION"].as<int>()];
 			const auto& positionBufferView = object["bufferViews"][positionAccessor["bufferView"].as<int>()];
 			const auto& positionBuffer = buffers[positionBufferView["buffer"].as<int>()];
@@ -186,7 +183,7 @@ void glTF::load(std::filesystem::path path) {
 
 					v.texCoord = *reinterpret_cast<const glm::vec2*>(texCoordBuffer.data() + texCoordCursor);
 					texCoordCursor += texCoordStride;
-					mesh.getVertices().push_back(v);
+					submesh.getVertices().push_back(v);
 				}
 			} else {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
@@ -214,7 +211,7 @@ void glTF::load(std::filesystem::path path) {
 						default: assert(false);
 					}
 					idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
-					mesh.getIndices().push_back(idx);
+					submesh.getIndices().push_back(idx);
 					cursor += stride;
 				}
 
@@ -231,10 +228,11 @@ void glTF::load(std::filesystem::path path) {
 			n.transform = node["matrix"].to<glm::mat4>();
 		} else {
 			auto scale = glm::scale(glm::mat4(1.0f), node.get("scale", glm::vec3(1.0)));
-			auto rotation = glm::toMat4(node.get("rotation", glm::quat(0, 0, 0, 1)));
+			auto rotation = glm::toMat4(node.get("rotation", glm::quat(1, 0, 0, 0)));
 			auto translation = glm::translate(glm::mat4(1.0f), node.get("translation", glm::vec3(0.0f)));
 			n.transform = translation * rotation * scale;
 		}
+
 		if(node.contains("children")) {
 			for(const auto& c : node["children"]) {
 				n.children.push_back(c.as<int>());

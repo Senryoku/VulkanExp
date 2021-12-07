@@ -182,22 +182,19 @@ void Application::initSwapChain() {
 
 	// Uniform buffers init
 	{
-		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-		_uniformBuffers.resize(_swapChainImages.size());
-
+		VkDeviceSize bufferSize = sizeof(CameraBuffer);
+		_cameraUniformBuffers.resize(_swapChainImages.size());
 		for(size_t i = 0; i < _swapChainImages.size(); i++)
-			_uniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
-
-		auto   memReq = _uniformBuffers[0].getMemoryRequirements();
+			_cameraUniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
+		auto   memReq = _cameraUniformBuffers[0].getMemoryRequirements();
 		size_t memSize = (2 + _swapChainImages.size() * bufferSize / memReq.alignment) * memReq.alignment;
-		_uniformBuffersMemory.allocate(_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-									   memSize);
+		_cameraUniformBuffersMemory.allocate(
+			_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), memSize);
 		size_t offset = 0;
+		_uboStride = (1 + bufferSize / memReq.alignment) * memReq.alignment;
 		for(size_t i = 0; i < _swapChainImages.size(); i++) {
-			vkBindBufferMemory(_device, _uniformBuffers[i], _uniformBuffersMemory, offset);
-			offset += bufferSize;
-			offset = (1 + offset / memReq.alignment) * memReq.alignment;
+			vkBindBufferMemory(_device, _cameraUniformBuffers[i], _cameraUniformBuffersMemory, offset);
+			offset += _uboStride;
 		}
 	}
 
@@ -216,10 +213,10 @@ void Application::initSwapChain() {
 
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {
-			VkDescriptorBufferInfo bufferInfo{
-				.buffer = _uniformBuffers[i],
+			VkDescriptorBufferInfo cameraBufferInfo{
+				.buffer = _cameraUniformBuffers[i],
 				.offset = 0,
-				.range = sizeof(UniformBufferObject),
+				.range = sizeof(CameraBuffer),
 			};
 			VkDescriptorImageInfo imageInfo{
 				.sampler = *Textures[Materials[m].albedoTexture].sampler,
@@ -237,7 +234,7 @@ void Application::initSwapChain() {
 				.descriptorCount = 1,
 				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				.pImageInfo = nullptr,
-				.pBufferInfo = &bufferInfo,
+				.pBufferInfo = &cameraBufferInfo,
 				.pTexelBufferView = nullptr,
 			});
 			descriptorWrites.push_back(VkWriteDescriptorSet{
@@ -290,18 +287,24 @@ void Application::recordCommandBuffers() {
 		b.beginRenderPass(_renderPass, _swapChainFramebuffers[i], _swapChainExtent);
 		_pipeline.bind(b);
 
-		// Trying to regroup meshses by material to gain some perfomance: No gain :^)
-		for(size_t mIdx = 0; mIdx < Materials.size(); ++mIdx) {
-			vkCmdBindDescriptorSets(_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1,
-									&_descriptorPool.getDescriptorSets()[i * Materials.size() + mIdx], 0, nullptr);
-			for(const auto& m : _scene.getMeshes()) {
-				if(m.materialIndex == mIdx) {
-					_commandBuffers[i].bind<1>({m.getVertexBuffer()});
-					vkCmdBindIndexBuffer(_commandBuffers[i], m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-					vkCmdDrawIndexed(_commandBuffers[i], static_cast<uint32_t>(m.getIndices().size()), 1, 0, 0, 0);
+		const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
+			transform = transform * n.transform;
+
+			if(n.mesh != -1) {
+				for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
+					vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline.getLayout(), 0, 1,
+											&_descriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
+					vkCmdPushConstants(b, _pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &transform);
+					b.bind<1>({submesh.getVertexBuffer()});
+					vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+					vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
 				}
 			}
-		}
+
+			for(const auto& c : n.children)
+				visitNode(_scene.getNodes()[c], transform);
+		};
+		visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
 		b.endRenderPass();
 		b.end();
@@ -337,9 +340,9 @@ void Application::cleanupSwapChain() {
 	_imguiCommandBuffers.free();
 	_imguiRenderPass.destroy();
 
-	for(auto& b : _uniformBuffers)
+	for(auto& b : _cameraUniformBuffers)
 		b.destroy();
-	_uniformBuffersMemory.free();
+	_cameraUniformBuffersMemory.free();
 	_descriptorPool.destroy();
 	_swapChainFramebuffers.clear();
 

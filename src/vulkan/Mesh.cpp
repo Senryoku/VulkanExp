@@ -8,7 +8,7 @@
 #include <Logger.hpp>
 #include <stringutils.hpp>
 
-bool Mesh::loadOBJ(const std::filesystem::path& path) {
+bool SubMesh::loadOBJ(const std::filesystem::path& path) {
 	std::ifstream file{path};
 
 	_vertices.clear();
@@ -38,7 +38,7 @@ bool Mesh::loadOBJ(const std::filesystem::path& path) {
 	return true;
 }
 
-void Mesh::normalizeVertices() {
+void SubMesh::normalizeVertices() {
 	glm::vec3 acc{0};
 	for(const auto& v : _vertices)
 		acc += v.pos;
@@ -47,7 +47,7 @@ void Mesh::normalizeVertices() {
 		v.pos -= acc;
 }
 
-void Mesh::computeVertexNormals() {
+void SubMesh::computeVertexNormals() {
 	// Here, normals are the average of adjacent triangles' normals
 	// (so we have exactly one normal per vertex)
 	for(auto& v : _vertices)
@@ -73,22 +73,28 @@ void Mesh::allocate(const Device& device, const std::vector<Mesh>& meshes) {
 	std::vector<VkMemoryRequirements> memReqs;
 	std::vector<OffsetEntry>		  offsetTable;
 	for(const auto& m : meshes) {
-		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
-		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
-		memReqs.push_back(vertexBufferMemReq);
-		memReqs.push_back(indexBufferMemReq);
-		offsetTable.push_back(
-			OffsetEntry{static_cast<uint32_t>(m.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)), totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
-		totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
-		totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
+		for(const auto& sm : m.SubMeshes) {
+			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
+			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
+			memReqs.push_back(vertexBufferMemReq);
+			memReqs.push_back(indexBufferMemReq);
+			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
+											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
+			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
+			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
+		}
 	}
 	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
 	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
-	for(size_t i = 0; i < meshes.size(); ++i) {
-		vkBindBufferMemory(device, meshes[i].getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
-		NextVertexMemoryOffset += memReqs[2 * i].size;
-		vkBindBufferMemory(device, meshes[i].getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
-		NextIndexMemoryOffset += memReqs[2 * i + 1].size;
+	size_t submeshIdx = 0;
+	for(const auto& m : meshes) {
+		for(const auto& sm : m.SubMeshes) {
+			vkBindBufferMemory(device, sm.getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
+			NextVertexMemoryOffset += memReqs[2 * submeshIdx].size;
+			vkBindBufferMemory(device, sm.getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
+			NextIndexMemoryOffset += memReqs[2 * submeshIdx + 1].size;
+			++submeshIdx;
+		}
 	}
 	// Create views to the entire dataset
 	VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);

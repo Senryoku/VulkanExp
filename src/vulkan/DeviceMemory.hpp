@@ -23,7 +23,7 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
 	void allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex, VkMemoryAllocateFlags flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 	void free();
 
-	[[nodiscard]] void* map(size_t size) const;
+	[[nodiscard]] void* map(size_t size, size_t offset = 0) const;
 	void				unmap() const;
 
 	template<typename T>
@@ -35,8 +35,8 @@ class DeviceMemory : public HandleWrapper<VkDeviceMemory> {
 	void fill(const T* data, size_t size, size_t offset = 0) const {
 		const auto sizeInBytes = sizeof(T) * size;
 		const auto offsetInBytes = sizeof(T) * offset;
-		char*	   mappedMemory = static_cast<char*>(map(sizeInBytes));
-		memcpy(mappedMemory + offsetInBytes, data, sizeInBytes);
+		auto	   mappedMemory = map(sizeInBytes, offsetInBytes);
+		memcpy(mappedMemory, data, sizeInBytes);
 		unmap();
 	}
 

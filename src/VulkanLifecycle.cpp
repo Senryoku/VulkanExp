@@ -30,10 +30,11 @@ void Application::initVulkan() {
 	{
 		QuickTimer qt("Mesh Generation");
 		size_t	   buffSize = 0;
-		for(auto& m : _scene.getMeshes()) {
-			if(m.getVertexByteSize() > buffSize)
-				buffSize = m.getVertexByteSize();
-		}
+		for(const auto& m : _scene.getMeshes())
+			for(const auto& sm : m.SubMeshes) {
+				if(sm.getVertexByteSize() > buffSize)
+					buffSize = sm.getVertexByteSize();
+			}
 		// Prepare staging memory
 		Buffer		 stagingBuffer;
 		DeviceMemory stagingMemory;
@@ -41,11 +42,13 @@ void Application::initVulkan() {
 		auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
 		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		for(auto& m : _scene.getMeshes()) {
-			m.init(_device); // Pepare the final buffers
+			for(auto& sm : m.SubMeshes)
+				sm.init(_device); // Pepare the final buffers
 		}
 		Mesh::allocate(_device, _scene.getMeshes()); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes()) {
-			m.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
+			for(auto& sm : m.SubMeshes)
+				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 		}
 		uploadTextures(_device, graphicsFamily);
 	}
@@ -105,18 +108,8 @@ void Application::createInstance() {
 		.apiVersion = VK_API_VERSION_1_2,
 	};
 
-	if(_enableValidationLayers && !checkValidationLayerSupport()) {
-		throw std::runtime_error("validation layers requested, but not available!");
-	}
-	/*
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-	fmt::print("Available vulkan extensions ({}):\n", extensionCount);
-	for(uint32_t i = 0; i < extensionCount; ++i)
-		fmt::print("\t{}\n", extensions[i].extensionName);
-	*/
+	if(_enableValidationLayers && !checkValidationLayerSupport())
+		throw std::runtime_error("Validation layers requested, but not available!");
 
 	uint32_t	 glfwExtensionCount = 0;
 	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -136,15 +129,7 @@ void Application::createInstance() {
 		.ppEnabledExtensionNames = requestedExtensions.data(),
 	};
 
-	auto result = vkCreateInstance(&createInfo, nullptr, &_instance);
-	if(result != VK_SUCCESS) {
-		throw std::runtime_error(fmt::format("Failed to create Vulkan Instance (Error: {}).", result));
-	}
-	/*
-	fmt::print("Created Vulkan Instance with {} extensions:\n", glfwExtensionCount);
-	for(uint32_t i = 0; i < glfwExtensionCount; ++i)
-		fmt::print("\t{}\n", glfwExtensions[i]);
-	*/
+	VK_CHECK(vkCreateInstance(&createInfo, nullptr, &_instance));
 }
 
 void Application::cleanupVulkan() {

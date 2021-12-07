@@ -41,8 +41,7 @@
 #include <imgui_impl_vulkan.h>
 #include <vulkan/PipelineCache.hpp>
 
-struct UniformBufferObject {
-	glm::mat4 model;
+struct CameraBuffer {
 	glm::mat4 view;
 	glm::mat4 proj;
 };
@@ -131,8 +130,9 @@ class Application {
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
 
-	std::vector<Buffer> _uniformBuffers;
-	DeviceMemory		_uniformBuffersMemory;
+	size_t				_uboStride = 0;
+	std::vector<Buffer> _cameraUniformBuffers;
+	DeviceMemory		_cameraUniformBuffersMemory;
 
 	DescriptorPool _descriptorPool;
 

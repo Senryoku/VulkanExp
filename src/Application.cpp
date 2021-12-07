@@ -26,8 +26,8 @@ void Application::initWindow() {
 void Application::run() {
 	{
 		QuickTimer qt("glTF load");
-		//_scene.load("./data/models/Sponza/Sponza.gltf");
-		_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
+		_scene.load("./data/models/Sponza/Sponza.gltf");
+		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
 	{
 		QuickTimer qt("initWindow");
@@ -175,16 +175,15 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	_camera.updateView();
 	_camera.updateProjection(_swapChainExtent.width / (float)_swapChainExtent.height);
 
-	UniformBufferObject ubo{
-		.model = glm::mat4(1.0f),
+	CameraBuffer ubo{
 		.view = _camera.getViewMatrix(),
 		.proj = _camera.getProjectionMatrix(),
 	};
 	ubo.proj[1][1] *= -1;
 
 	void*  data;
-	size_t offset = static_cast<size_t>(currentImage) * 256; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
-	VK_CHECK(vkMapMemory(_device, _uniformBuffersMemory, offset, sizeof(ubo), 0, &data));
+	size_t offset = static_cast<size_t>(currentImage) * _uboStride; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
+	VK_CHECK(vkMapMemory(_device, _cameraUniformBuffersMemory, offset, sizeof(ubo), 0, &data));
 	memcpy(data, &ubo, sizeof(ubo));
-	vkUnmapMemory(_device, _uniformBuffersMemory);
+	vkUnmapMemory(_device, _cameraUniformBuffersMemory);
 }

@@ -11,13 +11,13 @@
 class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
   public:
 	template<class C>
-	void create(VkDevice device, const C& descriptorSetLayouts = {}) {
+	void create(VkDevice device, const C& descriptorSetLayouts = {}, const std::vector<VkPushConstantRange> pushConstants = {}) {
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-			.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),					// Optional
-			.pSetLayouts = descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr, // Optional
-			.pushConstantRangeCount = 0,															// Optional
-			.pPushConstantRanges = nullptr,															// Optional
+			.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
+			.pSetLayouts = descriptorSetLayouts.size() > 0 ? descriptorSetLayouts.data() : nullptr,
+			.pushConstantRangeCount = static_cast<uint32_t>(pushConstants.size()),
+			.pPushConstantRanges = pushConstants.size() > 0 ? pushConstants.data() : nullptr,
 		};
 		create(device, pipelineLayoutInfo);
 	}
@@ -147,7 +147,13 @@ class Pipeline : public HandleWrapper<VkPipeline> {
 			.pDynamicStates = dynamicStates,
 		};
 
-		_pipelineLayout.create(device, descriptorSetLayouts);
+		std::vector<VkPushConstantRange> pushConstants{{
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+			.offset = 0,
+			.size = sizeof(glm::mat4),
+		}};
+
+		_pipelineLayout.create(device, descriptorSetLayouts, pushConstants);
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{
 			.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

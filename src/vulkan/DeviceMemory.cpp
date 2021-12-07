@@ -44,9 +44,9 @@ void DeviceMemory::free() {
 	}
 }
 
-[[nodiscard]] void* DeviceMemory::map(size_t size) const {
+[[nodiscard]] void* DeviceMemory::map(size_t size, size_t offset) const {
 	void* data;
-	VK_CHECK(vkMapMemory(_device, _handle, 0, size, 0, &data));
+	VK_CHECK(vkMapMemory(_device, _handle, offset, size, 0, &data));
 	return data;
 }
 

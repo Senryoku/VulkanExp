@@ -4,6 +4,8 @@
 
 ### Major Features
  - Scene structure
+ - - Uniform Buffer all Model Matrices
+ - - Push Constant of an Index into this buffer
  - Better lightning model
  - Glossy lightning term by raytracing the entire screen first reflect bounce and then sampling that texture (using mipmaps for roughness approximation)
  - GI. Irradiance Probes for Indirect lightning.
