@@ -28,8 +28,8 @@ void Application::initWindow() {
 
 	glfwWindowHint(GLFW_CLIENT_API,
 				   GLFW_NO_API); // Opt-out of creating an OpenGL Context
+	// glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, 1);
 	// glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, 1);
 	// glfwWindowHint(GLFW_DECORATED, false);
 
 	_window = glfwCreateWindow(InitialWidth, InitialHeight, "VulkanExp", nullptr, nullptr);
