@@ -110,7 +110,9 @@ Breaking Changes:
 
 Other Changes:
 
-- Added IsMouseTripleClicked() function. Tracking multi-click count in IO structure. (#3229) [@kudaba]
+- Added GetMouseClickedCount() function, returning the number of successive clicks. (#3229) [@kudaba]
+  (so IsMouseDoubleClicked(ImGuiMouseButton_Left) is same as GetMouseClickedCount(ImGuiMouseButton_Left) == 2,
+  but it allows testing for triple clicks and more).
 - Modals: fixed issue hovering popups inside a child inside a modal. (#4676, #4527)
 - Fixed IsWindowFocused()/IsWindowHovered() issues with childs inside popups. (#4676)
 - Nav: Ctrl+tabbing to cycle through windows is now enabled regardless of using the _NavEnableKeyboard
@@ -125,30 +127,55 @@ Other Changes:
   Home/End leads to scrolling. Fixed not setting mouse position when a failed move request (e.g. when
   already at edge) reactivates the navigation highlight.
 - InputText, Nav: fixed repeated calls to SetKeyboardFocusHere() preventing to use InputText(). (#4682)
+- Inputtext, Nav: fixed using SetKeyboardFocusHere() on InputTextMultiline(). (#4761)
 - InputText: made double-click select word, triple-line select line. Word delimitation logic differs
   slightly from the one used by CTRL+arrows. (#2244)
+- InputText: fixed ReadOnly flag preventing callbacks from receiving the text buffer. (#4762) [@actondev]
+- Separator: fixed cover all columns while called inside a table. (#4787)
 - Clipper: currently focused item is automatically included in clipper range.
   Fixes issue where e.g. drag and dropping an item and scrolling ensure the item source location is
   still submitted. (#3841, #1725) [@GamingMinds-DanielC, @ocornut]
-- Cliooer: added ForceDisplayRangeByIndices() to force a given item (or several) to be stepped out
+- Clipper: added ForceDisplayRangeByIndices() to force a given item (or several) to be stepped out
   during a clipping operation. (#3841) [@@GamingMinds-DanielC]
 - Clipper: rework so gamepad/keyboard navigation doesn't create spikes in number of items requested
   by the clipper to display. (#3841)
 - Clipper: fixed content height declaration slightly mismatching the value of when not using a clipper.
   (an additional ItemSpacing.y was declared, affecting scrollbar range).
+- Clipper: various and incomplete changes to tame down scrolling and precision issues on very large ranges.
+  Passing an explicit height to the clipper now allows larger ranges. (#3609, #3962).
+- Clipper: fixed invalid state when number of frozen table row is smaller than ItemCount.
+- Drag and Drop: BeginDragDropSource() with ImGuiDragDropFlags_SourceAllowNullID doesn't lose
+  tooltip when scrolling. (#143)
+- Metrics: Added a node showing windows in submission order and showing the Begin() stack.
+- Misc: Added missing ImGuiMouseCursor_NotAllowed cursor for software rendering (when the
+  io.MouseDrawCursor flag is enabled). (#4713) [@nobody-special666]
+- Misc: Fixed software mouse cursor being rendered multiple times if Render() is called more than once.
+- Misc: Fix MinGW DLL build issue (when IMGUI_API is defined). [@rokups]
+- CI: Add MinGW DLL build to test suite. [@rokups]
 - Backends: Vulkan: Call vkCmdSetScissor() at the end of render with a full-viewport to reduce
   likehood of issues with people using VK_DYNAMIC_STATE_SCISSOR in their app without calling
   vkCmdSetScissor() explicitly every frame. (#4644)
-- Misc: Fix MinGW DLL build issue (when IMGUI_API is defined). [@rokups]
-- CI: Add MinGW DLL build to test suite. [@rokups]
+- Backends: DX12: Fixed DRAW_EMPTY_SCISSOR_RECTANGLE warnings. (#4775)
+- Backends: SDL_Renderer: Added support for large meshes (64k+ vertices) with 16-bit indices,
+  enabling 'ImGuiBackendFlags_RendererHasVtxOffset' in the backend. (#3926) [@rokups]
+- Backends: WebGPU: Passing explicit buffer sizes to wgpuRenderPassEncoderSetVertexBuffer() and
+  wgpuRenderPassEncoderSetIndexBuffer() functions as validation layers appears to not do what the
+  in-flux specs says. (#4766) [@meshula]
 
 Docking+Viewports Branch:
 
 - Docking: Revert removal of io.ConfigDockingWithShift config option (removed in 1.83). (#4643)
+- Docking: Fixed a bug undocking windows docked into a non-visible or _KeepAliveOnly dockspace
+  when unrelated windows submitted before the dockspace have dynamic visibility. (#4757)
+- Docking, Style: Docked windows honor ImGuiCol_WindowBg. (#2700, #2539)
+- Docking, Style: Docked windows honor display their border properly. (#2522)
+- Docking: Fixed incorrectly rounded tab bars for dock node that are not at the top of their dock tree.
+- Docking: Fixed single-frame node pos/size inconsistencies when window stop or start being submitted.
 - Viewports: Made it possible to explicitly assign ImGuiWindowClass::ParentViewportId to 0 in order
   to ensure a window is not parented. Previously this would use the global default (which might be 0,
   but not always as it would depend on io.ConfigViewportsNoDefaultParent). (#3152, #2871)
 - Viewports: Fixed tooltip in own viewport over modal from being incorrectly dimmed. (#4729)
+- Viewports: Fixed CTRL+TAB highlight outline on docked windows not always fitting in host viewport.
 - Backends: Made it possible to shutdown default Platform Backends before the Renderer backends. (#4656)
 - Disabled: Fixed nested BeginDisabled()/EndDisabled() bug in Docking branch due to bad merge. (#4655, #4452, #4453, #4462)
 
