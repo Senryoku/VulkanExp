@@ -20,11 +20,11 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 2, set = 0) uniform sampler2D textures[];
-layout(binding = 3, set = 0) buffer Vertices { vec4 v[]; } vertices;
-layout(binding = 4, set = 0) buffer Indices { uint  i[]; } indices;
-layout(binding = 5, set = 0) buffer Offsets { uint  o[]; } offsets;
-layout(binding = 6, set = 0) buffer Materials { uint m[]; } materials;
+layout(binding = 1, set = 0) uniform sampler2D textures[];
+layout(binding = 2, set = 0) buffer Vertices { vec4 v[]; } vertices;
+layout(binding = 3, set = 0) buffer Indices { uint  i[]; } indices;
+layout(binding = 4, set = 0) buffer Offsets { uint  o[]; } offsets;
+layout(binding = 5, set = 0) buffer Materials { uint m[]; } materials;
 
 struct rayPayload {
 	vec3 raydx;

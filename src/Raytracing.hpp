@@ -7,27 +7,33 @@ inline uint32_t aligned_size(uint32_t value, uint32_t alignment) {
 	return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void writeSceneToDescriptorSet(const Device& device, VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure,
-							   std::vector<ImageView*> storage, const Buffer& cameraBuffer) {
-	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
+	uint32_t				   texturesCount = Textures.size();
+	DescriptorSetLayoutBuilder dslBuilder;
+	// Slot for binding top level acceleration structures to the ray generation shader
+	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, texturesCount) // Texture
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Vertices
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Indices
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Instance Offsets
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1);					// Materials
+	return dslBuilder;
+}
+
+inline DescriptorSetWriter baseSceneWriter(VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure) {
+	DescriptorSetWriter dsw(descSet);
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
-	VkWriteDescriptorSetAccelerationStructureKHR descriptor_acceleration_structure_info{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-		.accelerationStructureCount = 1,
-		.pAccelerationStructures = &accelerationStructure, // &scene.getTLAS(), // FIXME: Should be part of the Scene?
-	};
-
-	VkDescriptorBufferInfo buffer_descriptor{
-		.buffer = cameraBuffer,
-		.offset = 0,
-		.range = sizeof(CameraBuffer),
-	};
+	dsw.add(0, {
+				   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+				   .accelerationStructureCount = 1,
+				   .pAccelerationStructures = &accelerationStructure, // &scene.getTLAS(), // FIXME: Should be part of the Scene?
+			   });
 
 	// Bind all textures used in the scene.
 	std::vector<VkDescriptorImageInfo> textureInfos;
 	for(const auto& texture : Textures) {
-		textureInfos.push_back(VkDescriptorImageInfo{
+		textureInfos.push_back({
 			.sampler = *texture.sampler,
 			.imageView = texture.gpuImage->imageView,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -35,116 +41,37 @@ void writeSceneToDescriptorSet(const Device& device, VkDescriptorSet descSet, co
 	}
 
 	// FIXME: All these buffers should be relative to the scene.
-	VkDescriptorBufferInfo verticesInfos{
-		.buffer = Mesh::VertexBuffer,
-		.offset = 0,
-		.range = Mesh::NextVertexMemoryOffset,
-	};
-
-	VkDescriptorBufferInfo indicesInfos{
-		.buffer = Mesh::IndexBuffer,
-		.offset = 0,
-		.range = Mesh::NextIndexMemoryOffset,
-	};
-
-	VkDescriptorBufferInfo offsetsInfos{
-		.buffer = Mesh::OffsetTableBuffer,
-		.offset = 0,
-		.range = Mesh::OffsetTableSize,
-	};
-
-	VkDescriptorBufferInfo materialsInfos{
-		.buffer = MaterialBuffer,
-		.offset = 0,
-		.range = sizeof(Material::GPUData) * Materials.size(),
-	};
-
-	// Acceleration Structure
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = &descriptor_acceleration_structure_info, // The acceleration structure descriptor has to be chained via pNext
-		.dstSet = descSet,
-		.dstBinding = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-	});
-
-	// Camera Buffer
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 1,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.pBufferInfo = &buffer_descriptor,
-	});
-
-	// Textures
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 2,
-		.descriptorCount = static_cast<uint32_t>(textureInfos.size()),
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.pImageInfo = textureInfos.data(),
-	});
+	dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureInfos);
 
 	// Vertices
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 3,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.pBufferInfo = &verticesInfos,
-	});
-
+	dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			{
+				.buffer = Mesh::VertexBuffer,
+				.offset = 0,
+				.range = Mesh::NextVertexMemoryOffset,
+			});
 	// Indices
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 4,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.pBufferInfo = &indicesInfos,
-	});
-
+	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			{
+				.buffer = Mesh::IndexBuffer,
+				.offset = 0,
+				.range = Mesh::NextIndexMemoryOffset,
+			});
 	// Instance Offsets
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 5,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.pBufferInfo = &offsetsInfos,
-	});
+	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			{
+				.buffer = Mesh::OffsetTableBuffer,
+				.offset = 0,
+				.range = Mesh::OffsetTableSize,
+			});
 
 	// Materials
-	writeDescriptorSets.push_back({
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = descSet,
-		.dstBinding = 6,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.pBufferInfo = &materialsInfos,
-	});
+	dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			{
+				.buffer = MaterialBuffer,
+				.offset = 0,
+				.range = sizeof(Material::GPUData) * Materials.size(),
+			});
 
-	uint32_t						   binding = 7;
-	std::vector<VkDescriptorImageInfo> imageStorageInfos;
-	imageStorageInfos.reserve(storage.size());
-	for(const auto& imageStorage : storage) {
-		imageStorageInfos.push_back({
-			.imageView = *imageStorage,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-		});
-		writeDescriptorSets.push_back({
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = descSet,
-			.dstBinding = binding++,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			.pImageInfo = &imageStorageInfos.back(),
-		});
-	}
-	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
+	return dsw;
 }

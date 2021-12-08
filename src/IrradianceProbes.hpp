@@ -1,6 +1,9 @@
 #pragma once
 
+#include <DescriptorPool.hpp>
+#include <DescriptorSetLayout.hpp>
 #include <Image.hpp>
+#include <Pipeline.hpp>
 
 #include <glTF.hpp>
 
@@ -8,6 +11,7 @@ class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max);
 
+	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas);
 	void update(const glTF& scene);
 
 	const size_t ColorResolution = 8;
@@ -22,6 +26,11 @@ class IrradianceProbes {
 
   private:
 	const Device* _device;
+
+	Pipeline			_pipeline;
+	DescriptorSetLayout _descriptorSetLayout;
+	DescriptorPool		_descriptorPool;
+	CommandPool			_commandPool;
 
 	Image	  _color;
 	ImageView _colorView;

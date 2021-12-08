@@ -257,18 +257,10 @@ void Application::createAccelerationStructure() {
 }
 
 void Application::createRayTracingPipeline() {
-	uint32_t				   texturesCount = Textures.size();
-	DescriptorSetLayoutBuilder dslBuilder;
-	// Slot for binding top level acceleration structures to the ray generation shader
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)								// Camera
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, texturesCount) // Texture
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Vertices
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Indices
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Instance Offsets
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 1)						// Materials
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);								// Result
-
+	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
+	dslBuilder
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Result
 	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{
@@ -294,55 +286,44 @@ void Application::createRayTracingPipeline() {
 	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
 	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+
 	// Ray generation group
-	{
-		VkRayTracingShaderGroupCreateInfoKHR raygen_group_ci{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 0,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		};
-		shader_groups.push_back(raygen_group_ci);
-	}
+	shader_groups.push_back({
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = 0,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	});
 
 	// Ray miss group
-	{
-		VkRayTracingShaderGroupCreateInfoKHR miss_group_ci{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 1,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		};
-		shader_groups.push_back(miss_group_ci);
-	}
-	{
-		VkRayTracingShaderGroupCreateInfoKHR shadow_miss_group_ci{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = 2,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		};
-		shader_groups.push_back(shadow_miss_group_ci);
-	}
+	shader_groups.push_back({
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = 1,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	});
+	shader_groups.push_back({
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+		.generalShader = 2,
+		.closestHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	});
 
 	// Ray closest hit group
-	{
-		VkRayTracingShaderGroupCreateInfoKHR closes_hit_group_ci{
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 3,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		};
-		shader_groups.push_back(closes_hit_group_ci);
-	}
+	shader_groups.push_back({
+		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+		.generalShader = VK_SHADER_UNUSED_KHR,
+		.closestHitShader = 3,
+		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.intersectionShader = VK_SHADER_UNUSED_KHR,
+	});
 
 	VkRayTracingPipelineCreateInfoKHR raytracing_pipeline_create_info{
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -368,8 +349,22 @@ void Application::createRaytracingDescriptorSets() {
 									 });
 	_rayTracingDescriptorPool.allocate({_rayTracingDescriptorSetLayout.getHandle()});
 
-	writeSceneToDescriptorSet(_device, _rayTracingDescriptorPool.getDescriptorSets()[0], _scene, _topLevelAccelerationStructure, {&_rayTraceStorageImageView},
-							  _cameraUniformBuffers[_currentFrame]);
+	auto writer = baseSceneWriter(_rayTracingDescriptorPool.getDescriptorSets()[0], _scene, _topLevelAccelerationStructure);
+	// Camera
+	writer.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			   {
+				   .buffer = _cameraUniformBuffers[_currentFrame],
+				   .offset = 0,
+				   .range = sizeof(CameraBuffer),
+			   });
+	// Result
+	writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			   {
+				   .imageView = _rayTraceStorageImageView,
+				   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+			   });
+
+	writer.update(_device);
 }
 
 void Application::recordRayTracingCommands() {
