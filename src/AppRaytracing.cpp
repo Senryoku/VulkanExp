@@ -262,14 +262,7 @@ void Application::createRayTracingPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Camera
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Result
 	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
-
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &_rayTracingDescriptorSetLayout.getHandle(),
-	};
-
-	_rayTracingPipelineLayout.create(_device, pipeline_layout_create_info);
+	_rayTracingPipelineLayout.create(_device, {_rayTracingDescriptorSetLayout});
 
 	/*
 		Setup ray tracing shader groups
