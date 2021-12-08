@@ -93,13 +93,16 @@
     <ClCompile Include="src\vulkan\DescriptorSetLayout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Raytracing.cpp">
+    <ClCompile Include="src\AppRaytracing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Resources.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\vulkan\DescriptorPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IrradianceProbes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -209,6 +212,9 @@
     <ClInclude Include="src\ImGuiExtensions.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Raytracing.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />
@@ -231,5 +237,6 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="src\shaders\shadow.rmiss" />
+    <None Include="src\IrradianceProbes.hpp" />
   </ItemGroup>
 </Project>

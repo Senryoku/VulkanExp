@@ -79,6 +79,9 @@ void Application::initVulkan() {
 	_blankTexture.sampler =
 		getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, Images[blankPath].image.getMipLevels());
 
+	auto bounds = _scene.computeBounds();
+	_irradianceProbes.init(_device, graphicsFamily, bounds.min, bounds.max);
+
 	createAccelerationStructure();
 
 	_pipelineCache.create(_device, PipelineCacheFilepath);
@@ -162,6 +165,8 @@ void Application::cleanupVulkan() {
 		s.destroy();
 
 	cleanupSwapChain();
+
+	_irradianceProbes.destroy();
 
 	_pipelineCache.save(PipelineCacheFilepath);
 	_pipelineCache.destroy();

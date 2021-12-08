@@ -36,6 +36,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <IrradianceProbes.hpp>
 #include <QuickTimer.hpp>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -142,7 +143,8 @@ class Application {
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
 
-	glTF _scene;
+	glTF			 _scene;
+	IrradianceProbes _irradianceProbes;
 
 	// Raytracing test
 	bool									_raytracingDebug = true;

@@ -29,7 +29,8 @@
     <ClCompile Include="ext\stb_image.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\glTF.cpp" />
-    <ClCompile Include="src\Raytracing.cpp" />
+    <ClCompile Include="src\IrradianceProbes.cpp" />
+    <ClCompile Include="src\AppRaytracing.cpp" />
     <ClCompile Include="src\Resources.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
@@ -55,6 +56,7 @@
     <ClInclude Include="src\glTF.hpp" />
     <ClInclude Include="src\ImGuiExtensions.hpp" />
     <ClInclude Include="src\QuickTimer.hpp" />
+    <ClInclude Include="src\Raytracing.hpp" />
     <ClInclude Include="src\Resources.hpp" />
     <ClInclude Include="src\STBImage.hpp" />
     <ClInclude Include="src\JSON.hpp" />
@@ -93,6 +95,7 @@
     <None Include="shaders\triangle.frag" />
     <None Include="shaders\triangle.vert" />
     <None Include="shaders\ubo.vert" />
+    <None Include="src\IrradianceProbes.hpp" />
     <None Include="src\shaders\shadow.rmiss" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
