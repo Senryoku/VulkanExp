@@ -417,21 +417,23 @@ void Application::recordRayTracingCommands() {
 			Setup the strided device address regions pointing at the shader identifiers in the shader binding table
 		*/
 
-		VkStridedDeviceAddressRegionKHR raygen_shader_sbt_entry{};
-		raygen_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[0].getDeviceAddress();
-		raygen_shader_sbt_entry.stride = handle_size_aligned;
-		raygen_shader_sbt_entry.size = regionSizes[0];
+		VkStridedDeviceAddressRegionKHR raygen_shader_sbt_entry{
+			.deviceAddress = _rayTracingShaderBindingTables[0].getDeviceAddress(),
+			.stride = handle_size_aligned,
+			.size = regionSizes[0],
+		};
 
-		VkStridedDeviceAddressRegionKHR miss_shader_sbt_entry{};
-		miss_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[1].getDeviceAddress();
-		miss_shader_sbt_entry.stride = handle_size_aligned;
-		miss_shader_sbt_entry.size = regionSizes[1];
+		VkStridedDeviceAddressRegionKHR miss_shader_sbt_entry{
+			.deviceAddress = _rayTracingShaderBindingTables[1].getDeviceAddress(),
+			.stride = handle_size_aligned,
+			.size = regionSizes[1],
+		};
 
-		VkStridedDeviceAddressRegionKHR hit_shader_sbt_entry{};
-		hit_shader_sbt_entry.deviceAddress = _rayTracingShaderBindingTables[2].getDeviceAddress();
-		hit_shader_sbt_entry.stride = handle_size_aligned;
-		hit_shader_sbt_entry.size = regionSizes[2];
-
+		VkStridedDeviceAddressRegionKHR hit_shader_sbt_entry{
+			.deviceAddress = _rayTracingShaderBindingTables[2].getDeviceAddress(),
+			.stride = handle_size_aligned,
+			.size = regionSizes[2],
+		};
 		VkStridedDeviceAddressRegionKHR callable_shader_sbt_entry{};
 
 		/*

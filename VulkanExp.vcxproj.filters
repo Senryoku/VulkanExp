@@ -238,5 +238,6 @@
     </None>
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\IrradianceProbes.hpp" />
+    <None Include="src\shaders\probes_raygen.rgen" />
   </ItemGroup>
 </Project>

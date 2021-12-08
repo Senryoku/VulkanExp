@@ -7,10 +7,25 @@
 
 #include <glTF.hpp>
 
+struct ShaderBindingTable {
+	Buffer		 buffer;
+	DeviceMemory memory;
+
+	VkStridedDeviceAddressRegionKHR raygenEntry;
+	VkStridedDeviceAddressRegionKHR missEntry;
+	VkStridedDeviceAddressRegionKHR anyhitEntry;
+	VkStridedDeviceAddressRegionKHR callableEntry;
+
+	void destroy() {
+		buffer.destroy();
+		memory.free();
+	}
+};
+
 class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max);
-
+	void createShaderBindingTable();
 	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas);
 	void update(const glTF& scene);
 
@@ -31,9 +46,13 @@ class IrradianceProbes {
 	const Device* _device;
 
 	Pipeline			_pipeline;
+	PipelineLayout		_pipelineLayout;
 	DescriptorSetLayout _descriptorSetLayout;
 	DescriptorPool		_descriptorPool;
 	CommandPool			_commandPool;
+	CommandBuffers		_commandBuffers;
+
+	ShaderBindingTable _shaderBindingTable;
 
 	Image	  _color;
 	ImageView _colorView;
