@@ -67,6 +67,15 @@ void SubMesh::computeVertexNormals() {
 		v.normal = glm::normalize(v.normal);
 }
 
+void SubMesh::computeBounds() {
+	Bounds b{.min = _vertices[0].pos, .max = _vertices[0].pos};
+	for(const auto& v : _vertices) {
+		b.min = glm::min(b.min, v.pos);
+		b.max = glm::max(b.max, v.pos);
+	}
+	_bounds = b;
+}
+
 void Mesh::allocate(const Device& device, const std::vector<Mesh>& meshes) {
 	uint32_t						  totalVertexSize = 0;
 	uint32_t						  totalIndexSize = 0;

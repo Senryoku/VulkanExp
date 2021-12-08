@@ -8,6 +8,31 @@
 #include "Material.hpp"
 #include "Vertex.hpp"
 
+struct Bounds {
+	glm::vec3 min;
+	glm::vec3 max;
+
+	inline Bounds& operator+=(const Bounds& o) {
+		min = glm::min(min, o.min);
+		max = glm::max(min, o.max);
+		return *this;
+	}
+
+	inline Bounds operator+(const Bounds& o) {
+		return {
+			.min = glm::min(min, o.min),
+			.max = glm::max(min, o.max),
+		};
+	}
+};
+
+inline Bounds operator*(const glm::mat4& transform, const Bounds& b) {
+	return {
+		.min = glm::vec3(transform * glm::vec4(b.min, 1.0f)),
+		.max = glm::vec3(transform * glm::vec4(b.max, 1.0f)),
+	};
+}
+
 class SubMesh {
   public:
 	SubMesh() = default;
@@ -48,14 +73,17 @@ class SubMesh {
 	inline std::vector<Vertex>&			getVertices() { return _vertices; }
 	inline std::vector<uint32_t>&		getIndices() { return _indices; }
 
+	inline const Bounds& getBounds() const { return _bounds; }
+	inline void			 setBounds(const Bounds& b) { _bounds = b; }
+	void				 computeBounds();
+
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
 	void computeVertexNormals();
 
-	// FIXME: Probably only use the index?
-	size_t		materialIndex = 0;
-	Material*	material = nullptr;
 	std::string name;
+	size_t		materialIndex = 0;
+	Material*	material = nullptr; // FIXME: Probably only use the index?
 
   private:
 	Buffer _vertexBuffer;
@@ -63,6 +91,8 @@ class SubMesh {
 
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
+
+	Bounds _bounds;
 };
 
 class Mesh {
@@ -106,4 +136,16 @@ class Mesh {
 		IndexMemory.free();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////
+
+	inline const Bounds& getBounds() const { return _bounds; }
+	inline void			 setBounds(const Bounds& b) { _bounds = b; }
+	inline const Bounds& computeBounds() {
+		_bounds = SubMeshes[0].getBounds();
+		for(const auto& sm : SubMeshes)
+			_bounds += sm.getBounds();
+		return _bounds;
+	}
+
+  private:
+	Bounds _bounds;
 };

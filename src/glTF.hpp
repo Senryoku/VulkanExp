@@ -70,9 +70,32 @@ class glTF {
 		return _nodes[_scenes[_defaultScene].nodes[0]];
 	}
 
+	inline const Bounds& getBounds() const { return _bounds; }
+	inline void			 setBounds(const Bounds& b) { _bounds = b; }
+	const Bounds&		 computeBounds() {
+		   bool init = false;
+
+		   std::function<void(const Node&, glm::mat4)> visitNode = [&](const Node& n, glm::mat4 transform) {
+			   transform = transform * n.transform;
+			   for(const auto& c : n.children)
+				   visitNode(_nodes[c], transform);
+			   if(n.mesh != -1)
+				   if(!init) {
+					   _bounds = transform * _meshes[n.mesh].computeBounds();
+					   init = true;
+				   } else
+					   _bounds += transform * _meshes[n.mesh].computeBounds();
+		   };
+		   visitNode(getRoot(), glm::mat4(1.0f));
+
+		   return _bounds;
+	}
+
   private:
 	uint32_t		   _defaultScene = 0;
 	std::vector<Mesh>  _meshes;
 	std::vector<Scene> _scenes;
 	std::vector<Node>  _nodes;
+
+	Bounds _bounds;
 };

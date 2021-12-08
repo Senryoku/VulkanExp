@@ -189,6 +189,15 @@ void glTF::load(std::filesystem::path path) {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
 			}
 
+			if(positionAccessor.contains("min") && positionAccessor.contains("max")) {
+				submesh.setBounds({
+					.min = positionAccessor["min"].to<glm::vec3>(),
+					.max = positionAccessor["max"].to<glm::vec3>(),
+				});
+			} else {
+				submesh.computeBounds();
+			}
+
 			const auto& indicesAccessor = object["accessors"][p["indices"].as<int>()];
 			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
 			const auto& indicesBuffer = buffers[indicesBufferView["buffer"].as<int>()];
