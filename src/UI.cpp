@@ -2,6 +2,10 @@
 
 #include <ImGuiExtensions.hpp>
 
+std::vector<ImTextureID> SceneUITextureIDs;
+ImTextureID				 ProbesColor;
+ImTextureID				 ProbesDepth;
+
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -67,6 +71,12 @@ void Application::initImGui(uint32_t queueFamily) {
 
 	immediateSubmit([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+	for(const auto& texture : Textures) {
+		SceneUITextureIDs.push_back(ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+	}
+	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_GENERAL);
 }
 
 void Application::drawUI() {
@@ -83,7 +93,13 @@ void Application::drawUI() {
 		}
 		ImGui::EndMainMenuBar();
 	}
-	if(ImGui::Begin("Logs?")) {
+	if(ImGui::Begin("Debug")) {
+		ImGui::Text("Probes Color");
+		ImGui::Image(ProbesColor, ImVec2(_irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
+										 _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[2]));
+		ImGui::Text("Probes Depth");
+		ImGui::Image(ProbesDepth, ImVec2(_irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
+										 _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[2]));
 		ImGui::End();
 	}
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
@@ -107,6 +123,16 @@ void Application::drawUI() {
 				}
 				ImGui::TreePop();
 			}
+		}
+
+		ImGui::Text("Loaded Textures");
+		size_t n = 0;
+		for(const auto& texture : SceneUITextureIDs) {
+			if(ImGui::TreeNode(std::to_string(n).c_str())) {
+				ImGui::Image(texture, ImVec2(100, 100));
+				ImGui::TreePop();
+			}
+			++n;
 		}
 		ImGui::End();
 	}

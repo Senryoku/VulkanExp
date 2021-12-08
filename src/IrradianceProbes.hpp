@@ -16,11 +16,14 @@ class IrradianceProbes {
 
 	const size_t ColorResolution = 8;
 	const size_t DepthResolution = 16;
+	const size_t VolumeResolution[3]{32, 8, 32};
 
-	inline const glm::vec3 getMin() const { return _min; }
-	inline const glm::vec3 getMax() const { return _max; }
-	inline const Image&	   getColor() const { return _color; }
-	inline const Image&	   getDepth() const { return _depth; }
+	inline const glm::vec3	getMin() const { return _min; }
+	inline const glm::vec3	getMax() const { return _max; }
+	inline const Image&		getColor() const { return _color; }
+	inline const Image&		getDepth() const { return _depth; }
+	inline const ImageView& getColorView() const { return _colorView; }
+	inline const ImageView& getDepthView() const { return _depthView; }
 
 	void destroy();
 
