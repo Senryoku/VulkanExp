@@ -206,7 +206,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;.\ext\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
     </ClCompile>
@@ -226,7 +226,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glm\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;C:\Users\YoaLi\Documents\Visual Studio 2019\Librairies\glfw-3.3.4.bin.WIN64\include;.\ext\glm\</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
     </ClCompile>

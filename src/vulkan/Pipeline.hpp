@@ -10,8 +10,7 @@
 
 class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
   public:
-	template<class C>
-	void create(VkDevice device, const C& descriptorSetLayouts = {}, const std::vector<VkPushConstantRange> pushConstants = {}) {
+	void create(VkDevice device, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts = {}, const std::vector<VkPushConstantRange> pushConstants = {}) {
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
@@ -25,14 +24,6 @@ class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
 	void create(VkDevice device, const VkPipelineLayoutCreateInfo& info) {
 		VK_CHECK(vkCreatePipelineLayout(device, &info, nullptr, &_handle));
 		_device = device;
-	}
-
-	void create(VkDevice device, const std::vector<VkDescriptorSetLayout>& layouts) {
-		create(device, {
-						   .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-						   .setLayoutCount = static_cast<uint32_t>(layouts.size()),
-						   .pSetLayouts = layouts.data(),
-					   });
 	}
 
 	void destroy() {

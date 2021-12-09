@@ -2,6 +2,7 @@
 
 #include <DescriptorPool.hpp>
 #include <DescriptorSetLayout.hpp>
+#include <Fence.hpp>
 #include <Image.hpp>
 #include <Pipeline.hpp>
 
@@ -25,9 +26,10 @@ struct ShaderBindingTable {
 class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max);
+	void createPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas);
-	void update(const glTF& scene);
+	void update(const glTF& scene, VkQueue queue);
 
 	const size_t ColorResolution = 8;
 	const size_t DepthResolution = 16;
@@ -45,6 +47,7 @@ class IrradianceProbes {
   private:
 	const Device* _device;
 
+	Fence				_fence;
 	Pipeline			_pipeline;
 	PipelineLayout		_pipelineLayout;
 	DescriptorSetLayout _descriptorSetLayout;
@@ -54,6 +57,7 @@ class IrradianceProbes {
 
 	ShaderBindingTable _shaderBindingTable;
 
+	// TODO: To allow sampling of probes during probes update, we'll probably need to double these and swap them as input/output each update.
 	Image	  _color;
 	ImageView _colorView;
 	Image	  _depth;

@@ -89,7 +89,7 @@ class Application {
 	const bool _enableValidationLayers = true;
 #endif
 
-	bool _dirtyShaders = true; // Re-compile on startup?
+	bool _dirtyShaders = false; // Re-compile on startup?
 	// Auto re-compile shaders
 	filewatch::FileWatch<std::string> _shadersFileWatcher{"./src/shaders/", [&](const std::string& file, const filewatch::Event event_type) { _dirtyShaders = true; }};
 

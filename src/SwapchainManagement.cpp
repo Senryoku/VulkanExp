@@ -281,7 +281,7 @@ void Application::initSwapChain() {
 
 	// FIXME: Should not be there, just WIP
 	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure);
-	_irradianceProbes.update(_scene);
+	_irradianceProbes.update(_scene, _graphicsQueue);
 }
 
 void Application::recordCommandBuffers() {

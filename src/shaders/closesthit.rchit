@@ -31,6 +31,7 @@ struct rayPayload {
 	vec3 raydy;
 
 	vec3 color; // Result
+	float depth;
 };
 
 layout(location = 0) rayPayloadInEXT rayPayload payload;
@@ -202,5 +203,5 @@ void main()
     vec3 color = clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb;
 
 	payload.color = attenuation * color;
-	
+	payload.depth = gl_HitTEXT;
 }

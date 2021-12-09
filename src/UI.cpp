@@ -94,12 +94,20 @@ void Application::drawUI() {
 		ImGui::EndMainMenuBar();
 	}
 	if(ImGui::Begin("Debug")) {
+		if(ImGui::Button("Rebuild probe pipeline")) {
+			_irradianceProbes.createPipeline();
+			_irradianceProbes.update(_scene, _graphicsQueue);
+		}
+		if(ImGui::Button("Update Probes")) {
+			_irradianceProbes.update(_scene, _graphicsQueue);
+		}
+		float scale = 3.0f;
 		ImGui::Text("Probes Color");
-		ImGui::Image(ProbesColor, ImVec2(_irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
-										 _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[2]));
+		ImGui::Image(ProbesColor, ImVec2(scale * _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
+										 scale * _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[2]));
 		ImGui::Text("Probes Depth");
-		ImGui::Image(ProbesDepth, ImVec2(_irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
-										 _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[2]));
+		ImGui::Image(ProbesDepth, ImVec2(scale * _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
+										 scale * _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[2]));
 		ImGui::End();
 	}
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {

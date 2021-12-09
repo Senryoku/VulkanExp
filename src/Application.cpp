@@ -24,6 +24,8 @@ void Application::initWindow() {
 }
 
 void Application::run() {
+	// Make sure shaders are up-to-date
+	system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
 	{
 		QuickTimer qt("glTF load");
 		_scene.load("./data/models/Sponza/Sponza.gltf");
@@ -45,7 +47,7 @@ void Application::run() {
 
 void Application::drawFrame() {
 	VkFence currentFence = _inFlightFences[_currentFrame];
-	vkWaitForFences(_device, 1, &currentFence, VK_TRUE, UINT64_MAX);
+	VK_CHECK(vkWaitForFences(_device, 1, &currentFence, VK_TRUE, UINT64_MAX));
 
 	uint32_t imageIndex;
 	auto	 result = vkAcquireNextImageKHR(_device, _swapChain, UINT64_MAX, _imageAvailableSemaphore[_currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -60,7 +62,7 @@ void Application::drawFrame() {
 	// Check if a previous frame is using this image (i.e. there is its
 	// fence to wait on)
 	if(_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-		vkWaitForFences(_device, 1, &_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+		VK_CHECK(vkWaitForFences(_device, 1, &_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
 	}
 	// Mark the image as now being in use by this frame
 	_imagesInFlight[imageIndex] = currentFence;

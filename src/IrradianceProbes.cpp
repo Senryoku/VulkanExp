@@ -51,17 +51,45 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Depth
 	_descriptorSetLayout = dslBuilder.build(device);
 
-	_pipelineLayout.create(device, {_descriptorSetLayout});
+	_pipelineLayout.create(device, {_descriptorSetLayout},
+						   {{
+							   .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+							   .offset = 0,
+							   .size = sizeof(glm::mat3),
+						   }});
+
+	createPipeline();
+
+	_descriptorPool.create(device, 1,
+						   std::array<VkDescriptorPoolSize, 5>{
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+						   });
+	_descriptorPool.allocate({_descriptorSetLayout.getHandle()});
+	_fence.create(device);
+
+	createShaderBindingTable();
+	_commandPool.create(device, familyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+	_commandBuffers.allocate(device, _commandPool, 1);
+}
+
+void IrradianceProbes::createPipeline() {
+	if(_pipeline)
+		_pipeline.destroy();
+
 	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 
-	Shader raygenShader(device, "./shaders_spv/probes_raygen.rgen.spv");
+	Shader raygenShader(*_device, "./shaders_spv/probes_raygen.rgen.spv");
 	shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
-	Shader raymissShader(device, "./shaders_spv/miss.rmiss.spv");
+	Shader raymissShader(*_device, "./shaders_spv/miss.rmiss.spv");
 	shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
-	Shader raymissShadowShader(device, "./shaders_spv/shadow.rmiss.spv");
+	Shader raymissShadowShader(*_device, "./shaders_spv/shadow.rmiss.spv");
 	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
-	Shader closesthitShader(device, "./shaders_spv/closesthit.rchit.spv");
+	Shader closesthitShader(*_device, "./shaders_spv/closesthit.rchit.spv");
 	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 
 	// Ray generation group
@@ -111,21 +139,7 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 		.maxPipelineRayRecursionDepth = 2,
 		.layout = _pipelineLayout,
 	};
-	_pipeline.create(device, pipelineCreateInfo);
-
-	_descriptorPool.create(device, 1,
-						   std::array<VkDescriptorPoolSize, 5>{
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-						   });
-	_descriptorPool.allocate({_descriptorSetLayout.getHandle()});
-
-	createShaderBindingTable();
-	_commandPool.create(device, familyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-	_commandBuffers.allocate(device, _commandPool, 1);
+	_pipeline.create(*_device, pipelineCreateInfo);
 }
 
 void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas) {
@@ -205,25 +219,55 @@ void IrradianceProbes::createShaderBindingTable() {
 	_shaderBindingTable.callableEntry = {};
 }
 
-void IrradianceProbes::update(const glTF& scene) {
-	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+#include <glm/gtc/random.hpp>
 
+void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
+	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
+
+	// Get a random orientation to start the sampling spiral from.
+	glm::vec3 direction = glm::sphericalRand(1.0f);
+	glm::vec3 rotationZ = direction;
+	glm::vec3 rotationX = glm::normalize(glm::cross(glm::dot(direction, glm::vec3(0, 1, 0)) > 0.001f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0), rotationZ));
+	glm::vec3 rotationY = glm::normalize(glm::cross(rotationZ, rotationX));
+	glm::mat3 orientation{
+		rotationX.x, rotationY.x, rotationZ.x, rotationX.y, rotationY.y, rotationZ.y, rotationX.z, rotationY.z, rotationZ.z,
+	};
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& cmdBuff = _commandBuffers.getBuffers()[i];
 		cmdBuff.begin();
 
 		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
 		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
-
+		vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
 		vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry, 32, 32,
 						  1);
 
 		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}
+
+	VkPipelineStageFlags stages[] = {VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR};
+
+	// We'll probably need some sort of synchronization.
+	VkSubmitInfo submitInfo{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 0,
+		.pWaitSemaphores = nullptr,
+		.pWaitDstStageMask = stages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &_commandBuffers.getBuffersHandles()[0],
+		.signalSemaphoreCount = 0,
+		.pSignalSemaphores = nullptr,
+	};
+
+	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
+	// FIXME: Way overkill.
+	VK_CHECK(vkDeviceWaitIdle(*_device)); // FIXME: DEVICE_LOST after the 12th run?
 }
 
 void IrradianceProbes::destroy() {
 	_shaderBindingTable.destroy();
+	_fence.destroy();
 	_commandBuffers.free();
 	_commandPool.destroy();
 	_descriptorPool.destroy();
