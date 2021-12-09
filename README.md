@@ -30,6 +30,7 @@ Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
 ## Dependencies
 
  - Vulkan SDK
- - GLFW 3.3.4
- - GLM 0.9.9.8
- - FMT 7.1.3 (https://fmt.dev/)
+ - GLFW 3.3.6 [https://www.glfw.org/] (included in ext/)
+ - GLM 0.9.9.9 [https://glm.g-truc.net] (included in ext/)
+ - Dear ImGui docking branch [https://github.com/ocornut/imgui] (included in ext/)
+ - FMT 7.1.3 [https://fmt.dev/]
