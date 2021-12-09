@@ -197,10 +197,13 @@ void main()
 		attenuation = 1.0;
 	}
 
-    vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
-	vec3 finalNormal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
 
-    vec3 color = clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb;
+	// If the material has a normal texture, "bend" the normal according to the normal map
+	if(m.normalTexture != -1) {
+		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
+		normal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
+	}
+    vec3 color = clamp(dot(lightDir, normal), 0.2, 1.0) * texColor.rgb;
 
 	payload.color = attenuation * color;
 	payload.depth = gl_HitTEXT;
