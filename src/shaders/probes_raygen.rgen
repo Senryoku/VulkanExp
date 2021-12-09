@@ -44,6 +44,7 @@ const vec3 gridMin = vec3(000.f);
 const vec3 gridMax = vec3(400.f);
 const vec3 gridSpan = gridMax - gridMin;
 const vec3 gridCellSize = vec3(gridSpan.x / 32, gridSpan.y / 8, gridSpan.z / 32);
+const float depthSharpness = 0.1f;
 
 const float pi = 3.1415926538f;
 const uint RaysPerProbe = 16;
@@ -86,6 +87,13 @@ vec3 sphericalFibonacci(float i, float n) {
 #   undef madfrac
 }
 
+vec3 sphereToOctahedron(vec3 v) {
+    vec3 octant = sign(v);
+    // Scale the vector so |x| + |y| + |z| = 1 (surface of octahedron).
+    float sum = dot(v, octant);        
+    return v / sum;    
+}
+
 vec2 spherePointToOctohedralUV(vec3 direction) {
     vec3 octant = sign(direction);
 
@@ -104,6 +112,54 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
     return octahedron.xy * 0.5f + 0.5f;
 }
 
+// Assuming v is normalized
+vec2 cartesianToPolar(vec3 v) {
+    vec2 r = vec2(
+        acos(v.z),
+        atan(v.y/v.x)
+    );
+    if(v.x < 0) v.y += pi;
+    return r;
+}
+
+// Assuming a unit vector
+vec3 polarToCartesian(vec2 v) {
+    return vec3(cos(v.y) * sin(v.x), sin(v.y) * sin(v.x), cos(v.x));
+}
+
+float signNotZero(in float k) {
+    return (k >= 0.0) ? 1.0 : -1.0;
+}
+
+vec2 signNotZero(in vec2 v) {
+    return vec2(signNotZero(v.x), signNotZero(v.y));
+}
+
+/** Assumes that v is a unit vector. The result is an octahedral vector on the [-1, +1] square. */
+vec2 octEncode(in vec3 v) {
+    float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
+    vec2 result = v.xy * (1.0 / l1norm);
+    if (v.z < 0.0) 
+        result = (1.0 - abs(result.yx)) * signNotZero(result.xy);
+    return result;
+}
+
+/** Returns a unit vector. Argument o is an octahedral vector packed via octEncode,
+    on the [-1, +1] square*/
+vec3 octDecode(vec2 o) {
+    vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+    if (v.z < 0.0)
+        v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+    return normalize(v);
+}
+
+// Compute normalized oct coord, mapping top left of top left pixel to (-1,-1)
+vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
+    vec2 octFragCoord = ivec2((fragCoord.x - 2) % res, (fragCoord.y - 2) % res);
+    // Add back the half pixel to get pixel center normalized coordinates
+    return (vec2(octFragCoord) + vec2(0.5f))  *(2.0f / float(res - 2)) - vec2(1.0f, 1.0f);
+}
+
 void main() 
 {
 	vec4 origin = vec4(gridPositionToWorldPosition(gl_LaunchIDEXT.xyz), 1);
@@ -112,12 +168,14 @@ void main()
     vec3 results[ColorRes][ColorRes];
     for(int i = 0; i < ColorRes; ++i)
         for(int j = 0; j < ColorRes; ++j)
-            results[i][j] = imageLoad(color, probeUVOffset + ivec2(i, j)).xyz;
+            results[i][j] = vec3(0);//imageLoad(color, probeUVOffset + ivec2(i, j)).xyz;
     vec2 depthResults[DepthRes][DepthRes];
     for(int i = 0; i < DepthRes; ++i)
         for(int j = 0; j < DepthRes; ++j)
             depthResults[i][j] = imageLoad(depth, probeUVOffset + ivec2(i, j)).xy;
 
+    float totalColorWeight = 0;
+    float totalDepthWeight = 0;
 	for(int i = 0; i < RaysPerProbe; ++i) {
 		vec4 direction = vec4(push.randomOrientation * sphericalFibonacci(i, RaysPerProbe), 1.0f);
 
@@ -126,20 +184,35 @@ void main()
 
 		payload.color = vec3(1.0, 0.0, 0.0);
 
-		payload.raydx = normalize(vec3(1.1, 0, 0));
-		payload.raydy = normalize(vec3(1, 0.1, 0));
+        vec2 polar = cartesianToPolar(direction.xyz);
+		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
+		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));//normalize(direction.xyz + vec3(0, 0.1, 0));
         vec2 uv = spherePointToOctohedralUV(direction.xyz);
         ivec2 colorUV = ivec2((ColorRes - 2) * uv);
         ivec2 depthUV = ivec2((DepthRes - 2) * uv);
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
-        // FIXME: Nonononono
-        results[colorUV.x][colorUV.y] += payload.color;
+        
+        vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(uv * ColorRes), ColorRes));
+        float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
+        totalColorWeight += colorWeight;
+        float depthWeight = pow(max(0.0, dot(texelDirection, direction.xyz)), depthSharpness);
+        totalDepthWeight += depthWeight;
+        results[colorUV.x][colorUV.y] += totalColorWeight * payload.color;
         payload.depth /= length(gridCellSize);
-        depthResults[depthUV.x][depthUV.y] = max(depthResults[depthUV.x][depthUV.y], vec2(payload.depth, payload.depth * payload.depth));
+        depthResults[depthUV.x][depthUV.y] += vec2(depthWeight * payload.depth, depthWeight * payload.depth * payload.depth);
 	}
-    for(int i = 0; i < ColorRes; ++i)
-        for(int j = 0; j < ColorRes; ++j) {
-            imageStore(color, probeUVOffset + ivec2(i, j), vec4(results[i][j], 1.0));
-	        imageStore(depth, probeUVOffset + ivec2(i, j), vec4(depthResults[i][j], 0.0, 0.0));
-        }
+    
+    if(totalColorWeight > 1e-6)
+        for(int i = 0; i < ColorRes; ++i)
+            for(int j = 0; j < ColorRes; ++j) {
+                results[i][j] /= totalColorWeight;
+                imageStore(color, probeUVOffset + ivec2(i, j), vec4(results[i][j], 1.0));
+            }
+        
+    if(totalDepthWeight > 1e-6)
+        for(int i = 0; i < DepthRes; ++i)
+            for(int j = 0; j < DepthRes; ++j) {
+                depthResults[i][j] /= totalDepthWeight;
+	            imageStore(depth, probeUVOffset + ivec2(i, j), vec4(depthResults[i][j], 0.0, 0.0));
+            }
 }

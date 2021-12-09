@@ -219,19 +219,27 @@ void IrradianceProbes::createShaderBindingTable() {
 	_shaderBindingTable.callableEntry = {};
 }
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
+
+void genBasis(const glm::vec3& n, glm::vec3& b1, glm::vec3& b2) {
+	if(n.x > 0.9f)
+		b1 = glm::vec3(0.0f, 1.0f, 0.0f);
+	else
+		b1 = glm::vec3(1.0f, 0.0f, 0.0f);
+	b1 -= n * glm::dot(b1, n);
+	b1 = glm::normalize(b1);
+	b2 = glm::cross(n, b1);
+}
 
 void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 
-	// Get a random orientation to start the sampling spiral from.
-	glm::vec3 direction = glm::sphericalRand(1.0f);
-	glm::vec3 rotationZ = direction;
-	glm::vec3 rotationX = glm::normalize(glm::cross(glm::dot(direction, glm::vec3(0, 1, 0)) > 0.001f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0), rotationZ));
-	glm::vec3 rotationY = glm::normalize(glm::cross(rotationZ, rotationX));
-	glm::mat3 orientation{
-		rotationX.x, rotationY.x, rotationZ.x, rotationX.y, rotationY.y, rotationZ.y, rotationX.z, rotationY.z, rotationZ.z,
-	};
+	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
+	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
+	glm::vec3 X, Y;
+	genBasis(Z, X, Y);
+	glm::mat3 orientation = glm::transpose(glm::mat3(X, Y, Z));
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& cmdBuff = _commandBuffers.getBuffers()[i];
 		cmdBuff.begin();
@@ -261,8 +269,6 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
-	// FIXME: Way overkill.
-	VK_CHECK(vkDeviceWaitIdle(*_device)); // FIXME: DEVICE_LOST after the 12th run?
 }
 
 void IrradianceProbes::destroy() {

@@ -152,7 +152,6 @@ vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex
 	return vec4(dudx, dvdx, dudy, dvdy);
 }
 
-
 void main()
 {		
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);

@@ -3,7 +3,7 @@
 #include <vulkan/Extension.hpp>
 
 void Application::initWindow() {
-	if(!glfwInit())
+	if(glfwInit() != GLFW_TRUE)
 		error("Error intialising GLFW.\n");
 
 	glfwWindowHint(GLFW_CLIENT_API,
