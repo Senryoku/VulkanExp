@@ -120,7 +120,7 @@ vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
 
 
 vec2 spherePointToOctohedralUV(vec3 direction) {
-    // Same thing as
+    // Should be close to
     //return 0.5 * octEncode(direction) + vec2(0.5);
     
     vec3 octant = sign(direction);

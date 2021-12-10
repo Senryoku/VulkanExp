@@ -223,13 +223,13 @@ void Application::initProbeDebug() {
 				});
 		dsw.add(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
-					.sampler = Samplers.begin()->second, // FIXME
+					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0), // FIXME
 					.imageView = _irradianceProbes.getColorView(),
 					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				});
 		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
-					.sampler = Samplers.begin()->second, // FIXME
+					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0), // FIXME
 					.imageView = _irradianceProbes.getDepthView(),
 					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				});

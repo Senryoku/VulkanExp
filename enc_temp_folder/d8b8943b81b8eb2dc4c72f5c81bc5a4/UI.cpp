@@ -93,7 +93,7 @@ void Application::drawUI() {
 		}
 		ImGui::EndMainMenuBar();
 	}
-	if(ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+	if(ImGui::Begin("Debug")) {
 		if(ImGui::Button("Rebuild probe pipeline")) {
 			_irradianceProbes.createPipeline();
 			_irradianceProbes.update(_scene, _graphicsQueue);

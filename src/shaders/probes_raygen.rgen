@@ -106,16 +106,34 @@ void main()
     // Copy Border Texels (for correct texture filtering)
     // Corners
     int s = int(grid.colorRes) - 2;
-    imageStore(color, probeUVOffset + ivec2(0,                 0),                 vec4(results[s - 1][s - 1].xyz, 1.0));
-    imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 0),                 vec4(results[0]    [s - 1].xyz, 1.0));
-    imageStore(color, probeUVOffset + ivec2(0,                 grid.colorRes - 1), vec4(results[s - 1][0]    .xyz, 1.0));
-    imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, grid.colorRes - 1), vec4(results[0]    [0]    .xyz, 1.0));
-
-    // Borders
+    if(results[s - 1][s - 1].w > 1e-6)
+        imageStore(color, probeUVOffset + ivec2(0,                 0),                 vec4(results[s - 1][s - 1].xyz, 1.0));
+    if(results[0]    [s - 1].w > 1e-6)
+        imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 0),                 vec4(results[0]    [s - 1].xyz, 1.0));
+    if(results[s - 1][0]    .w > 1e-6)
+        imageStore(color, probeUVOffset + ivec2(0,                 grid.colorRes - 1), vec4(results[s - 1][0]    .xyz, 1.0));
+    if(results[0]    [0]    .w > 1e-6)
+        imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, grid.colorRes - 1), vec4(results[0]    [0]    .xyz, 1.0));
+    
+     // Borders
     for(int i = 0; i < s; ++i) {
-        imageStore(color, probeUVOffset + ivec2(1 + i,             0),                 vec4(results[s - 1 - i][0]        .xyz, 1.0));
-        imageStore(color, probeUVOffset + ivec2(1 + i,             grid.colorRes - 1), vec4(results[s - 1 - i][s - 1]    .xyz, 1.0));
-        imageStore(color, probeUVOffset + ivec2(0,                 1 + i),             vec4(results[0]        [s - 1 - i].xyz, 1.0));
-        imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i),             vec4(results[s - 1]    [s - 1 - i].xyz, 1.0));
+        if(results[s - 1 - i][0].w > 1e-6)
+            imageStore(color, probeUVOffset + ivec2(1 + i,             0                ), vec4(results[s - 1 - i][0]        .xyz, 1.0));
+        if(results[s - 1 - i][s - 1].w > 1e-6)
+            imageStore(color, probeUVOffset + ivec2(1 + i,             grid.colorRes - 1), vec4(results[s - 1 - i][s - 1]    .xyz, 1.0));
+        if(results[0][s - 1 - i].w > 1e-6)
+            imageStore(color, probeUVOffset + ivec2(0,                 1 + i            ), vec4(results[0]        [s - 1 - i].xyz, 1.0));
+        if(results[s - 1][s - 1 - i].w > 1e-6)
+            imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i            ), vec4(results[s - 1]    [s - 1 - i].xyz, 1.0));
     }
+
+    
+    for(int i = 0; i < s; ++i) {
+        //imageStore(color, probeUVOffset + ivec2(1 + i,             0),                 vec4(1.0));
+        //imageStore(color, probeUVOffset + ivec2(1 + i,             grid.colorRes - 1), vec4(1.0));
+        //imageStore(color, probeUVOffset + ivec2(0,                 1 + i),             vec4(1.0));
+        //imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i),             vec4(1.0));
+    }
+    
+    // TODO: DEPTH
 }
