@@ -108,35 +108,6 @@ class Mesh {
 
 	~Mesh() { destroy(); }
 
-	///////////////////////////////////////////////////////////////////////////////////////
-	// Static stuff I should get rid of :)
-	// TODO: Move this to a Scene class, probably
-	struct OffsetEntry {
-		uint32_t materialIndex;
-		uint32_t vertexOffset;
-		uint32_t indexOffset;
-	};
-	inline static DeviceMemory OffsetTableMemory;
-	inline static DeviceMemory VertexMemory;
-	inline static DeviceMemory IndexMemory;
-	inline static size_t	   NextVertexMemoryOffset = 0;
-	inline static size_t	   NextIndexMemoryOffset = 0;
-	inline static Buffer	   OffsetTableBuffer;
-	inline static Buffer	   VertexBuffer;
-	inline static Buffer	   IndexBuffer;
-	inline static uint32_t	   OffsetTableSize;
-	// Allocate memory for ALL currently loaded Meshes (FIXME: Move this elsewhere)
-	static void allocate(const Device& device, const std::vector<Mesh>& meshes);
-	static void free() {
-		OffsetTableBuffer.destroy();
-		IndexBuffer.destroy();
-		VertexBuffer.destroy();
-		OffsetTableMemory.free();
-		VertexMemory.free();
-		IndexMemory.free();
-	}
-	///////////////////////////////////////////////////////////////////////////////////////
-
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
 	inline const Bounds& computeBounds() {

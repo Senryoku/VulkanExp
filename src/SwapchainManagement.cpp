@@ -220,10 +220,11 @@ void Application::initSwapChain() {
 						.offset = 0,
 						.range = sizeof(CameraBuffer),
 					});
+			auto& albedo = Materials[m].albedoTexture != -1 ? Textures[Materials[m].albedoTexture] : _blankTexture;
 			dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
-						.sampler = *Textures[Materials[m].albedoTexture].sampler,
-						.imageView = Textures[Materials[m].albedoTexture].gpuImage->imageView,
+						.sampler = *albedo.sampler,
+						.imageView = albedo.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
 			// Use a blank texture if this mesh doesn't have a normal map

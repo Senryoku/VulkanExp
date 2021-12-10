@@ -46,23 +46,23 @@ inline DescriptorSetWriter baseSceneWriter(VkDescriptorSet descSet, const glTF& 
 	// Vertices
 	dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = Mesh::VertexBuffer,
+				.buffer = scene.VertexBuffer,
 				.offset = 0,
-				.range = Mesh::NextVertexMemoryOffset,
+				.range = scene.NextVertexMemoryOffset,
 			});
 	// Indices
 	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = Mesh::IndexBuffer,
+				.buffer = scene.IndexBuffer,
 				.offset = 0,
-				.range = Mesh::NextIndexMemoryOffset,
+				.range = scene.NextIndexMemoryOffset,
 			});
 	// Instance Offsets
 	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = Mesh::OffsetTableBuffer,
+				.buffer = scene.OffsetTableBuffer,
 				.offset = 0,
-				.range = Mesh::OffsetTableSize,
+				.range = scene.OffsetTableSize,
 			});
 
 	// Materials

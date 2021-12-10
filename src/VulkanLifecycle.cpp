@@ -45,7 +45,7 @@ void Application::initVulkan() {
 			for(auto& sm : m.SubMeshes)
 				sm.init(_device); // Pepare the final buffers
 		}
-		Mesh::allocate(_device, _scene.getMeshes()); // Allocate memory for all meshes and bind the buffers
+		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes()) {
 			for(auto& sm : m.SubMeshes)
 				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
@@ -66,6 +66,29 @@ void Application::initVulkan() {
 	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	stagingMemory.fill(materialGpu.data(), materialGpu.size());
 	MaterialBuffer.copyFromStagingBuffer(_tempCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _graphicsQueue);
+
+	{
+		size_t buffSize = 0;
+		for(const auto& m : _scene.getMeshes())
+			for(const auto& sm : m.SubMeshes) {
+				if(sm.getVertexByteSize() > buffSize)
+					buffSize = sm.getVertexByteSize();
+			}
+		Buffer		 stagingBuffer;
+		DeviceMemory stagingMemory;
+		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 2 * buffSize);
+		auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
+		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		for(auto& m : _probeMesh.getMeshes()) {
+			for(auto& sm : m.SubMeshes)
+				sm.init(_device); // Pepare the final buffers
+		}
+		_probeMesh.allocateMeshes(_device);
+		for(auto& m : _probeMesh.getMeshes()) {
+			for(auto& sm : m.SubMeshes)
+				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
+		}
+	}
 
 	// Load a blank image
 	_blankTexture.source = "data/blank.png";
@@ -174,10 +197,8 @@ void Application::cleanupVulkan() {
 	cleanupUI();
 	_commandPool.destroy();
 	_tempCommandPool.destroy();
-	for(auto& m : _scene.getMeshes()) {
-		m.destroy();
-	}
-	Mesh::free();
+	_scene.free();
+	_probeMesh.free();
 	MaterialBuffer.destroy();
 	MaterialMemory.free();
 	Materials.clear();

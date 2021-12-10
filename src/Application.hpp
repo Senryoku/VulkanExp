@@ -145,6 +145,7 @@ class Application {
 
 	glTF			 _scene;
 	IrradianceProbes _irradianceProbes;
+	glTF			 _probeMesh;
 
 	// Raytracing test
 	bool									_raytracingDebug = true;

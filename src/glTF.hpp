@@ -91,6 +91,29 @@ class glTF {
 		   return _bounds;
 	}
 
+	///////////////////////////////////////////////////////////////////////////////////////
+	// TODO: Cleanup
+	struct OffsetEntry {
+		uint32_t materialIndex;
+		uint32_t vertexOffset;
+		uint32_t indexOffset;
+	};
+
+	DeviceMemory OffsetTableMemory;
+	DeviceMemory VertexMemory;
+	DeviceMemory IndexMemory;
+	size_t		 NextVertexMemoryOffset = 0;
+	size_t		 NextIndexMemoryOffset = 0;
+	Buffer		 OffsetTableBuffer;
+	Buffer		 VertexBuffer;
+	Buffer		 IndexBuffer;
+	uint32_t	 OffsetTableSize;
+
+	// Allocate memory for all meshes in the scene
+	void allocateMeshes(const Device& device);
+	void free();
+	///////////////////////////////////////////////////////////////////////////////////////
+
   private:
 	uint32_t		   _defaultScene = 0;
 	std::vector<Mesh>  _meshes;

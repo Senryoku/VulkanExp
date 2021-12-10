@@ -89,26 +89,29 @@ void glTF::load(std::filesystem::path path) {
 		}
 	}
 
-	for(const auto& texture : object["textures"]) {
-		Textures.push_back(Texture{
-			.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-			.format = VK_FORMAT_R8G8B8A8_UNORM, // FIXME: Use this for normal maps only! (or not?)
-			.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
-		});
-	}
+	if(object.contains("textures"))
+		for(const auto& texture : object["textures"]) {
+			Textures.push_back(Texture{
+				.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
+				.format = VK_FORMAT_R8G8B8A8_UNORM, // FIXME: Use this for normal maps only! (or not?)
+				.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
+			});
+		}
 
 	for(const auto& mat : object["materials"]) {
 		Material material;
 		material.name = mat("name", std::string("NoName"));
-		material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-		material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-		material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-		material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+		if(mat.contains("pbrMetallicRoughness")) {
+			material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+			material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
+			material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
+			material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+			if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
+				material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
+			}
+		}
 		if(mat.contains("normalTexture")) {
 			material.normalTexture = mat["normalTexture"]["index"].as<int>();
-		}
-		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-			material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
 		}
 		Materials.push_back(material);
 	}
@@ -263,6 +266,60 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	_defaultScene = object("scene", 0);
+}
+
+void glTF::allocateMeshes(const Device& device) {
+	uint32_t						  totalVertexSize = 0;
+	uint32_t						  totalIndexSize = 0;
+	std::vector<VkMemoryRequirements> memReqs;
+	std::vector<OffsetEntry>		  offsetTable;
+	for(const auto& m : getMeshes()) {
+		for(const auto& sm : m.SubMeshes) {
+			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
+			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
+			memReqs.push_back(vertexBufferMemReq);
+			memReqs.push_back(indexBufferMemReq);
+			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
+											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
+			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
+			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
+		}
+	}
+	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
+	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
+	size_t submeshIdx = 0;
+	for(const auto& m : getMeshes()) {
+		for(const auto& sm : m.SubMeshes) {
+			vkBindBufferMemory(device, sm.getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
+			NextVertexMemoryOffset += memReqs[2 * submeshIdx].size;
+			vkBindBufferMemory(device, sm.getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
+			NextIndexMemoryOffset += memReqs[2 * submeshIdx + 1].size;
+			++submeshIdx;
+		}
+	}
+	// Create views to the entire dataset
+	VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
+	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
+	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
+	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
+
+	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * offsetTable.size());
+	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, OffsetTableSize);
+	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	// FIXME: Remove VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT and use a staging buffer.
+	OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
+}
+
+void glTF::free() {
+	for(auto& m : getMeshes())
+		m.destroy();
+
+	OffsetTableBuffer.destroy();
+	IndexBuffer.destroy();
+	VertexBuffer.destroy();
+	OffsetTableMemory.free();
+	VertexMemory.free();
+	IndexMemory.free();
 }
 
 glTF::~glTF() {}
