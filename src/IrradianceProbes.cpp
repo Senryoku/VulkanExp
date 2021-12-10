@@ -33,7 +33,7 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 								  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 								  .image = _depth,
 								  .viewType = VK_IMAGE_VIEW_TYPE_2D,
-								  .format = VK_FORMAT_R16G16_UNORM,
+								  .format = VK_FORMAT_R16G16_SFLOAT,
 								  .subresourceRange =
 									  VkImageSubresourceRange{
 										  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -43,7 +43,7 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 										  .layerCount = 1,
 									  },
 							  });
-	_depth.transitionLayout(familyQueueIndex, VK_FORMAT_R16G16_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	_depth.transitionLayout(familyQueueIndex, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
 	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);

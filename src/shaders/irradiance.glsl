@@ -181,6 +181,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         float variance = abs(depth.x * depth.x - depth.y);
         float biasedDistToProbe = length(probePosition - biasedPosition);
         float chebyshevWeight = variance / (variance + max(biasedDistToProbe - mean, 0.0) * max(biasedDistToProbe - mean, 0.0));
+        chebyshevWeight = max(pow(chebyshevWeight, 3.0), 0.0);
         //debugPrintfEXT("chebyshevWeight %f\n", chebyshevWeight);
         weight *= (biasedDistToProbe <= mean) ? 1.0 : chebyshevWeight;
 
