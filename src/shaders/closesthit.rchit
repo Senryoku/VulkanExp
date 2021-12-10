@@ -200,7 +200,6 @@ void main()
 		attenuation = 1.0;
 	}
 
-
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
 		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);

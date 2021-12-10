@@ -12,20 +12,19 @@ struct ProbeGrid {
 
 const float pi = 3.1415926538f;
 
+
+ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
+    return  ivec3(index % grid.resolution.x, (index / grid.resolution.x) % grid.resolution.y, (index / (grid.resolution.x * grid.resolution.y)) % grid.resolution.z);
+}
+
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+	// TODO: Add per-probe offset (< half of the size of a grid cell)
     return grid.extentMin + index * gridCellSize + 0.5 * gridCellSize;
 }
 
-ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
-    return  ivec3(index % grid.resolution.x, (index % (grid.resolution.x * grid.resolution.y)) / grid.resolution.z, index / (grid.resolution.x * grid.resolution.y));
-}
-
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
-    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
-	ivec3 pos = probeLinearIndexToGridIndex(index, grid);
-	return probeIndexToWorldPosition(pos, grid);
-	// TODO: Add per-probe offset (< half of the size of a grid cell)
+	return probeIndexToWorldPosition(probeLinearIndexToGridIndex(index, grid), grid);
 }
 
 ivec2 probeIndexToColorUVOffset(ivec3 index, ProbeGrid grid) {
