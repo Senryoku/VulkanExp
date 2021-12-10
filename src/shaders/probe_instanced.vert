@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_vulkan_glsl : enable 
 
 #include "irradiance.glsl"
 
@@ -22,10 +23,12 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 layout(location = 3) out vec3 bitangent;
 layout(location = 4) out vec2 texCoord;
+layout(location = 5) out ivec2 probeUVOffset;
 
 void main() {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);
+    probeUVOffset = probeIndexToColorUVOffset(probeLinearIndexToGridIndex(gl_InstanceIndex, grid), grid);
     gl_Position = ubo.proj * ubo.view * vec4(8.0 * inPosition + probePosition, 1.0);
     color = inColor;
     normal = inNormal;

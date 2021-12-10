@@ -105,7 +105,9 @@ void glTF::load(std::filesystem::path path) {
 			material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 			material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
 			material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-			material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+			if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
+				material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+			}
 			if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
 				material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
 			}

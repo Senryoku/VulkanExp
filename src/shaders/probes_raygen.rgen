@@ -47,8 +47,8 @@ vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resol
 void main() 
 {
 	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
-    ivec2 probeUVOffset = ivec2(grid.colorRes * gl_LaunchIDEXT.xy);
-    ivec2 probeDepthUVOffset = ivec2(grid.depthRes * gl_LaunchIDEXT.xy);
+    ivec2 probeUVOffset = probeIndexToColorUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
+    ivec2 probeDepthUVOffset = probeIndexToDepthUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
 
     vec4 results[8][8]; // results[grid.colorRes][grid.colorRes] Should we declare them as constant, or just oversize the arrays?
     for(int i = 0; i < grid.colorRes; ++i)

@@ -17,11 +17,23 @@ vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
     return grid.extentMin + index * gridCellSize + 0.5 * gridCellSize;
 }
 
+ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
+    return  ivec3(index % grid.resolution.x, (index % (grid.resolution.x * grid.resolution.y)) / grid.resolution.z, index / (grid.resolution.x * grid.resolution.y));
+}
+
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
-	ivec3 pos = ivec3(index % grid.resolution.x, (index % (grid.resolution.x * grid.resolution.y)) / grid.resolution.z, index / (grid.resolution.x * grid.resolution.y));
+	ivec3 pos = probeLinearIndexToGridIndex(index, grid);
 	return probeIndexToWorldPosition(pos, grid);
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
+}
+
+ivec2 probeIndexToColorUVOffset(ivec3 index, ProbeGrid grid) {
+    return ivec2(grid.colorRes * ivec2(index.y * grid.resolution.x + index.x, index.z)); 
+}
+
+ivec2 probeIndexToDepthUVOffset(ivec3 index, ProbeGrid grid) {
+    return ivec2(grid.depthRes * ivec2(index.y * grid.resolution.x + index.x, index.z)); 
 }
 
 /**  Generate a spherical fibonacci point

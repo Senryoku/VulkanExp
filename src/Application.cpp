@@ -31,7 +31,7 @@ void Application::run() {
 		_scene.load("./data/models/Sponza/Sponza.gltf");
 		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
-	_probeMesh.load("./data/models/sphere.gltf");
+	_probeMesh.load("./data/models/sphere/scene.gltf");
 	{
 		QuickTimer qt("initWindow");
 		initWindow();
