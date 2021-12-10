@@ -225,13 +225,13 @@ void Application::initProbeDebug() {
 				{
 					.sampler = Samplers.begin()->second, // FIXME
 					.imageView = _irradianceProbes.getColorView(),
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				});
 		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
 					.sampler = Samplers.begin()->second, // FIXME
 					.imageView = _irradianceProbes.getDepthView(),
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				});
 		dsw.update(_device);
 	}

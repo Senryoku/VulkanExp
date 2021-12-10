@@ -26,7 +26,7 @@ layout(location = 4) out vec2 texCoord;
 void main() {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);
-    gl_Position = ubo.proj * ubo.view * vec4(inPosition + probePosition, 1.0);
+    gl_Position = ubo.proj * ubo.view * vec4(8.0 * inPosition + probePosition, 1.0);
     color = inColor;
     normal = inNormal;
     tangent = inTangent;
