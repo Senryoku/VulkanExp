@@ -36,6 +36,7 @@ class IrradianceProbes {
 	inline const Image&		getDepth() const { return _depth; }
 	inline const ImageView& getColorView() const { return _colorView; }
 	inline const ImageView& getDepthView() const { return _depthView; }
+	inline const Buffer&	getGridParametersBuffer() const { return _gridInfoBuffer; }
 
 	void destroy();
 

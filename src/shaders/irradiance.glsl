@@ -12,18 +12,16 @@ struct ProbeGrid {
 
 const float pi = 3.1415926538f;
 
-vec3 probeIndexToWorldPosition(ivec3 index, vec3 gridCellSize) {
-    return index * gridCellSize + 0.5 * gridCellSize;
+vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
+    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+    return grid.extentMin + index * gridCellSize + 0.5 * gridCellSize;
 }
 
-vec3 probeIndexToWorldPosition(uint index, ivec3 gridResolution, vec3 gridCellSize) {
-	ivec3 pos = ivec3(index % gridResolution.x, (index % (gridResolution.x * gridResolution.y)) / gridResolution.z, index / (gridResolution.x * gridResolution.y));
-	return probeIndexToWorldPosition(pos, gridCellSize);
+vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
+    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+	ivec3 pos = ivec3(index % grid.resolution.x, (index % (grid.resolution.x * grid.resolution.y)) / grid.resolution.z, index / (grid.resolution.x * grid.resolution.y));
+	return probeIndexToWorldPosition(pos, grid);
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
-}
-
-vec3 gridPositionToWorldPosition(uvec3 position, vec3 gridCellSize) {
-	return position * gridCellSize + 0.5 * gridCellSize;
 }
 
 /**  Generate a spherical fibonacci point
@@ -132,7 +130,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
     vec3 gridCoords = (position - grid.extentMin) / grid.resolution;
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
     ivec3 firstProbeIdx = ivec3(gridCoords);
-    vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, gridCellSize)) / gridCellSize, vec3(0), vec3(1));
+    vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / gridCellSize, vec3(0), vec3(1));
     
     vec3 finalColor = vec3(0.0);
     float totalWeight = 0.0;
@@ -140,7 +138,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
     for(int i = 0; i < 8; ++i) {
         ivec3 offset = ivec3(i / 2, (i / 4) % 2, i % 2);
         ivec3 probeCoords = firstProbeIdx + offset;
-        vec3 probePosition = probeIndexToWorldPosition(probeCoords, gridCellSize);
+        vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
         float distToProbe = length(position - probePosition);
         vec3 direction = (position - probePosition) / distToProbe;
         vec2 uv = spherePointToOctohedralUV(direction.xyz);

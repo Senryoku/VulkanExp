@@ -143,9 +143,14 @@ class Application {
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
 
-	glTF			 _scene;
-	IrradianceProbes _irradianceProbes;
-	glTF			 _probeMesh;
+	glTF _scene;
+
+	IrradianceProbes				 _irradianceProbes;
+	glTF							 _probeMesh;
+	RenderPass						 _probeDebugRenderPass;
+	DescriptorPool					 _probeDebugDescriptorPool;
+	std::vector<DescriptorSetLayout> _probeDebugDescriptorSetLayouts;
+	Pipeline						 _probeDebugPipeline;
 
 	// Raytracing test
 	bool									_raytracingDebug = true;
@@ -193,6 +198,8 @@ class Application {
 	void createInstance();
 	void createSwapChain();
 	void initSwapChain();
+	void initCameraBuffer();
+	void initProbeDebug();
 	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();

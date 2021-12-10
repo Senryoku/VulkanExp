@@ -240,5 +240,7 @@
     <None Include="src\IrradianceProbes.hpp" />
     <None Include="src\shaders\probes_raygen.rgen" />
     <None Include="src\shaders\irradiance.glsl" />
+    <None Include="src\shaders\probe_instanced.vert" />
+    <None Include="src\shaders\probe_debug.frag" />
   </ItemGroup>
 </Project>

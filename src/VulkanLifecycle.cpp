@@ -190,6 +190,7 @@ void Application::cleanupVulkan() {
 	cleanupSwapChain();
 
 	_irradianceProbes.destroy();
+	_probeMesh.free();
 
 	_pipelineCache.save(PipelineCacheFilepath);
 	_pipelineCache.destroy();

@@ -46,7 +46,7 @@ vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resol
 
 void main() 
 {
-	vec4 origin = vec4(gridPositionToWorldPosition(gl_LaunchIDEXT.xyz, gridCellSize), 1);
+	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
     ivec2 probeUVOffset = ivec2(grid.colorRes * gl_LaunchIDEXT.xy);
     ivec2 probeDepthUVOffset = ivec2(grid.depthRes * gl_LaunchIDEXT.xy);
 
