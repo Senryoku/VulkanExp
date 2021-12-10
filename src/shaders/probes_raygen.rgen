@@ -87,8 +87,8 @@ void main()
         for(int j = 0; j < grid.colorRes - 2; ++j)
         if(results[i][j].w > 1e-6) {
             results[i][j].xyz /= results[i][j].w;
-            vec3 prev = (1.0f - grid.hysteresis) * imageLoad(color, probeUVOffset + ivec2(i, j)).xyz; // Simulating alpha blending
-            results[i][j].xyz = prev + grid.hysteresis * results[i][j].xyz;
+            vec3 prev = imageLoad(color, probeUVOffset + ivec2(i, j)).xyz; // Simulating alpha blending
+            results[i][j].xyz = (1.0f - grid.hysteresis) * prev + grid.hysteresis * results[i][j].xyz;
             imageStore(color, probeUVOffset
                 + ivec2(1, 1) // Skip Border
                 + ivec2(i, j), vec4(results[i][j].xyz, 1.0));
@@ -98,8 +98,8 @@ void main()
         for(int j = 0; j < grid.depthRes - 2; ++j) 
             if(depthResults[i][j].z > 1e-6) {
                 depthResults[i][j].xy /= depthResults[i][j].z;
-                vec2 prev = (1.0f - grid.hysteresis) * imageLoad(depth, probeDepthUVOffset + ivec2(i, j)).xy;
-                depthResults[i][j].xy = prev + grid.hysteresis * depthResults[i][j].xy; 
+                vec2 prev = imageLoad(depth, probeDepthUVOffset + ivec2(i, j)).xy;
+                depthResults[i][j].xy = (1.0f - grid.hysteresis) * prev + grid.hysteresis * depthResults[i][j].xy; 
 	            imageStore(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j), vec4(depthResults[i][j].xy, 0.0, 0.0));
             }
 
@@ -127,13 +127,27 @@ void main()
             imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i            ), vec4(results[s - 1]    [s - 1 - i].xyz, 1.0));
     }
 
+
+    // Depth Borders Copy
+    s = int(grid.depthRes) - 2;
+    if(results[s - 1][s - 1].w > 1e-6)
+        imageStore(depth, probeDepthUVOffset + ivec2(0,                 0),                 vec4(depthResults[s - 1][s - 1].xyz, 1.0));
+    if(results[0]    [s - 1].w > 1e-6)
+        imageStore(depth, probeDepthUVOffset + ivec2(grid.depthRes - 1, 0),                 vec4(depthResults[0]    [s - 1].xyz, 1.0));
+    if(results[s - 1][0]    .w > 1e-6)
+        imageStore(depth, probeDepthUVOffset + ivec2(0,                 grid.depthRes - 1), vec4(depthResults[s - 1][0]    .xyz, 1.0));
+    if(results[0]    [0]    .w > 1e-6)
+        imageStore(depth, probeDepthUVOffset + ivec2(grid.depthRes - 1, grid.depthRes - 1), vec4(depthResults[0]    [0]    .xyz, 1.0));
     
+     // Borders
     for(int i = 0; i < s; ++i) {
-        //imageStore(color, probeUVOffset + ivec2(1 + i,             0),                 vec4(1.0));
-        //imageStore(color, probeUVOffset + ivec2(1 + i,             grid.colorRes - 1), vec4(1.0));
-        //imageStore(color, probeUVOffset + ivec2(0,                 1 + i),             vec4(1.0));
-        //imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i),             vec4(1.0));
+        if(results[s - 1 - i][0].w > 1e-6)
+            imageStore(depth, probeDepthUVOffset + ivec2(1 + i,             0                ), vec4(depthResults[s - 1 - i][0]        .xyz, 1.0));
+        if(results[s - 1 - i][s - 1].w > 1e-6)
+            imageStore(depth, probeDepthUVOffset + ivec2(1 + i,             grid.depthRes - 1), vec4(depthResults[s - 1 - i][s - 1]    .xyz, 1.0));
+        if(results[0][s - 1 - i].w > 1e-6)
+            imageStore(depth, probeDepthUVOffset + ivec2(0,                 1 + i            ), vec4(depthResults[0]        [s - 1 - i].xyz, 1.0));
+        if(results[s - 1][s - 1 - i].w > 1e-6)
+            imageStore(depth, probeDepthUVOffset + ivec2(grid.depthRes - 1, 1 + i            ), vec4(depthResults[s - 1]    [s - 1 - i].xyz, 1.0));
     }
-    
-    // TODO: DEPTH
 }

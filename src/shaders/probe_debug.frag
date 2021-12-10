@@ -23,5 +23,4 @@ void main() {
     vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
     vec3 c = texture(colorTex, uv).xyz;
     outColor = vec4(c, 1.0);
-    //outColor = vec4(spherePointToOctohedralUV(normalize(normal)), 0.0,  1.0);
 }

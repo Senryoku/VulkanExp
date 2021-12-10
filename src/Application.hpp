@@ -81,6 +81,7 @@ class Application {
 		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
 	};
 
 #ifdef NDEBUG
@@ -413,7 +414,8 @@ class Application {
 		glfwTerminate();
 	}
 
-	static const VkDebugUtilsMessageSeverityFlagBitsEXT ValidationLayerDebugLevel = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+	static const VkDebugUtilsMessageSeverityFlagBitsEXT ValidationLayerDebugLevel = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+	// VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
 														const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {

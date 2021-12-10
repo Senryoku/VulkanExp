@@ -148,6 +148,7 @@ void Application::drawUI() {
 	}
 	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
+		ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
 		ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
 		ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);

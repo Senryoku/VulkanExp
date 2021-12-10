@@ -20,7 +20,7 @@ ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
-    return grid.extentMin + index * gridCellSize + 0.5 * gridCellSize;
+    return grid.extentMin + index * gridCellSize; // + 0.5 * gridCellSize;
 }
 
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
@@ -118,7 +118,6 @@ vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
     return (vec2(octFragCoord) + vec2(0.5f))  *(2.0f / float(res - 2)) - vec2(1.0f, 1.0f);
 }
 
-
 vec2 spherePointToOctohedralUV(vec3 direction) {
     // Should be close to
     //return 0.5 * octEncode(direction) + vec2(0.5);
@@ -140,39 +139,50 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
     return octahedron.xy * 0.5f + 0.5f;
 }
 
+#extension GL_EXT_debug_printf : enable
+
 vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
-    vec3 gridCoords = (position - grid.extentMin) / grid.resolution;
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+    vec3 gridCoords = (position - grid.extentMin) / gridCellSize;
     ivec3 firstProbeIdx = ivec3(gridCoords);
     vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / gridCellSize, vec3(0), vec3(1));
     
     vec3 finalColor = vec3(0.0);
     float totalWeight = 0.0;
+
+    vec2 uvScaling = vec2(grid.resolution.x * grid.resolution.y, grid.resolution.z);
     
     for(int i = 0; i < 8; ++i) {
-        ivec3 offset = ivec3(i / 2, (i / 4) % 2, i % 2);
+        ivec3 offset = ivec3(i, i >> 1, i >> 2) & ivec3(1); //ivec3(i % 2,  (i / 2) % 2, (i / 4) % 2);
+        if(any(greaterThan(offset, grid.resolution - 1))) continue; 
         ivec3 probeCoords = firstProbeIdx + offset;
         vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
-        float distToProbe = length(position - probePosition);
-        vec3 direction = (position - probePosition) / distToProbe;
-        vec2 uv = spherePointToOctohedralUV(direction.xyz);
-        ivec2 colorUV = ivec2((grid.colorRes - 2) * uv);
-        ivec2 depthUV = ivec2((grid.depthRes - 2) * uv);
+        vec3 directionToProbe = normalize(probePosition - position);
+        vec3 biasedPosition = (position + 0.2 * normal);
+        vec3 biasedDirectionToProbe = probePosition - biasedPosition;
+        vec2 localColorUV = (float(grid.colorRes - 2) / grid.colorRes) * spherePointToOctohedralUV(normal) / uvScaling;
+        vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(normalize(biasedDirectionToProbe)) / uvScaling;
+
+        vec2 colorUV = vec2(probeIndexToColorUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.colorRes + localColorUV;
+        vec2 depthUV = vec2(probeIndexToDepthUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.depthRes + localDepthUV;
         // Contribution of this probe, based on its distance from our sample point
         vec3 trilinear = mix(1.0 - alpha, alpha, offset);
         float weight = 1.0f;
         
         // Smooth backface test
-        float backfaceweight = max(0.0001, (dot(-direction, normal) + 1.0) * 0.5);
+        float backfaceweight = max(0.0001, (dot(directionToProbe, normal) + 1.0) * 0.5);
         weight *= backfaceweight * backfaceweight + 0.2;
 
         // Moment visibility test
-        vec2 depth = texture(depthTex, depthUV).rg;
+        vec2 depth = texture(depthTex, depthUV).xy;
+        //debugPrintfEXT("depth %f %f\n", depth.x, depth.y);
         float mean = depth.x;
         float variance = abs(depth.x * depth.x - depth.y);
-        float chebyshevWeight = variance / (variance + max(distToProbe - mean, 0.0) * max(distToProbe - mean, 0.0));
-        weight *= (distToProbe <= mean) ? 1.0 : chebyshevWeight;
+        float biasedDistToProbe = length(probePosition - biasedPosition) / length(gridCellSize);
+        float chebyshevWeight = variance / (variance + max(biasedDistToProbe - mean, 0.0) * max(biasedDistToProbe - mean, 0.0));
+        //debugPrintfEXT("chebyshevWeight %f\n", chebyshevWeight);
+        //weight *= (biasedDistToProbe <= mean) ? 1.0 : chebyshevWeight;
 
         weight = max(0.000001, weight);
 
@@ -186,12 +196,15 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         vec3 color = texture(colorTex, colorUV).xyz;
         // Non-physical blending, smooths the transitions between probes
         color = sqrt(color);
-
+        
         finalColor += weight * color; 
         totalWeight += weight; 
     }
+    
 
-    finalColor /= totalWeight;
+    if(totalWeight > 1e-6)
+       finalColor /= totalWeight;
+    else return vec3(1.0, 0.0, 0.0); // Treat this as an error for now.
 
     // Undo the sqrt
     finalColor *= finalColor;
