@@ -1,6 +1,16 @@
 $srcfolder = "src\shaders"
 $dstfolder = "shaders_spv"
-$shaders = @(Get-ChildItem $srcfolder\*)
+$shaders = @(Get-ChildItem $srcfolder\* -Exclude *.glsl)
+$libs = @(Get-ChildItem $srcfolder\*.glsl)
+$libsdate = [datetime](Get-Date -Date "01/01/1970") # Unix epoch as minimum, please don't go too far back in time
+# Get date of last modification of a "library file" (.glsl) to force recompilation of all shaders in this case (I don't want to manage a dependency tree :))
+Foreach($lib in $libs)
+{
+	$d = [datetime](Get-ItemProperty -Path $lib -Name LastWriteTime).lastwritetime
+	If($d -gt $libsdate) {
+		$libsdate = $d
+	}
+}
 Foreach($shader in $shaders)
 {
 	$name = [System.IO.Path]::GetFileNameWithoutExtension($shader)
@@ -10,10 +20,10 @@ Foreach($shader in $shaders)
 	If($exists) {
 		$d2 = [datetime](Get-ItemProperty -Path $dstfolder\$filename.spv -Name LastWriteTime).lastwritetime
 	}
-	If(-not $exists -or $d -gt $d2)
+	If(-not $exists -or $d -gt $d2 -or $libsdate -gt $d2)
 	{
 		Write-Output "Compiling $filename to $dstfolder\$filename.spv"
-		glslangValidator.exe -V --target-env vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
+		glslc.exe -O --target-env=vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
 	} Else {
 		#Write-Output "Skiping $filename ($d < $d2)"
 	}

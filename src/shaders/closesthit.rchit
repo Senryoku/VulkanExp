@@ -19,12 +19,16 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "irradiance.glsl"
+
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0) uniform sampler2D textures[];
 layout(binding = 2, set = 0) buffer Vertices { vec4 v[]; } vertices;
 layout(binding = 3, set = 0) buffer Indices { uint  i[]; } indices;
 layout(binding = 4, set = 0) buffer Offsets { uint  o[]; } offsets;
 layout(binding = 5, set = 0) buffer Materials { uint m[]; } materials;
+layout(binding = 6, set = 0, r11f_g11f_b10f) uniform image2D irradianceColor;
+layout(binding = 7, set = 0, rg16f) uniform image2D irrandiaceDepth;
 
 struct rayPayload {
 	vec3 raydx;
