@@ -18,20 +18,14 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#include "irradiance.glsl"
+
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 6, set = 0, r11f_g11f_b10f) uniform image2D color;
 layout(binding = 7, set = 0, rg16f) uniform image2D depth;
-layout(binding = 8, set = 0, std140) uniform ProbeGrid {
-    vec3 extentMin;
-    float depthSharpness;
-    vec3 extentMax;
-    float hysteresis;
-    ivec3 resolution;
-    uint raysPerProbe;
-    uint colorRes;
-    uint depthRes;
-    uint padding[2];
-} grid;
+layout(binding = 8, set = 0, std140) uniform Block {
+    ProbeGrid grid;
+};
 
 layout(push_constant) uniform Push {
     mat3 randomOrientation;
@@ -46,8 +40,6 @@ struct rayPayload {
 };
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
-
-#include "irradiance.glsl"
 
 vec3 gridSpan = grid.extentMax - grid.extentMin;
 vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resolution.y, gridSpan.z / grid.resolution.z);

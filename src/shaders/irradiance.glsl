@@ -1,9 +1,24 @@
+struct ProbeGrid {
+    vec3 extentMin;
+    float depthSharpness;
+    vec3 extentMax;
+    float hysteresis;
+    ivec3 resolution;
+    uint raysPerProbe;
+    uint colorRes;
+    uint depthRes;
+    uint padding[2];
+};
 
 const float pi = 3.1415926538f;
 
+vec3 probeIndexToWorldPosition(ivec3 index, vec3 gridCellSize) {
+    return index * gridCellSize + 0.5 * gridCellSize;
+}
+
 vec3 probeIndexToWorldPosition(uint index, ivec3 gridResolution, vec3 gridCellSize) {
 	ivec3 pos = ivec3(index % gridResolution.x, (index % (gridResolution.x * gridResolution.y)) / gridResolution.z, index / (gridResolution.x * gridResolution.y));
-	return pos * gridCellSize  + 0.5 * gridCellSize;
+	return probeIndexToWorldPosition(pos, gridCellSize);
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
 }
 
@@ -110,4 +125,63 @@ vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
     vec2 octFragCoord = ivec2((fragCoord.x - 2) % res, (fragCoord.y - 2) % res);
     // Add back the half pixel to get pixel center normalized coordinates
     return (vec2(octFragCoord) + vec2(0.5f))  *(2.0f / float(res - 2)) - vec2(1.0f, 1.0f);
+}
+
+vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
+    // Convert position in grid coords
+    vec3 gridCoords = (position - grid.extentMin) / grid.resolution;
+    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+    ivec3 firstProbeIdx = ivec3(gridCoords);
+    vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, gridCellSize)) / gridCellSize, vec3(0), vec3(1));
+    
+    vec3 finalColor = vec3(0.0);
+    float totalWeight = 0.0;
+    
+    for(int i = 0; i < 8; ++i) {
+        ivec3 offset = ivec3(i / 2, (i / 4) % 2, i % 2);
+        ivec3 probeCoords = firstProbeIdx + offset;
+        vec3 probePosition = probeIndexToWorldPosition(probeCoords, gridCellSize);
+        float distToProbe = length(position - probePosition);
+        vec3 direction = (position - probePosition) / distToProbe;
+        vec2 uv = spherePointToOctohedralUV(direction.xyz);
+        ivec2 colorUV = ivec2((grid.colorRes - 2) * uv);
+        ivec2 depthUV = ivec2((grid.depthRes - 2) * uv);
+        // Contribution of this probe, based on its distance from our sample point
+        vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+        float weight = 1.0f;
+        
+        // Smooth backface test
+        float backfaceweight = max(0.0001, (dot(-direction, normal) + 1.0) * 0.5);
+        weight *= backfaceweight * backfaceweight + 0.2;
+
+        // Moment visibility test
+        vec2 depth = texture(depthTex, depthUV).rg;
+        float mean = depth.x;
+        float variance = abs(depth.x * depth.x - depth.y);
+        float chebyshevWeight = variance / (variance + max(distToProbe - mean, 0.0) * max(distToProbe - mean, 0.0));
+        weight *= (distToProbe <= mean) ? 1.0 : chebyshevWeight;
+
+        weight = max(0.000001, weight);
+
+        const float crushThreshold = 0.2;
+        if (weight < crushThreshold) {
+            weight *= weight * weight * (1.0 / (crushThreshold * crushThreshold)); 
+        }
+
+        weight *= trilinear.x * trilinear.y * trilinear.z;
+        
+        vec3 color = texture(colorTex, colorUV).xyz;
+        // Non-physical blending, smooths the transitions between probes
+        color = sqrt(color);
+
+        finalColor += weight * color; 
+        totalWeight += weight; 
+    }
+
+    finalColor /= totalWeight;
+
+    // Undo the sqrt
+    finalColor *= finalColor;
+
+    return finalColor;
 }
