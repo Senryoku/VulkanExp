@@ -21,12 +21,12 @@
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 6, set = 0, r11f_g11f_b10f) uniform image2D color;
 layout(binding = 7, set = 0, rg16f) uniform image2D depth;
-layout(binding = 8, set = 0) uniform ProbeGrid {
+layout(binding = 8, set = 0, std140) uniform ProbeGrid {
     vec3 extentMin;
-    vec3 extentMax;
-    ivec3 resolution;
     float depthSharpness;
+    vec3 extentMax;
     float hysteresis;
+    ivec3 resolution;
     uint raysPerProbe;
     uint colorRes;
     uint depthRes;
@@ -216,5 +216,4 @@ void main()
                 vec2 prev = (1.0f - grid.hysteresis) * imageLoad(depth, probeDepthUVOffset + ivec2(i, j)).xy;
 	            imageStore(depth, probeDepthUVOffset + ivec2(i, j), vec4(prev + grid.hysteresis * depthResults[i][j].xy, 0.0, 0.0));
             }
-    imageStore(color, probeUVOffset, vec4(0.0, 2.0, 0.0, 1.0));
 }

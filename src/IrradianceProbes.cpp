@@ -5,6 +5,8 @@
 
 void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max) {
 	_device = &device;
+	GridParameters.extentMin = min;
+	GridParameters.extentMax = max;
 	_color.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
 				  VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 	_color.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -44,19 +46,19 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 	_depth.transitionLayout(familyQueueIndex, VK_FORMAT_R16G16_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
-	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	GridParameters.extentMin = min;
-	GridParameters.extentMax = max;
+	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	updateUniforms();
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);  // Color
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);  // Depth
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Grid Info
+	dslBuilder
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	 // Color
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	 // Depth
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Grid Info
 	_descriptorSetLayout = dslBuilder.build(device);
 
 	_pipelineLayout.create(device, {_descriptorSetLayout},
 						   {{
+							   // Push Constants
 							   .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 							   .offset = 0,
 							   .size = sizeof(glm::mat3),
