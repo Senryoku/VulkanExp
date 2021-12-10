@@ -103,11 +103,13 @@ void Application::drawUI() {
 		}
 		float scale = 3.0f;
 		ImGui::Text("Probes Color");
-		ImGui::Image(ProbesColor, ImVec2(scale * _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
-										 scale * _irradianceProbes.ColorResolution * _irradianceProbes.VolumeResolution[2]));
+		ImGui::Image(ProbesColor,
+					 ImVec2(scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
+							scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[2]));
 		ImGui::Text("Probes Depth");
-		ImGui::Image(ProbesDepth, ImVec2(scale * _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[0] * _irradianceProbes.VolumeResolution[1],
-										 scale * _irradianceProbes.DepthResolution * _irradianceProbes.VolumeResolution[2]));
+		ImGui::Image(ProbesDepth,
+					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
+							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
 		ImGui::End();
 	}
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
@@ -146,7 +148,6 @@ void Application::drawUI() {
 	}
 	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
-
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
 		ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
 		ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);
@@ -165,6 +166,23 @@ void Application::drawUI() {
 			_preferedPresentMode = static_cast<VkPresentModeKHR>(curr_choice);
 			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
 		}
+		if(ImGui::TreeNode("Irradiance Probes")) {
+			ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin));
+			ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax));
+			bool uniformNeedsUpdate = false;
+			uniformNeedsUpdate = ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f);
+			uniformNeedsUpdate = ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f);
+			int rays = _irradianceProbes.GridParameters.raysPerProbe;
+			if(ImGui::SliderInt("Rays Per Probe", &rays, 1, 128)) {
+				_irradianceProbes.GridParameters.raysPerProbe = rays;
+				uniformNeedsUpdate = true;
+			}
+
+			if(uniformNeedsUpdate)
+				_irradianceProbes.update(_scene, _graphicsQueue);
+			ImGui::TreePop();
+		}
+
 		ImGui::End();
 	}
 }

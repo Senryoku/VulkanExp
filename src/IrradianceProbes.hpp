@@ -29,20 +29,27 @@ class IrradianceProbes {
 	void createPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas);
+	void updateUniforms();
 	void update(const glTF& scene, VkQueue queue);
 
-	const size_t ColorResolution = 8;
-	const size_t DepthResolution = 16;
-	const size_t VolumeResolution[3]{32, 8, 32};
-
-	inline const glm::vec3	getMin() const { return _min; }
-	inline const glm::vec3	getMax() const { return _max; }
 	inline const Image&		getColor() const { return _color; }
 	inline const Image&		getDepth() const { return _depth; }
 	inline const ImageView& getColorView() const { return _colorView; }
 	inline const ImageView& getDepthView() const { return _depthView; }
 
 	void destroy();
+
+	struct GridInfo {
+		glm::vec3	 extentMin;
+		glm::vec3	 extentMax;
+		glm::ivec3	 resolution{32, 8, 32};
+		float		 depthSharpness = 50.0f; // Exponent for depth testing
+		float		 hysteresis = 0.98f;	 // Importance of newly cast rays
+		unsigned int raysPerProbe = 32;
+		unsigned int colorRes = 8;
+		unsigned int depthRes = 16;
+	};
+	GridInfo GridParameters;
 
   private:
 	const Device* _device;
@@ -55,6 +62,8 @@ class IrradianceProbes {
 	CommandPool			_commandPool;
 	CommandBuffers		_commandBuffers;
 
+	Buffer			   _gridInfoBuffer;
+	DeviceMemory	   _gridInfoMemory;
 	ShaderBindingTable _shaderBindingTable;
 
 	// TODO: To allow sampling of probes during probes update, we'll probably need to double these and swap them as input/output each update.
@@ -62,7 +71,4 @@ class IrradianceProbes {
 	ImageView _colorView;
 	Image	  _depth;
 	ImageView _depthView;
-
-	glm::vec3 _min;
-	glm::vec3 _max;
 };

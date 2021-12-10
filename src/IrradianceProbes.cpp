@@ -5,11 +5,8 @@
 
 void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max) {
 	_device = &device;
-
-	_min = min;
-	_max = max;
-	_color.create(device, ColorResolution * VolumeResolution[0] * VolumeResolution[1], ColorResolution * VolumeResolution[2], VK_FORMAT_B10G11R11_UFLOAT_PACK32,
-				  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	_color.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
+				  VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 	_color.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_colorView.create(device, VkImageViewCreateInfo{
 								  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -27,8 +24,8 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 							  });
 	_color.transitionLayout(familyQueueIndex, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-	_depth.create(device, DepthResolution * VolumeResolution[0] * VolumeResolution[1], DepthResolution * VolumeResolution[2], VK_FORMAT_R16G16_UNORM, VK_IMAGE_TILING_OPTIMAL,
-				  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	_depth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
+				  VK_FORMAT_R16G16_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 	_depth.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_depthView.create(device, VkImageViewCreateInfo{
 								  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -46,9 +43,16 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 							  });
 	_depth.transitionLayout(familyQueueIndex, VK_FORMAT_R16G16_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
+	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
+	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	GridParameters.extentMin = min;
+	GridParameters.extentMax = max;
+	updateUniforms();
+
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Color
-	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Depth
+	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);  // Color
+	dslBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);  // Depth
+	dslBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Grid Info
 	_descriptorSetLayout = dslBuilder.build(device);
 
 	_pipelineLayout.create(device, {_descriptorSetLayout},
@@ -74,6 +78,10 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 	createShaderBindingTable();
 	_commandPool.create(device, familyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_commandBuffers.allocate(device, _commandPool, 1);
+}
+
+void IrradianceProbes::updateUniforms() {
+	_gridInfoMemory.fill(&GridParameters, 1);
 }
 
 void IrradianceProbes::createPipeline() {
@@ -146,6 +154,7 @@ void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStruc
 	auto writer = baseSceneWriter(_descriptorPool.getDescriptorSets()[0], scene, tlas);
 	writer.add(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _colorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _depthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
+	writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {.buffer = _gridInfoBuffer, .offset = 0, .range = VK_WHOLE_SIZE});
 	writer.update(*_device);
 }
 
@@ -276,6 +285,8 @@ void IrradianceProbes::destroy() {
 	_fence.destroy();
 	_commandBuffers.free();
 	_commandPool.destroy();
+	_gridInfoMemory.free();
+	_gridInfoBuffer.destroy();
 	_descriptorPool.destroy();
 	_descriptorSetLayout.destroy();
 	_pipeline.destroy();
