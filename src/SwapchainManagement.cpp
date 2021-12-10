@@ -213,61 +213,29 @@ void Application::initSwapChain() {
 
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {
-			VkDescriptorBufferInfo cameraBufferInfo{
-				.buffer = _cameraUniformBuffers[i],
-				.offset = 0,
-				.range = sizeof(CameraBuffer),
-			};
-			VkDescriptorImageInfo imageInfo{
-				.sampler = *Textures[Materials[m].albedoTexture].sampler,
-				.imageView = Textures[Materials[m].albedoTexture].gpuImage->imageView,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			};
-
-			std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-			descriptorWrites.push_back(VkWriteDescriptorSet{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
-				.dstBinding = 0,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				.pImageInfo = nullptr,
-				.pBufferInfo = &cameraBufferInfo,
-				.pTexelBufferView = nullptr,
-			});
-			descriptorWrites.push_back(VkWriteDescriptorSet{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
-				.dstBinding = 1,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &imageInfo,
-				.pBufferInfo = nullptr,
-				.pTexelBufferView = nullptr,
-			});
+			DescriptorSetWriter dsw(_descriptorPool.getDescriptorSets()[i * Materials.size() + m]);
+			dsw.add(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					{
+						.buffer = _cameraUniformBuffers[i],
+						.offset = 0,
+						.range = sizeof(CameraBuffer),
+					});
+			dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					{
+						.sampler = *Textures[Materials[m].albedoTexture].sampler,
+						.imageView = Textures[Materials[m].albedoTexture].gpuImage->imageView,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					});
 			// Use a blank texture if this mesh doesn't have a normal map
-			auto&				  normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : _blankTexture;
-			VkDescriptorImageInfo normalInfo{
-				.sampler = *normals.sampler,
-				.imageView = normals.gpuImage->imageView,
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			};
-			descriptorWrites.push_back(VkWriteDescriptorSet{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = _descriptorPool.getDescriptorSets()[i * Materials.size() + m],
-				.dstBinding = 2,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.pImageInfo = &normalInfo,
-				.pBufferInfo = nullptr,
-				.pTexelBufferView = nullptr,
-			});
+			auto& normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : _blankTexture;
+			dsw.add(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					{
+						.sampler = *normals.sampler,
+						.imageView = normals.gpuImage->imageView,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					});
 
-			vkUpdateDescriptorSets(_device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			dsw.update(_device);
 		}
 	}
 
