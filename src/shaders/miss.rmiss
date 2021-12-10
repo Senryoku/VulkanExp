@@ -6,6 +6,7 @@ struct rayPayload {
 	vec3 raydy;
 
 	vec3 color; // Result
+	float depth; // Result
 };
 
 layout(location = 0) rayPayloadInEXT rayPayload payload;
@@ -13,5 +14,6 @@ layout(location = 0) rayPayloadInEXT rayPayload payload;
 void main()
 {
 	payload.color = vec3(0.0);
+	payload.depth = -1.0f;
     //payload.color = vec3(0.5294117647, 0.80784313725, 0.92156862745);
 }
