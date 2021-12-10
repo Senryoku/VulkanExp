@@ -50,13 +50,13 @@ void main()
     ivec2 probeUVOffset = probeIndexToColorUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
     ivec2 probeDepthUVOffset = probeIndexToDepthUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
 
-    vec4 results[8][8]; // results[grid.colorRes][grid.colorRes] Should we declare them as constant, or just oversize the arrays?
-    for(int i = 0; i < grid.colorRes; ++i)
-        for(int j = 0; j < grid.colorRes; ++j)
+    vec4 results[8 - 2][8 - 2]; // results[grid.colorRes][grid.colorRes] Should we declare them as constant, or just oversize the arrays?
+    for(int i = 0; i < results.length(); ++i)
+        for(int j = 0; j < results[i].length(); ++j)
             results[i][j] = vec4(0);
-    vec3 depthResults[16][16];
-    for(int i = 0; i < grid.depthRes; ++i)
-        for(int j = 0; j < grid.depthRes; ++j)
+    vec3 depthResults[16 - 2][16 - 2];
+    for(int i = 0; i < depthResults.length(); ++i)
+        for(int j = 0; j < depthResults[i].length(); ++j)
             depthResults[i][j] = vec3(0);
 
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
@@ -70,12 +70,12 @@ void main()
         vec2 polar = cartesianToPolar(direction.xyz);
 		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
 		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));//normalize(direction.xyz + vec3(0, 0.1, 0));
-        vec2 uv = spherePointToOctohedralUV(direction.xyz);
-        ivec2 colorUV = ivec2((grid.colorRes - 2) * uv);
-        ivec2 depthUV = ivec2((grid.depthRes - 2) * uv);
+        vec2 uv = spherePointToOctohedralUV(direction.xyz); // [0, 1.0]
+        ivec2 colorUV = clamp(ivec2((grid.colorRes - 2) * uv), 0, int(grid.colorRes - 3)); // [0, grid.colorRes - 2[
+        ivec2 depthUV = clamp(ivec2((grid.depthRes - 2) * uv), 0, int(grid.colorRes - 3));
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
         
-        vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(uv * grid.colorRes), grid.colorRes));
+        vec3 texelDirection = normalize(sphereToOctahedron(direction.xyz)); // octDecode(normalizedOctCoord(ivec2(uv * grid.colorRes), grid.colorRes));
         float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
         float depthWeight = pow(colorWeight, grid.depthSharpness);
         results[colorUV.x][colorUV.y] += vec4(colorWeight * payload.color, colorWeight);
@@ -83,19 +83,39 @@ void main()
         depthResults[depthUV.x][depthUV.y] += vec3(depthWeight * payload.depth, depthWeight * payload.depth * payload.depth, depthWeight);
 	}
     
-    for(int i = 0; i < grid.colorRes; ++i)
-        for(int j = 0; j < grid.colorRes; ++j)
+    for(int i = 0; i < grid.colorRes - 2; ++i)
+        for(int j = 0; j < grid.colorRes - 2; ++j)
         if(results[i][j].w > 1e-6) {
             results[i][j].xyz /= results[i][j].w;
             vec3 prev = (1.0f - grid.hysteresis) * imageLoad(color, probeUVOffset + ivec2(i, j)).xyz; // Simulating alpha blending
-            imageStore(color, probeUVOffset + ivec2(i, j), vec4(prev + grid.hysteresis * results[i][j].xyz, 1.0));
+            results[i][j].xyz = prev + grid.hysteresis * results[i][j].xyz;
+            imageStore(color, probeUVOffset
+                + ivec2(1, 1) // Skip Border
+                + ivec2(i, j), vec4(results[i][j].xyz, 1.0));
         }
         
-    for(int i = 0; i < grid.depthRes; ++i)
-        for(int j = 0; j < grid.depthRes; ++j) 
+    for(int i = 0; i < grid.depthRes - 2; ++i)
+        for(int j = 0; j < grid.depthRes - 2; ++j) 
             if(depthResults[i][j].z > 1e-6) {
                 depthResults[i][j].xy /= depthResults[i][j].z;
                 vec2 prev = (1.0f - grid.hysteresis) * imageLoad(depth, probeDepthUVOffset + ivec2(i, j)).xy;
-	            imageStore(depth, probeDepthUVOffset + ivec2(i, j), vec4(prev + grid.hysteresis * depthResults[i][j].xy, 0.0, 0.0));
+                depthResults[i][j].xy = prev + grid.hysteresis * depthResults[i][j].xy; 
+	            imageStore(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j), vec4(depthResults[i][j].xy, 0.0, 0.0));
             }
+
+    // Copy Border Texels (for correct texture filtering)
+    // Corners
+    int s = int(grid.colorRes) - 2;
+    imageStore(color, probeUVOffset + ivec2(0,                 0),                 vec4(results[s - 1][s - 1].xyz, 1.0));
+    imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 0),                 vec4(results[0]    [s - 1].xyz, 1.0));
+    imageStore(color, probeUVOffset + ivec2(0,                 grid.colorRes - 1), vec4(results[s - 1][0]    .xyz, 1.0));
+    imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, grid.colorRes - 1), vec4(results[0]    [0]    .xyz, 1.0));
+
+    // Borders
+    for(int i = 0; i < s; ++i) {
+        imageStore(color, probeUVOffset + ivec2(1 + i,             0),                 vec4(results[s - 1 - i][0]        .xyz, 1.0));
+        imageStore(color, probeUVOffset + ivec2(1 + i,             grid.colorRes - 1), vec4(results[s - 1 - i][s - 1]    .xyz, 1.0));
+        imageStore(color, probeUVOffset + ivec2(0,                 1 + i),             vec4(results[0]        [s - 1 - i].xyz, 1.0));
+        imageStore(color, probeUVOffset + ivec2(grid.colorRes - 1, 1 + i),             vec4(results[s - 1]    [s - 1 - i].xyz, 1.0));
+    }
 }

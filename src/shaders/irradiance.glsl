@@ -28,7 +28,7 @@ vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
 }
 
 ivec2 probeIndexToColorUVOffset(ivec3 index, ProbeGrid grid) {
-    return ivec2(grid.colorRes * ivec2(index.y * grid.resolution.x + index.x, index.z)); 
+    return ivec2(grid.colorRes * ivec2(index.y * grid.resolution.x + index.x, index.z));
 }
 
 ivec2 probeIndexToDepthUVOffset(ivec3 index, ProbeGrid grid) {
@@ -68,24 +68,6 @@ vec3 sphereToOctahedron(vec3 v) {
     // Scale the vector so |x| + |y| + |z| = 1 (surface of octahedron).
     float sum = dot(v, octant);        
     return v / sum;    
-}
-
-vec2 spherePointToOctohedralUV(vec3 direction) {
-    vec3 octant = sign(direction);
-
-    // Scale the vector so |x| + |y| + |z| = 1 (surface of octahedron).
-    float sum = dot(direction, octant);        
-    vec3 octahedron = direction / sum;    
-
-    // "Untuck" the corners using the same reflection across the diagonal as before.
-    // (A reflection is its own inverse transformation).
-    if(octahedron.z < 0) {
-        vec3 absolute = abs(octahedron);
-        octahedron.xy = octant.xy
-                      * vec2(1.0f - absolute.y, 1.0f - absolute.x);
-    }
-
-    return octahedron.xy * 0.5f + 0.5f;
 }
 
 // Assuming v is normalized
@@ -134,6 +116,28 @@ vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
     vec2 octFragCoord = ivec2((fragCoord.x - 2) % res, (fragCoord.y - 2) % res);
     // Add back the half pixel to get pixel center normalized coordinates
     return (vec2(octFragCoord) + vec2(0.5f))  *(2.0f / float(res - 2)) - vec2(1.0f, 1.0f);
+}
+
+
+vec2 spherePointToOctohedralUV(vec3 direction) {
+    // Same thing as
+    //return 0.5 * octEncode(direction) + vec2(0.5);
+    
+    vec3 octant = sign(direction);
+
+    // Scale the vector so |x| + |y| + |z| = 1 (surface of octahedron).
+    float sum = dot(direction, octant);        
+    vec3 octahedron = direction / sum;    
+
+    // "Untuck" the corners using the same reflection across the diagonal as before.
+    // (A reflection is its own inverse transformation).
+    if(octahedron.z < 0) {
+        vec3 absolute = abs(octahedron);
+        octahedron.xy = octant.xy
+                      * vec2(1.0f - absolute.y, 1.0f - absolute.x);
+    }
+
+    return octahedron.xy * 0.5f + 0.5f;
 }
 
 vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {

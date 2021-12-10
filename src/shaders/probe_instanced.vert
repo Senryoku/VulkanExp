@@ -28,7 +28,7 @@ layout(location = 6) out vec2 uvScaling;
 void main() {
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);
     uvScaling = vec2(grid.resolution.x * grid.resolution.y, grid.resolution.z);
-    probeUVOffset =  probeIndexToColorUVOffset(probeLinearIndexToGridIndex(gl_InstanceIndex, grid), grid);
+    probeUVOffset = probeIndexToColorUVOffset(probeLinearIndexToGridIndex(gl_InstanceIndex, grid), grid);
     gl_Position = ubo.proj * ubo.view * vec4(8.0 * inPosition + probePosition, 1.0);
     color = inColor;
     normal = inNormal;

@@ -352,6 +352,7 @@ void Application::initSwapChain() {
 	createRaytracingDescriptorSets();
 	recordRayTracingCommands();
 
+	_irradianceProbes.createPipeline();
 	// FIXME: Should not be there, just WIP
 	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure);
 	_irradianceProbes.update(_scene, _graphicsQueue);

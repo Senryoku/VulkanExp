@@ -64,8 +64,6 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 							   .size = sizeof(glm::mat3),
 						   }});
 
-	createPipeline();
-
 	_descriptorPool.create(device, 1,
 						   std::array<VkDescriptorPoolSize, 5>{
 							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
@@ -77,7 +75,6 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 	_descriptorPool.allocate({_descriptorSetLayout.getHandle()});
 	_fence.create(device);
 
-	createShaderBindingTable();
 	_commandPool.create(device, familyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_commandBuffers.allocate(device, _commandPool, 1);
 }
@@ -150,6 +147,8 @@ void IrradianceProbes::createPipeline() {
 		.layout = _pipelineLayout,
 	};
 	_pipeline.create(*_device, pipelineCreateInfo);
+
+	createShaderBindingTable();
 }
 
 void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas) {
