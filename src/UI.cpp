@@ -167,9 +167,9 @@ void Application::drawUI() {
 			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
 		}
 		if(ImGui::TreeNode("Irradiance Probes")) {
-			ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin));
-			ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax));
 			bool uniformNeedsUpdate = false;
+			uniformNeedsUpdate = ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin));
+			uniformNeedsUpdate = ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax));
 			uniformNeedsUpdate = ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f);
 			uniformNeedsUpdate = ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f);
 			int rays = _irradianceProbes.GridParameters.raysPerProbe;
@@ -178,8 +178,10 @@ void Application::drawUI() {
 				uniformNeedsUpdate = true;
 			}
 
-			if(uniformNeedsUpdate)
+			if(uniformNeedsUpdate) {
+				_irradianceProbes.updateUniforms();
 				_irradianceProbes.update(_scene, _graphicsQueue);
+			}
 			ImGui::TreePop();
 		}
 

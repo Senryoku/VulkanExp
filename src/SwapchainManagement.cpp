@@ -234,7 +234,6 @@ void Application::initSwapChain() {
 						.imageView = normals.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
-
 			dsw.update(_device);
 		}
 	}

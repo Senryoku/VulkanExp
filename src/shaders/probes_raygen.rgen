@@ -30,6 +30,7 @@ layout(binding = 8, set = 0, std140) uniform ProbeGrid {
     uint raysPerProbe;
     uint colorRes;
     uint depthRes;
+    uint padding[2];
 } grid;
 
 layout(push_constant) uniform Push {
