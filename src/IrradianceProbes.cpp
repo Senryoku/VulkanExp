@@ -27,7 +27,7 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 	_color.transitionLayout(familyQueueIndex, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	_depth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
-				  VK_FORMAT_R16G16_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+				  VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 	_depth.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_depthView.create(device, VkImageViewCreateInfo{
 								  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

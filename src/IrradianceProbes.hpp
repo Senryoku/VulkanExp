@@ -46,7 +46,7 @@ class IrradianceProbes {
 		float		 depthSharpness = 50.0f; // Exponent for depth testing
 		glm::vec3	 extentMax;
 		float		 hysteresis = 0.98f; // Importance of newly cast rays
-		glm::ivec3	 resolution{32, 8, 32};
+		glm::ivec3	 resolution{32, 16, 32};
 		unsigned int raysPerProbe = 16;
 		unsigned int colorRes = 8;
 		unsigned int depthRes = 16;

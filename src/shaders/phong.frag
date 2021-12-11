@@ -30,7 +30,8 @@ void main() {
 
     vec3 indirectLight = sampleProbes(position, normalize(normal), grid, probesColor, probesDepth);    
 
-    //outColor = vec4(clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
+    outColor = vec4(clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
 
+    // DEBUG
     outColor = vec4(indirectLight, 1.0);
 }

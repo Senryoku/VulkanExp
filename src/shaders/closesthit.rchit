@@ -195,7 +195,7 @@ void main()
 	);
 	float attenuation = 1.0;
 	if(isShadowed) {
-		attenuation = 0.3;
+		attenuation = 0.6;
 	} else {
 		attenuation = 1.0;
 	}

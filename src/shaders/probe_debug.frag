@@ -21,14 +21,15 @@ const int colorRes = 8; // FIXME
 const int depthRes = 16; // FIXME
 
 void main() {
+    #if 1
     vec2 localUV = (float(colorRes - 2) / colorRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
     vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
     vec3 c = texture(colorTex, uv).xyz;
     outColor = vec4(c, 1.0);
-
-    
-    localUV = (float(depthRes - 2) / depthRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
-    uv = (probeDepthUVOffset  + ivec2(1, 1)) / uvScaling / depthRes + localUV;
-    c = texture(depthTex, uv).xyz;
+    # else
+    vec2 localUV = (float(depthRes - 2) / depthRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
+    vec2 uv = (probeDepthUVOffset  + ivec2(1, 1)) / uvScaling / depthRes + localUV;
+    vec3 c = texture(depthTex, uv).xyz;
     outColor = vec4(0.0, c.x, 0.0, 1.0);
+    #endif
 }
