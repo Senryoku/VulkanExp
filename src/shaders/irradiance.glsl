@@ -66,8 +66,8 @@ vec3 sphericalFibonacci(float i, float n) {
 vec3 sphereToOctahedron(vec3 v) {
     vec3 octant = sign(v);
     // Scale the vector so |x| + |y| + |z| = 1 (surface of octahedron).
-    float sum = dot(v, octant);        
-    return v / sum;    
+    float sum = dot(v, octant); 
+    return v / sum;
 }
 
 // Assuming v is normalized
