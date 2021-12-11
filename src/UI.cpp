@@ -75,8 +75,8 @@ void Application::initImGui(uint32_t queueFamily) {
 	for(const auto& texture : Textures) {
 		SceneUITextureIDs.push_back(ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
 	}
-	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_GENERAL);
-	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void Application::drawUI() {
@@ -94,6 +94,9 @@ void Application::drawUI() {
 		ImGui::EndMainMenuBar();
 	}
 	if(ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		if(ImGui::Checkbox("Probe Debug", &_probeDebug)) {
+			recordCommandBuffers();
+		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
 			_irradianceProbes.createPipeline();
 			_irradianceProbes.update(_scene, _graphicsQueue);

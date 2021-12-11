@@ -44,6 +44,8 @@ layout(location = 0) rayPayloadEXT rayPayload payload;
 vec3 gridSpan = grid.extentMax - grid.extentMin;
 vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resolution.y, gridSpan.z / grid.resolution.z);
 
+float MaxDistance = 1000.0; // Fixme
+
 void main() 
 {
 	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
@@ -79,8 +81,8 @@ void main()
         float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
         float depthWeight = pow(colorWeight, grid.depthSharpness);
         results[colorUV.x][colorUV.y] += vec4(colorWeight * payload.color, colorWeight);
-        float depth = min(0.99f * payload.depth, length(2 * gridCellSize));
-        if(depth < 0) depth = length(2 * gridCellSize);
+        float depth = min(0.99f * payload.depth, MaxDistance);
+        if(depth < 0) depth = MaxDistance;
         depthResults[depthUV.x][depthUV.y] += vec3(depthWeight * depth, depthWeight * depth * depth, depthWeight);
 	}
     

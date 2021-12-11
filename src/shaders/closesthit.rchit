@@ -27,8 +27,11 @@ layout(binding = 2, set = 0) buffer Vertices { vec4 v[]; } vertices;
 layout(binding = 3, set = 0) buffer Indices { uint  i[]; } indices;
 layout(binding = 4, set = 0) buffer Offsets { uint  o[]; } offsets;
 layout(binding = 5, set = 0) buffer Materials { uint m[]; } materials;
-layout(binding = 6, set = 0, r11f_g11f_b10f) uniform image2D irradianceColor;
-layout(binding = 7, set = 0, rg16f) uniform image2D irrandiaceDepth;
+layout(binding = 8, set = 0) uniform UBOBlock {
+	ProbeGrid grid;
+};
+layout(binding = 9, set = 0) uniform sampler2D irradianceColor;
+layout(binding = 10, set = 0) uniform sampler2D irradianceDepth;
 
 struct rayPayload {
 	vec3 raydx;
@@ -94,7 +97,7 @@ Material unpackMaterial(uint index) {
 	return m;
 }
 
-vec3 lightDir = normalize(vec3(-1, 4, 1));
+vec3 lightDir = normalize(vec3(-1, 6, 1));
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
@@ -179,6 +182,8 @@ void main()
 	
 	vec4 grad = texDerivative(P, normal, v0, v1, v2, payload.raydx, payload.raydy); 
 	vec3 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw).xyz;
+		
+    vec3 indirectLight = sampleProbes(P, normalize(normal), grid, irradianceColor, irradianceDepth);  
 
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
@@ -195,7 +200,7 @@ void main()
 	);
 	float attenuation = 1.0;
 	if(isShadowed) {
-		attenuation = 0.6;
+		attenuation = 0.2;
 	} else {
 		attenuation = 1.0;
 	}
@@ -205,8 +210,8 @@ void main()
 		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
 		normal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
 	}
-    vec3 color = clamp(dot(lightDir, normal), 0.2, 1.0) * texColor.rgb;
+    vec3 color = indirectLight * texColor.rgb + attenuation * clamp(dot(lightDir, normal), 0.2, 1.0) * texColor.rgb;
 
-	payload.color = attenuation * color;
+	payload.color = color;
 	payload.depth = gl_HitTEXT;
 }

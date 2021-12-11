@@ -24,7 +24,7 @@ void Application::initVulkan() {
 	vkGetDeviceQueue(_device, queueIndices.presentFamily.value(), 0, &_presentQueue);
 
 	createSwapChain();
-	_commandPool.create(_device, graphicsFamily);
+	_commandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_tempCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 	{

@@ -225,13 +225,13 @@ void Application::initProbeDebug() {
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
 					.imageView = _irradianceProbes.getColorView(),
-					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
 		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
 					.imageView = _irradianceProbes.getDepthView(),
-					.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
 		dsw.update(_device);
 	}
@@ -347,15 +347,15 @@ void Application::initSwapChain() {
 					});
 			dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
-						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
+						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 						.imageView = _irradianceProbes.getColorView(),
-						.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
 			dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
-						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
+						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 						.imageView = _irradianceProbes.getDepthView(),
-						.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
 			dsw.add(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 					{
@@ -412,17 +412,20 @@ void Application::recordCommandBuffers() {
 		b.endRenderPass();
 
 		// Probes Debug
-		b.beginRenderPass(_probeDebugRenderPass, _swapChainFramebuffers[i], _swapChainExtent);
-		_probeDebugPipeline.bind(b);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _probeDebugPipeline.getLayout(), 0, 1, &_probeDebugDescriptorPool.getDescriptorSets()[i], 0, nullptr);
+		if(_probeDebug) {
+			b.beginRenderPass(_probeDebugRenderPass, _swapChainFramebuffers[i], _swapChainExtent);
+			_probeDebugPipeline.bind(b);
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _probeDebugPipeline.getLayout(), 0, 1, &_probeDebugDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 
-		const auto&	 m = _probeMesh.getMeshes()[0].SubMeshes[0];
-		VkDeviceSize offsets[1] = {0};
-		vkCmdBindVertexBuffers(b, 0, 1, &m.getVertexBuffer().getHandle(), offsets);
-		vkCmdBindIndexBuffer(b, m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(b, m.getIndices().size(),
-						 _irradianceProbes.GridParameters.resolution.x * _irradianceProbes.GridParameters.resolution.y * _irradianceProbes.GridParameters.resolution.z, 0, 0, 0);
-		b.endRenderPass();
+			const auto&	 m = _probeMesh.getMeshes()[0].SubMeshes[0];
+			VkDeviceSize offsets[1] = {0};
+			vkCmdBindVertexBuffers(b, 0, 1, &m.getVertexBuffer().getHandle(), offsets);
+			vkCmdBindIndexBuffer(b, m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+			vkCmdDrawIndexed(b, m.getIndices().size(),
+							 _irradianceProbes.GridParameters.resolution.x * _irradianceProbes.GridParameters.resolution.y * _irradianceProbes.GridParameters.resolution.z, 0, 0,
+							 0);
+			b.endRenderPass();
+		}
 
 		b.end();
 	}

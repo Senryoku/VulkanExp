@@ -146,6 +146,7 @@ class Application {
 
 	glTF _scene;
 
+	bool							 _probeDebug = false;
 	IrradianceProbes				 _irradianceProbes;
 	glTF							 _probeMesh;
 	RenderPass						 _probeDebugRenderPass;

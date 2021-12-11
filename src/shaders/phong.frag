@@ -19,7 +19,7 @@ layout(location = 4) in vec2 texCoord;
 
 layout(location = 0) out vec4 outColor;
 
-vec3 lightDir = normalize(vec3(-1, 4, 1));
+vec3 lightDir = normalize(vec3(-1, 6, 1));
 
 void main() {
     vec4 texColor = texture(texSampler, texCoord);
@@ -30,8 +30,9 @@ void main() {
 
     vec3 indirectLight = sampleProbes(position, normalize(normal), grid, probesColor, probesDepth);    
 
-    outColor = vec4(clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
+    outColor = vec4(indirectLight * texColor.rgb + clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
 
     // DEBUG
-    outColor = vec4(indirectLight, 1.0);
+    //outColor = vec4(indirectLight, 1.0);
+    outColor = vec4(indirectLight * texColor.rgb, 1.0);
 }

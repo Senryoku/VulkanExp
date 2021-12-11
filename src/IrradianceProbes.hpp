@@ -69,9 +69,15 @@ class IrradianceProbes {
 	DeviceMemory	   _gridInfoMemory;
 	ShaderBindingTable _shaderBindingTable;
 
-	// TODO: To allow sampling of probes during probes update, we'll probably need to double these and swap them as input/output each update.
+	// Exposed results
 	Image	  _color;
 	ImageView _colorView;
 	Image	  _depth;
 	ImageView _depthView;
+
+	// Working buffers
+	Image	  _workColor;
+	ImageView _workColorView;
+	Image	  _workDepth;
+	ImageView _workDepthView;
 };
