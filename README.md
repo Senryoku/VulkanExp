@@ -3,15 +3,13 @@
 ## Todos
 
 ### Major Features
- - Scene structure
- - - Uniform Buffer all Model Matrices
- - - Push Constant of an Index into this buffer
- - Better lightning model
+ - Better lightning model < !
  - Glossy lightning term by raytracing the entire screen first reflect bounce and then sampling that texture (using mipmaps for roughness approximation)
  - GI. Irradiance Probes for Indirect lightning.
  - - With visibility term: https://www.gdcvault.com/play/1026182/
  - - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
-
+ - Performance Metrics (GPU)
+ 
 ### Improvements 
 - RT: Discard hit on transparency.
 
