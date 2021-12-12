@@ -91,7 +91,7 @@ void main()
         if(results[i][j].w > 1e-6) {
             results[i][j].xyz /= results[i][j].w;
             vec3 prev = imageLoad(color, probeUVOffset + ivec2(1, 1) + ivec2(i, j)).xyz; // Simulating alpha blending
-            results[i][j].xyz = (1.0f - grid.hysteresis) * prev + grid.hysteresis * results[i][j].xyz;
+            results[i][j].xyz = grid.hysteresis * prev + (1.0f - grid.hysteresis) * results[i][j].xyz;
             imageStore(color, probeUVOffset
                 + ivec2(1, 1) // Skip Border
                 + ivec2(i, j), vec4(results[i][j].xyz, 1.0));
@@ -102,7 +102,7 @@ void main()
             if(depthResults[i][j].z > 1e-6) {
                 depthResults[i][j].xy /= depthResults[i][j].z;
                 vec2 prev = imageLoad(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j)).xy;
-                depthResults[i][j].xy = (1.0f - grid.hysteresis) * prev + grid.hysteresis * depthResults[i][j].xy; 
+                depthResults[i][j].xy = grid.hysteresis * prev + (1.0f - grid.hysteresis) * depthResults[i][j].xy; 
 	            imageStore(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j), vec4(depthResults[i][j].xy, 0.0, 0.0));
             }
 
