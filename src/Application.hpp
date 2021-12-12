@@ -147,6 +147,7 @@ class Application {
 	glTF _scene;
 
 	bool							 _probeDebug = false;
+	bool							 _irradianceProbeAutoUpdate = true;
 	IrradianceProbes				 _irradianceProbes;
 	glTF							 _probeMesh;
 	RenderPass						 _probeDebugRenderPass;
@@ -393,6 +394,9 @@ class Application {
 				compileShaders();
 				_dirtyShaders = false;
 			}
+
+			if(_irradianceProbeAutoUpdate)
+				_irradianceProbes.update(_scene, _graphicsQueue);
 
 			drawFrame();
 		}

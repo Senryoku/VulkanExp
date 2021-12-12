@@ -99,7 +99,7 @@ Material unpackMaterial(uint index) {
 
 // FIXME: To Uniforms?
 vec3 LightDir = normalize(vec3(-1, 6, 1));
-vec3 LightColor = vec3(3.0);
+vec3 LightColor = vec3(2.0);
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
@@ -200,7 +200,7 @@ void main()
 	);
 	float attenuation = 1.0;
 	if(isShadowed) {
-		attenuation = 0.05;
+		attenuation = 0.005;
 	} else {
 		attenuation = 1.0;
 	}

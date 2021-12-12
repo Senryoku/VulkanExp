@@ -170,7 +170,8 @@ void Application::drawUI() {
 			_preferedPresentMode = static_cast<VkPresentModeKHR>(curr_choice);
 			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
 		}
-		if(ImGui::TreeNode("Irradiance Probes")) {
+		if(ImGui::TreeNodeEx("Irradiance Probes", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Checkbox("Auto. Update", &_irradianceProbeAutoUpdate);
 			bool uniformNeedsUpdate = false;
 			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin));
 			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax));
@@ -182,10 +183,8 @@ void Application::drawUI() {
 				uniformNeedsUpdate = true;
 			}
 
-			if(uniformNeedsUpdate) {
+			if(uniformNeedsUpdate)
 				_irradianceProbes.updateUniforms();
-				_irradianceProbes.update(_scene, _graphicsQueue);
-			}
 			ImGui::TreePop();
 		}
 

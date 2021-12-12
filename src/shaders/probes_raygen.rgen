@@ -62,17 +62,17 @@ void main()
             depthResults[i][j] = vec3(0);
 
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
-		vec4 direction = vec4(push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe), 1.0f);
+		vec3 direction = push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe);
 
 		const float tmin = 0.1;
 		const float tmax = 10000.0;
 
 		payload.color = vec3(1.0, 0.0, 0.0);
 
-        vec2 polar = cartesianToPolar(direction.xyz);
+        vec2 polar = cartesianToPolar(direction);
 		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
 		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));//normalize(direction.xyz + vec3(0, 0.1, 0));
-		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
+		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
         if(payload.depth < 0) payload.depth = MaxDistance; //continue;
 
@@ -80,13 +80,13 @@ void main()
             for(int y = 0; y < results[0].length(); ++y) {
                 // TODO: This could be pre-computed
                 vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.colorRes));
-                float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
+                float colorWeight = max(0.0, dot(texelDirection, direction));
                 results[x][y] += vec4(colorWeight * payload.color, colorWeight);
 	        }
         for(int x = 0; x < depthResults.length(); ++x)
             for(int y = 0; y < depthResults[0].length(); ++y) {
                 vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.depthRes));
-                float depthWeight = pow(max(0.0, dot(texelDirection, direction.xyz)), grid.depthSharpness);
+                float depthWeight = pow(max(0.0, dot(texelDirection, direction)), grid.depthSharpness);
                 float foundDepth = min(0.99f * payload.depth, MaxDistance);
                 depthResults[x][y] += vec3(depthWeight * foundDepth, depthWeight * foundDepth * foundDepth, depthWeight);
             }

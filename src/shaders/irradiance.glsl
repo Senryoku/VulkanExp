@@ -160,7 +160,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         vec3 biasedPosition = (position + 0.2 * normal);
         vec3 biasedDirectionToProbe = probePosition - biasedPosition;
         vec2 localColorUV = (float(grid.colorRes - 2) / grid.colorRes) * spherePointToOctohedralUV(normal) / uvScaling;
-        vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(normalize(biasedDirectionToProbe)) / uvScaling;
+        vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(-normalize(biasedDirectionToProbe)) / uvScaling;
 
         vec2 colorUV = vec2(probeIndexToColorUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.colorRes + localColorUV;
         vec2 depthUV = vec2(probeIndexToDepthUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.depthRes + localDepthUV;
