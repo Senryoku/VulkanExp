@@ -334,14 +334,18 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 			.baseArrayLayer = 0,
 			.layerCount = 1,
 		};
+		Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
 		Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
-		vkCmdCopyImage(cmdBuff, _workColor, VK_IMAGE_LAYOUT_GENERAL, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+		vkCmdCopyImage(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 		Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+		Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
 
 		copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2], 1},
+		Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
 		Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
-		vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+		vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 		Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+		Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
 
 		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}
