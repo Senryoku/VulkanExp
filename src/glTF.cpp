@@ -98,25 +98,26 @@ void glTF::load(std::filesystem::path path) {
 			});
 		}
 
-	for(const auto& mat : object["materials"]) {
-		Material material;
-		material.name = mat("name", std::string("NoName"));
-		if(mat.contains("pbrMetallicRoughness")) {
-			material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-			material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-			material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-			if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
-				material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+	if(object.contains("materials"))
+		for(const auto& mat : object["materials"]) {
+			Material material;
+			material.name = mat("name", std::string("NoName"));
+			if(mat.contains("pbrMetallicRoughness")) {
+				material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+				material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
+				material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
+				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
+					material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+				}
+				if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
+					material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
+				}
 			}
-			if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-				material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
+			if(mat.contains("normalTexture")) {
+				material.normalTexture = mat["normalTexture"]["index"].as<int>();
 			}
+			Materials.push_back(material);
 		}
-		if(mat.contains("normalTexture")) {
-			material.normalTexture = mat["normalTexture"]["index"].as<int>();
-		}
-		Materials.push_back(material);
-	}
 
 	for(const auto& m : object["meshes"]) {
 		auto& mesh = _meshes.emplace_back();
@@ -129,7 +130,8 @@ void glTF::load(std::filesystem::path path) {
 				submesh.material = &Materials[p["material"].as<int>()];
 			}
 
-			assert(p["mode"].as<int>() == 4); // We only supports triangles
+			if(p.contains("mode"))
+				assert(p["mode"].as<int>() == 4); // We only supports triangles
 			const auto& positionAccessor = object["accessors"][p["attributes"]["POSITION"].as<int>()];
 			const auto& positionBufferView = object["bufferViews"][positionAccessor["bufferView"].as<int>()];
 			const auto& positionBuffer = buffers[positionBufferView["buffer"].as<int>()];

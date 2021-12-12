@@ -1,154 +1,100 @@
 {
-    "asset": {
-        "version": "2.0"
+    "asset" : {
+        "generator" : "Khronos glTF Blender I/O v1.7.33",
+        "version" : "2.0"
     },
-    "scene": 0,
-    "scenes": [
+    "scene" : 0,
+    "scenes" : [
         {
-            "nodes": [
-                0,
-                1
+            "name" : "Scene",
+            "nodes" : [
+                0
             ]
         }
     ],
-    "nodes": [
+    "nodes" : [
         {
-            "name": "Mesh",
-            "matrix": [
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "mesh": 0
-        },
-        {
-            "name": "Camera",
-            "matrix": [
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                0.0,
-                0.0,
-                3.0,
-                1.0
-            ],
-            "camera": 0
+            "mesh" : 0,
+            "name" : "Sphere"
         }
     ],
-    "meshes": [
+    "meshes" : [
         {
-            "primitives": [
+            "name" : "Sphere",
+            "primitives" : [
                 {
-                    "indices": 1,
-                    "mode": 4,
-                    "material": 0,
-                    "attributes": {
-                        "POSITION": 0,
-                        "NORMAL": 2,
-                        "TEXCOORD_0": 3
-                    }
+                    "attributes" : {
+                        "POSITION" : 0,
+                        "NORMAL" : 1,
+                        "TEXCOORD_0" : 2
+                    },
+                    "indices" : 3
                 }
             ]
         }
     ],
-    "buffers": [
+    "accessors" : [
         {
-            "byteLength": 1381856,
-            "uri": "sphere.bin"
-        }
-    ],
-    "bufferViews": [
-        {
-            "buffer": 0,
-            "byteLength": 298740
-        },
-        {
-            "buffer": 0,
-            "byteLength": 585216,
-            "byteOffset": 298740
-        },
-        {
-            "buffer": 0,
-            "byteLength": 298740,
-            "byteOffset": 883956
-        },
-        {
-            "buffer": 0,
-            "byteLength": 199160,
-            "byteOffset": 1182696
-        }
-    ],
-    "accessors": [
-        {
-            "bufferView": 0,
-            "type": "VEC3",
-            "componentType": 5126,
-            "count": 24895,
-            "min": [
-                -1.0,
-                -1.0,
-                -1.0
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 559,
+            "max" : [
+                0.9999997019767761,
+                1,
+                0.9999994039535522
             ],
-            "max": [
-                1.0,
-                1.0,
-                1.0
-            ]
+            "min" : [
+                -0.9999990463256836,
+                -1,
+                -0.9999987483024597
+            ],
+            "type" : "VEC3"
         },
         {
-            "bufferView": 1,
-            "type": "SCALAR",
-            "componentType": 5125,
-            "count": 146304
+            "bufferView" : 1,
+            "componentType" : 5126,
+            "count" : 559,
+            "type" : "VEC3"
         },
         {
-            "bufferView": 2,
-            "type": "VEC3",
-            "componentType": 5126,
-            "count": 24895
+            "bufferView" : 2,
+            "componentType" : 5126,
+            "count" : 559,
+            "type" : "VEC2"
         },
         {
-            "bufferView": 3,
-            "type": "VEC2",
-            "componentType": 5126,
-            "count": 24895
+            "bufferView" : 3,
+            "componentType" : 5123,
+            "count" : 2880,
+            "type" : "SCALAR"
         }
     ],
-    "materials": [
+    "bufferViews" : [
         {
-            "name": "::nvidia::sdk_examples::tutorials::dxr_sphere_mat"
+            "buffer" : 0,
+            "byteLength" : 6708,
+            "byteOffset" : 0
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 6708,
+            "byteOffset" : 6708
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 4472,
+            "byteOffset" : 13416
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 5760,
+            "byteOffset" : 17888
         }
     ],
-    "cameras": [
+    "buffers" : [
         {
-            "name": "Camera",
-            "type": "perspective",
-            "perspective": {
-                "znear": 0.01,
-                "yfov": 0.7853982
-            }
+            "byteLength" : 23648,
+            "uri" : "sphere.bin"
         }
     ]
 }
