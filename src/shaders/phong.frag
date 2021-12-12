@@ -33,6 +33,6 @@ void main() {
     outColor = vec4(indirectLight * texColor.rgb + clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
 
     // DEBUG
-    //outColor = vec4(indirectLight, 1.0);
-    outColor = vec4(indirectLight * texColor.rgb, 1.0);
+    outColor = vec4(indirectLight, 1.0);
+    //outColor = vec4(indirectLight * texColor.rgb, 1.0);
 }

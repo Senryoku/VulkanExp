@@ -97,7 +97,9 @@ Material unpackMaterial(uint index) {
 	return m;
 }
 
-vec3 lightDir = normalize(vec3(-1, 6, 1));
+// FIXME: To Uniforms?
+vec3 LightDir = normalize(vec3(-1, 6, 1));
+vec3 LightColor = vec3(3.0);
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
@@ -177,13 +179,11 @@ void main()
 	Material m = unpackMaterial(materialInstanceIndex);
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
 	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
-	vec3 normal = v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z;
+	vec3 normal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
 	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
 	
 	vec4 grad = texDerivative(P, normal, v0, v1, v2, payload.raydx, payload.raydy); 
 	vec3 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw).xyz;
-		
-    vec3 indirectLight = sampleProbes(P, normalize(normal), grid, irradianceColor, irradianceDepth);  
 
 	isShadowed = true;
 	traceRayEXT(topLevelAS,        // acceleration structure
@@ -194,7 +194,7 @@ void main()
 				1,                 // missIndex
 				P,                 // ray origin
 				0.1,               // ray min range
-				lightDir,          // ray direction
+				LightDir,          // ray direction
 				10000,             // ray max range
 				1                  // payload (location = 1)
 	);
@@ -208,9 +208,10 @@ void main()
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
 		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
-		normal = mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal;
+		normal = normalize(mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal);
 	}
-    vec3 color = indirectLight * texColor.rgb + attenuation * clamp(dot(lightDir, normal), 0.2, 1.0) * texColor.rgb;
+    vec3 indirectLight = sampleProbes(P, normal, grid, irradianceColor, irradianceDepth);  
+    vec3 color = indirectLight * texColor.rgb + attenuation * clamp(dot(LightDir, normal), 0.2, 1.0) * LightColor * texColor.rgb;
 
 	payload.color = color;
 	payload.depth = gl_HitTEXT;

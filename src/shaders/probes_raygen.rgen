@@ -44,7 +44,7 @@ layout(location = 0) rayPayloadEXT rayPayload payload;
 vec3 gridSpan = grid.extentMax - grid.extentMin;
 vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resolution.y, gridSpan.z / grid.resolution.z);
 
-float MaxDistance = 1000.0; // Fixme
+float MaxDistance = length(gridCellSize); // Fixme
 
 void main() 
 {
@@ -54,37 +54,43 @@ void main()
 
     vec4 results[8 - 2][8 - 2]; // results[grid.colorRes][grid.colorRes] Should we declare them as constant, or just oversize the arrays?
     for(int i = 0; i < results.length(); ++i)
-        for(int j = 0; j < results[i].length(); ++j)
+        for(int j = 0; j < results[0].length(); ++j)
             results[i][j] = vec4(0);
     vec3 depthResults[16 - 2][16 - 2];
     for(int i = 0; i < depthResults.length(); ++i)
-        for(int j = 0; j < depthResults[i].length(); ++j)
+        for(int j = 0; j < depthResults[0].length(); ++j)
             depthResults[i][j] = vec3(0);
 
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
 		vec4 direction = vec4(push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe), 1.0f);
 
-		float tmin = 0.001;
-		float tmax = 100000.0;
+		const float tmin = 0.1;
+		const float tmax = 10000.0;
 
 		payload.color = vec3(1.0, 0.0, 0.0);
 
         vec2 polar = cartesianToPolar(direction.xyz);
 		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
 		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));//normalize(direction.xyz + vec3(0, 0.1, 0));
-        vec2 uv = spherePointToOctohedralUV(direction.xyz); // [0, 1.0]
-        ivec2 colorUV = clamp(ivec2((grid.colorRes - 2) * uv), 0, int(grid.colorRes - 3)); // [0, grid.colorRes - 2[
-        ivec2 depthUV = clamp(ivec2((grid.depthRes - 2) * uv), 0, int(grid.depthRes - 3));
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
         
-        vec3 texelDirection = normalize(sphereToOctahedron(direction.xyz)); // octDecode(normalizedOctCoord(ivec2(uv * grid.colorRes), grid.colorRes));
-        float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
-        float depthWeight = pow(colorWeight, grid.depthSharpness);
-        results[colorUV.x][colorUV.y] += vec4(colorWeight * payload.color, colorWeight);
-        float depth = min(0.99f * payload.depth, MaxDistance);
-        if(depth < 0) depth = MaxDistance;
-        depthResults[depthUV.x][depthUV.y] += vec3(depthWeight * depth, depthWeight * depth * depth, depthWeight);
-	}
+        if(payload.depth < 0) payload.depth = MaxDistance; //continue;
+
+        for(int x = 0; x < results.length(); ++x)
+            for(int y = 0; y < results[0].length(); ++y) {
+                // TODO: This could be pre-computed
+                vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(x, y), grid.colorRes));
+                float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
+                results[x][y] += vec4(colorWeight * payload.color, colorWeight);
+	        }
+        for(int x = 0; x < depthResults.length(); ++x)
+            for(int y = 0; y < depthResults[0].length(); ++y) {
+                vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(x, y), grid.depthRes));
+                float depthWeight = pow(max(0.0, dot(texelDirection, direction.xyz)), grid.depthSharpness);
+                float foundDepth = min(0.99f * payload.depth, MaxDistance);
+                depthResults[x][y] += vec3(depthWeight * foundDepth, depthWeight * foundDepth * foundDepth, depthWeight);
+            }
+    }
     
     for(int i = 0; i < grid.colorRes - 2; ++i)
         for(int j = 0; j < grid.colorRes - 2; ++j)
