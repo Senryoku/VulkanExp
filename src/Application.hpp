@@ -120,6 +120,7 @@ class Application {
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
 
+	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
 	RenderPass						 _renderPass;
 	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
 	Pipeline						 _pipeline;
@@ -195,7 +196,7 @@ class Application {
 	size_t	  _currentFrame = 0;
 
 	bool   _controlCamera = false;
-	Camera _camera;
+	Camera _camera{glm::vec3(-380.0f, 650.0f, 120.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double _mouse_x = 0, _mouse_y = 0;
 
 	void createInstance();
@@ -397,6 +398,16 @@ class Application {
 
 			if(_irradianceProbeAutoUpdate)
 				_irradianceProbes.update(_scene, _graphicsQueue);
+
+			if(_outdatedCommandBuffers) {
+				std::vector<VkFence> fencesHandles;
+				fencesHandles.reserve(_inFlightFences.size());
+				for(const auto& fence : _inFlightFences)
+					fencesHandles.push_back(fence);
+				VK_CHECK(vkWaitForFences(_device, fencesHandles.size(), fencesHandles.data(), VK_TRUE, UINT64_MAX));
+				recordCommandBuffers();
+				_outdatedCommandBuffers = false;
+			}
 
 			drawFrame();
 		}

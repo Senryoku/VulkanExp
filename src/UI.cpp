@@ -95,7 +95,7 @@ void Application::drawUI() {
 	}
 	if(ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
 		if(ImGui::Checkbox("Probe Debug", &_probeDebug)) {
-			recordCommandBuffers();
+			_outdatedCommandBuffers = true;
 		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
 			_irradianceProbes.createPipeline();
