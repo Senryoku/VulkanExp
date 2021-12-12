@@ -52,7 +52,7 @@ void main()
     ivec2 probeUVOffset = probeIndexToColorUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
     ivec2 probeDepthUVOffset = probeIndexToDepthUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
 
-    vec4 results[8 - 2][8 - 2]; // results[grid.colorRes][grid.colorRes] Should we declare them as constant, or just oversize the arrays?
+    vec4 results[8 - 2][8 - 2]; // results[grid.colorRes - 2][grid.colorRes - 2] Should we declare them as constant, or just oversize the arrays?
     for(int i = 0; i < results.length(); ++i)
         for(int j = 0; j < results[0].length(); ++j)
             results[i][j] = vec4(0);
@@ -79,13 +79,13 @@ void main()
         for(int x = 0; x < results.length(); ++x)
             for(int y = 0; y < results[0].length(); ++y) {
                 // TODO: This could be pre-computed
-                vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(x, y), grid.colorRes));
+                vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.colorRes));
                 float colorWeight = max(0.0, dot(texelDirection, direction.xyz));
                 results[x][y] += vec4(colorWeight * payload.color, colorWeight);
 	        }
         for(int x = 0; x < depthResults.length(); ++x)
             for(int y = 0; y < depthResults[0].length(); ++y) {
-                vec3 texelDirection = octDecode(normalizedOctCoord(ivec2(x, y), grid.depthRes));
+                vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.depthRes));
                 float depthWeight = pow(max(0.0, dot(texelDirection, direction.xyz)), grid.depthSharpness);
                 float foundDepth = min(0.99f * payload.depth, MaxDistance);
                 depthResults[x][y] += vec3(depthWeight * foundDepth, depthWeight * foundDepth * foundDepth, depthWeight);

@@ -111,11 +111,9 @@ vec3 octDecode(vec2 o) {
     return normalize(v);
 }
 
-// Compute normalized oct coord, mapping top left of top left pixel to (-1,-1)
-vec2 normalizedOctCoord(ivec2 fragCoord, uint res) {
-    vec2 octFragCoord = ivec2(fragCoord.x % (res - 2), fragCoord.y % (res - 2));
-    // Add back the half pixel to get pixel center normalized coordinates
-    return (vec2(octFragCoord) + vec2(0.5f)) * (2.0f / float(res - 2)) - vec2(1.0f, 1.0f);
+// [0, res - 2[ to [-1, 1] for octahedral lookup
+vec2 normalizeLocalTexelCoord(ivec2 coord, uint res) {
+    return ((vec2(coord) + 0.5f) * 2.0f / float(res - 2)) - 1.0f;
 }
 
 vec2 spherePointToOctohedralUV(vec3 direction) {
