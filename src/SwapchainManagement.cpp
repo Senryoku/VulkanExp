@@ -439,7 +439,7 @@ void Application::recreateSwapChain() {
 		glfwWaitEvents();
 	}
 
-	vkDeviceWaitIdle(_device);
+	VK_CHECK(vkDeviceWaitIdle(_device));
 
 	cleanupSwapChain();
 

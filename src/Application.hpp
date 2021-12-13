@@ -366,7 +366,6 @@ class Application {
 		};
 		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
 		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
-		VK_CHECK(vkDeviceWaitIdle(_device));
 		buffers.free();
 		tempCommandPool.destroy();
 	}

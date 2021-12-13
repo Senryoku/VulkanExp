@@ -43,7 +43,8 @@ void Application::run() {
 
 	mainLoop();
 
-	vkDeviceWaitIdle(_device);
+	// Waits for the GPU to be done before cleaning everything up
+	VK_CHECK(vkDeviceWaitIdle(_device));
 
 	cleanup();
 }
