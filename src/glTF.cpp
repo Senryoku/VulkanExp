@@ -106,16 +106,16 @@ void glTF::load(std::filesystem::path path) {
 				material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 				material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 0.0f);
 				material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-				material.emissiveFactor = mat["pbrMetallicRoughness"].get("emissiveFactor", glm::vec3(0.0f));
 				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
 					material.albedoTexture = mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
 				}
 				if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
 					material.metallicRoughnessTexture = mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
 				}
-				if(mat["pbrMetallicRoughness"].contains("emissiveTexture")) {
-					material.emissiveTexture = mat["pbrMetallicRoughness"]["emissiveTexture"]["index"].as<int>();
-				}
+			}
+			material.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
+			if(mat.contains("emissiveTexture")) {
+				material.emissiveTexture = mat["emissiveTexture"]["index"].as<int>();
 			}
 			if(mat.contains("normalTexture")) {
 				material.normalTexture = mat["normalTexture"]["index"].as<int>();

@@ -43,9 +43,9 @@ class IrradianceProbes {
 	// This wii be passed to shaders as a UBO, alignment and order of members is important.
 	struct GridInfo {
 		glm::vec3	 extentMin;
-		float		 depthSharpness = 50.0f; // Exponent for depth testing
+		float		 depthSharpness = 12.0f; // Exponent for depth testing
 		glm::vec3	 extentMax;
-		float		 hysteresis = 0.98f; // Importance of newly cast rays
+		float		 hysteresis = 0.98f; // Importance of previously cast rays
 		glm::ivec3	 resolution{32, 16, 32};
 		unsigned int raysPerProbe = 16;
 		unsigned int colorRes = 8;

@@ -176,8 +176,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         
         // Smooth backface test
         float backfaceweight = max(0.0001, (dot(directionToProbe, normal) + 1.0) * 0.5);
-        weight *= backfaceweight * backfaceweight + 0.2;
-        
+        weight *= backfaceweight * backfaceweight + 0.2; // This looks very wrong on flat surfaces aligned with the grid, with bright spots under the probes
+
         float fallbackWeight = weight;
 
         // Moment visibility test
@@ -202,7 +202,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
 
         vec3 color = texture(colorTex, colorUV).xyz;
         // Non-physical blending, smooths the transitions between probes
-        color = sqrt(color);
+        //color = sqrt(color);
         
         finalColor += weight * color; 
         totalWeight += weight; 
@@ -211,11 +211,15 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         totalFallbackWeight += fallbackWeight;
     }
 
-    // Undo the sqrt
-    finalColor *= finalColor;
-    fallbackColor *= fallbackColor;
+    finalColor *= 1.0 / totalWeight;
+    fallbackColor *= 1.0 / totalFallbackWeight;
 
-    return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0 ,1));
+    // Undo the sqrt
+    //finalColor *= finalColor;
+    //fallbackColor *= fallbackColor;
+    
+    return mix(fallbackColor, finalColor, clamp(totalWeight, 0 ,1));
+    //return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0 ,1));
 }
 
 #endif

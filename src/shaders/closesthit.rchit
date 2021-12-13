@@ -119,7 +119,7 @@ struct Light {
 };
 
 Light Lights[3] = {
-	Light(0, vec3(2.0), normalize(vec3(-1, 6, 1))),
+	Light(0, vec3(4.0), normalize(vec3(-1, 5, 2))),
 	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(-620, 160, 143.5)),
 	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(487, 160, 143.5))
 };
@@ -153,8 +153,13 @@ void main()
 		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
 		normal = normalize(mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal);
 	}
+	
+	vec3 emissiveLight = vec3(0);
+	if(m.emissiveTexture != -1) {
+		emissiveLight = m.emissiveFactor * textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
+	}
 
-	vec3 color = vec3(0);
+	vec3 color = vec3(0) + emissiveLight;
 
 	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth);  
 	color += indirectLight * texColor.rgb;
@@ -187,7 +192,8 @@ void main()
 
 		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1));
 		// Hopefully a better one someday :) - Missing the specular rn, so way darker
-		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+		vec3 specularLight = indirectLight; // FIXME: Should be pulled from a previous reflection pass, using indirectLight as a placeholder for now.
+		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, indirectLight, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	}
 
 	payload.color = color;
