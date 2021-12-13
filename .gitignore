@@ -388,3 +388,5 @@ FodyWeavers.xsd
 *.sln.iml
 
 imgui.ini
+models
+shaders_spv
