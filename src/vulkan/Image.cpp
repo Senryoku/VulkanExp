@@ -74,10 +74,13 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat fo
 		   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, true);
 	allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	transitionLayout(queueFamilyIndex, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	VkFormatProperties formatProperties;
+	vkGetPhysicalDeviceFormatProperties(getDevice().getPhysicalDevice(), format, &formatProperties);
 
 	// Copy to the actual device memory
 	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) {
+		transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
 		VkBufferImageCopy region{
 			.bufferOffset = 0,
 			.bufferRowLength = 0,
@@ -98,33 +101,34 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat fo
 				},
 		};
 		vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-	});
 
-	VkFormatProperties formatProperties;
-	vkGetPhysicalDeviceFormatProperties(getDevice().getPhysicalDevice(), format, &formatProperties);
-	if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-		warn("Texture image format does not support linear blitting.\n");
-		transitionLayout(queueFamilyIndex, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
-						 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	} else {
-		// generateMipmaps takes care of the layout transition.
-		generateMipmaps(queueFamilyIndex, static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()));
-	}
+		if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+			warn("Texture image format does not support linear blitting.\n");
+			transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
+							 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		} else {
+			// generateMipmaps takes care of the layout transition.
+			generateMipmaps(commandBuffer, static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()));
+		}
+	});
+}
+
+void Image::transitionLayout(VkCommandBuffer commandBuffer, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcMask,
+							 VkPipelineStageFlags dstMask) {
+	setLayout(commandBuffer, _handle, oldLayout, newLayout,
+			  VkImageSubresourceRange{
+				  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				  .baseMipLevel = 0,
+				  .levelCount = getMipLevels(),
+				  .baseArrayLayer = 0,
+				  .layerCount = 1,
+			  },
+			  srcMask, dstMask);
 }
 
 void Image::transitionLayout(uint32_t queueFamilyIndex, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcMask,
 							 VkPipelineStageFlags dstMask) {
-	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) {
-		setLayout(commandBuffer, _handle, oldLayout, newLayout,
-				  VkImageSubresourceRange{
-					  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					  .baseMipLevel = 0,
-					  .levelCount = getMipLevels(),
-					  .baseArrayLayer = 0,
-					  .layerCount = 1,
-				  },
-				  srcMask, dstMask);
-	});
+	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) { transitionLayout(commandBuffer, format, oldLayout, newLayout, srcMask, dstMask); });
 }
 
 void Image::setLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange subSourceRange,
@@ -165,70 +169,72 @@ void Image::setLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayou
 
 void Image::generateMipmaps(uint32_t queueFamilyIndex, int32_t width, int32_t height) {
 
-	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) {
-		VkImageMemoryBarrier barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = _handle,
-			.subresourceRange =
-				VkImageSubresourceRange{
+	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) { generateMipmaps(commandBuffer, width, height); });
+}
+
+void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_t height) {
+	VkImageMemoryBarrier barrier{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = _handle,
+		.subresourceRange =
+			VkImageSubresourceRange{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+	};
+	for(uint32_t i = 1; i < _mipLevels; i++) {
+		barrier.subresourceRange.baseMipLevel = i - 1;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+		VkImageBlit blit{
+			.srcSubresource =
+				VkImageSubresourceLayers{
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.levelCount = 1,
+					.mipLevel = i - 1,
 					.baseArrayLayer = 0,
 					.layerCount = 1,
 				},
+			.srcOffsets = {{0, 0, 0}, {width, height, 1}},
+			.dstSubresource =
+				VkImageSubresourceLayers{
+					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+					.mipLevel = i,
+					.baseArrayLayer = 0,
+					.layerCount = 1,
+				},
+			.dstOffsets = {{0, 0, 0}, {width > 1 ? width / 2 : 1, height > 1 ? height / 2 : 1, 1}},
 		};
-		for(uint32_t i = 1; i < _mipLevels; i++) {
-			barrier.subresourceRange.baseMipLevel = i - 1;
-			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		vkCmdBlitImage(commandBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
 
-			VkImageBlit blit{
-				.srcSubresource =
-					VkImageSubresourceLayers{
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.mipLevel = i - 1,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-				.srcOffsets = {{0, 0, 0}, {width, height, 1}},
-				.dstSubresource =
-					VkImageSubresourceLayers{
-						.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-						.mipLevel = i,
-						.baseArrayLayer = 0,
-						.layerCount = 1,
-					},
-				.dstOffsets = {{0, 0, 0}, {width > 1 ? width / 2 : 1, height > 1 ? height / 2 : 1, 1}},
-			};
-
-			vkCmdBlitImage(commandBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-
-			// Set this mip level layout as VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL as we're done writing to it.
-			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-			if(width > 1)
-				width /= 2;
-			if(height > 1)
-				height /= 2;
-		}
-
-		barrier.subresourceRange.baseMipLevel = _mipLevels - 1;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		// Set this mip level layout as VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL as we're done writing to it.
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	});
+
+		if(width > 1)
+			width /= 2;
+		if(height > 1)
+			height /= 2;
+	}
+
+	barrier.subresourceRange.baseMipLevel = _mipLevels - 1;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
