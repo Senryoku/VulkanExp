@@ -291,7 +291,17 @@ void genBasis(const glm::vec3& n, glm::vec3& b1, glm::vec3& b2) {
 }
 
 void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
+#if 0
+	// Decouple the updates from the framerate?
+	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.
+	auto result = vkGetFenceStatus(*_device, _fence);
+	if(result == VK_NOT_READY) { // Previous update isn't done, try again later.
+		return;
+	}
+	VK_CHECK(result); // Any other result than VK_SUCCESS or VK_NOT_READY is an error.
+#else
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
+#endif
 
 	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
 	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
@@ -308,6 +318,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 		vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
 						  GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
 
+		// Copy the result to the image sampled in the main pipeline
 		VkImageCopy copy{
 			.srcSubresource =
 				{

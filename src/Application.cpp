@@ -43,6 +43,8 @@ void Application::run() {
 
 	mainLoop();
 
+	vkDeviceWaitIdle(_device);
+
 	cleanup();
 }
 

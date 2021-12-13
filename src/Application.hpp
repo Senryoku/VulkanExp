@@ -411,7 +411,6 @@ class Application {
 
 			drawFrame();
 		}
-		vkDeviceWaitIdle(_device);
 	}
 
 	void drawFrame();

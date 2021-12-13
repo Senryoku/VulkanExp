@@ -173,10 +173,10 @@ void Application::drawUI() {
 		if(ImGui::TreeNodeEx("Irradiance Probes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Auto. Update", &_irradianceProbeAutoUpdate);
 			bool uniformNeedsUpdate = false;
-			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin));
-			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax));
-			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f);
-			uniformNeedsUpdate = uniformNeedsUpdate || ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f);
+			uniformNeedsUpdate = ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin)) || uniformNeedsUpdate;
+			uniformNeedsUpdate = ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax)) || uniformNeedsUpdate;
+			uniformNeedsUpdate = ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f) || uniformNeedsUpdate;
+			uniformNeedsUpdate = ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f) || uniformNeedsUpdate;
 			int rays = _irradianceProbes.GridParameters.raysPerProbe;
 			if(ImGui::SliderInt("Rays Per Probe", &rays, 1, 128)) {
 				_irradianceProbes.GridParameters.raysPerProbe = rays;
