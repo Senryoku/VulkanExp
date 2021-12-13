@@ -50,8 +50,7 @@ void Application::initImGui(uint32_t queueFamily) {
 		.poolSizeCount = static_cast<uint32_t>(IM_ARRAYSIZE(pool_sizes)),
 		.pPoolSizes = pool_sizes,
 	};
-	if(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_imguiDescriptorPool))
-		throw std::runtime_error("Failed to create dear imgui descriptor pool.");
+	VK_CHECK(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_imguiDescriptorPool));
 
 	ImGui_ImplGlfw_InitForVulkan(_window, true);
 	ImGui_ImplVulkan_InitInfo init_info = {

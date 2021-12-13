@@ -244,5 +244,7 @@
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\pbrMetallicRoughness.glsl" />
     <None Include="src\shaders\common.glsl" />
+    <None Include="src\shaders\Vertex.glsl" />
+    <None Include="src\shaders\Material.glsl" />
   </ItemGroup>
 </Project>

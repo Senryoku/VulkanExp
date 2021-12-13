@@ -353,7 +353,7 @@ class Application {
 		CommandPool tempCommandPool;
 		tempCommandPool.create(_device, _physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 		CommandBuffers buffers;
-		buffers.allocate(_device, _commandPool, 1);
+		buffers.allocate(_device, tempCommandPool, 1);
 		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		function(buffers[0]);
@@ -366,7 +366,7 @@ class Application {
 		};
 		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
 		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
-		vkDeviceWaitIdle(_device);
+		VK_CHECK(vkDeviceWaitIdle(_device));
 		buffers.free();
 		tempCommandPool.destroy();
 	}
