@@ -1,3 +1,8 @@
+#ifndef IRRADIANCE_GLSL
+#define IRRADIANCE_GLSL
+
+#include "common.glsl"
+
 struct ProbeGrid {
     vec3 extentMin;
     float depthSharpness;
@@ -9,9 +14,6 @@ struct ProbeGrid {
     uint depthRes;
     uint padding[2];
 };
-
-const float pi = 3.1415926538f;
-
 
 ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
     return  ivec3(index % grid.resolution.x, (index / grid.resolution.x) % grid.resolution.y, (index / (grid.resolution.x * grid.resolution.y)) % grid.resolution.z);
@@ -149,6 +151,10 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
     vec3 finalColor = vec3(0.0);
     float totalWeight = 0.0;
 
+    // Fallback when all visibility fails
+    vec3 fallbackColor = vec3(0.0);
+    float totalFallbackWeight = 0.0;
+
     vec2 uvScaling = vec2(grid.resolution.x * grid.resolution.y, grid.resolution.z);
     
     for(int i = 0; i < 8; ++i) {
@@ -171,6 +177,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         // Smooth backface test
         float backfaceweight = max(0.0001, (dot(directionToProbe, normal) + 1.0) * 0.5);
         weight *= backfaceweight * backfaceweight + 0.2;
+        
+        float fallbackWeight = weight;
 
         // Moment visibility test
         vec2 depth = texture(depthTex, depthUV).xy;
@@ -189,23 +197,25 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
             weight *= weight * weight * (1.0 / (crushThreshold * crushThreshold)); 
         }
 
-        weight *= trilinear.x * trilinear.y * trilinear.z;
-        
+        weight *= trilinear.x * trilinear.y * trilinear.z + 0.001f;
+        fallbackWeight *= trilinear.x * trilinear.y * trilinear.z + 0.001f;
+
         vec3 color = texture(colorTex, colorUV).xyz;
         // Non-physical blending, smooths the transitions between probes
         color = sqrt(color);
         
         finalColor += weight * color; 
         totalWeight += weight; 
-    }
-    
 
-    if(totalWeight > 1e-6)
-       finalColor /= totalWeight;
-    else return vec3(1.0, 0.0, 0.0); // Treat this as an error for now.
+        fallbackColor += fallbackWeight * color;
+        totalFallbackWeight += fallbackWeight;
+    }
 
     // Undo the sqrt
     finalColor *= finalColor;
+    fallbackColor *= fallbackColor;
 
-    return finalColor;
+    return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0 ,1));
 }
+
+#endif

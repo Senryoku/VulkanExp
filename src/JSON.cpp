@@ -190,4 +190,5 @@ JSON::value JSON::parseValue(std::ifstream& file) {
 			return value{parseNull(file)};
 			break;
 	}
+	error("JSON::parseValue: Unexpected character '{}'.\n", byte);
 }

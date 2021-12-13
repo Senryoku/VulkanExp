@@ -20,6 +20,7 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #include "irradiance.glsl"
+#include "pbrMetallicRoughness.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0) uniform sampler2D textures[];
@@ -97,10 +98,6 @@ Material unpackMaterial(uint index) {
 	return m;
 }
 
-// FIXME: To Uniforms?
-vec3 LightDir = normalize(vec3(-1, 6, 1));
-vec3 LightColor = vec3(2.0);
-
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
 vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy) {
@@ -161,11 +158,24 @@ vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex
 	return vec4(dudx, dvdx, dudy, dvdy);
 }
 
+// FIXME: To Uniforms?
+struct Light {
+	uint type; // 0 Directional, 1 Point light
+	vec3 color;
+	vec3 direction;
+};
+
+Light Lights[3] = {
+	Light(0, vec3(2.0), normalize(vec3(-1, 6, 1))),
+	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(-620, 160, 143.5)),
+	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(487, 160, 143.5))
+};
+
 void main()
 {		
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
-	vec3 P = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+	vec3 position = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 	
 	uint materialInstanceIndex = offsets.o[3 * gl_InstanceID + 0];
 	uint vertexInstanceOffset = offsets.o[3 * gl_InstanceID + 1];
@@ -182,36 +192,50 @@ void main()
 	vec3 normal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
 	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
 	
-	vec4 grad = texDerivative(P, normal, v0, v1, v2, payload.raydx, payload.raydy); 
-	vec3 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw).xyz;
-
-	isShadowed = true;
-	traceRayEXT(topLevelAS,        // acceleration structure
-				gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
-				0xFF,              // cullMask
-				0,                 // sbtRecordOffset
-				0,                 // sbtRecordStride
-				1,                 // missIndex
-				P,                 // ray origin
-				0.1,               // ray min range
-				LightDir,          // ray direction
-				10000,             // ray max range
-				1                  // payload (location = 1)
-	);
-	float attenuation = 1.0;
-	if(isShadowed) {
-		attenuation = 0.005;
-	} else {
-		attenuation = 1.0;
-	}
+	vec4 grad = texDerivative(position, normal, v0, v1, v2, payload.raydx, payload.raydy); 
+	vec4 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw);
 
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
 		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
 		normal = normalize(mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal);
 	}
-    vec3 indirectLight = sampleProbes(P, normal, grid, irradianceColor, irradianceDepth);  
-    vec3 color = indirectLight * texColor.rgb + attenuation * clamp(dot(LightDir, normal), 0.2, 1.0) * LightColor * texColor.rgb;
+
+	vec3 color = vec3(0);
+
+	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth);  
+	color += indirectLight * texColor.rgb;
+
+	for(int i = 0; i < Lights.length(); ++i) {
+		isShadowed = true;
+		vec3 direction = Lights[i].type == 0 ? Lights[i].direction : normalize(Lights[i].direction - position);
+		float tmax = Lights[i].type == 0 ? 10000.0 : length(Lights[i].direction - position);
+		traceRayEXT(topLevelAS,            // acceleration structure
+					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
+					0xFF,                  // cullMask
+					0,                     // sbtRecordOffset
+					0,                     // sbtRecordStride
+					1,                     // missIndex
+					position,              // ray origin
+					0.1,                   // ray min range
+					direction,             // ray direction
+					tmax,                  // ray max range
+					1                      // payload (location = 1)
+		);
+		float attenuation = 1.0;
+		if(isShadowed) {
+			attenuation = 0.005;
+		} else {
+			attenuation = 1.0;
+		}
+
+		// Basic Light Model
+		//color += attenuation * clamp(dot(LightDir, normal), 0.2, 1.0) * LightColor * texColor.rgb;
+
+		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1));
+		// Hopefully a better one someday :) - Missing the specular rn, so way darker
+		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+	}
 
 	payload.color = color;
 	payload.depth = gl_HitTEXT;
