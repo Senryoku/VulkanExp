@@ -26,12 +26,7 @@ layout(binding = 6, set = 0) uniform UniformBufferObject
 } ubo;
 layout(binding = 7, set = 0, rgba8) uniform image2D image;
 
-struct rayPayload {
-	vec3 raydx;
-	vec3 raydy;
-
-	vec3 color; // Result
-};
+#include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
 
@@ -52,7 +47,7 @@ void main()
 	float tmin = 0.001;
 	float tmax = 100000.0;
 
-    payload.color = vec3(1.0, 0.0, 0.0);
+    payload.color = vec4(0.0);
 
 	vec4 dxtarget = inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy + uvec2(1, 0)), 1, 1);
 	payload.raydx = (inverse(ubo.view) * vec4(normalize(dxtarget.xyz), 0)).xyz;
@@ -60,7 +55,7 @@ void main()
 	vec4 dytarget = inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy + uvec2(0, 1)), 1, 1);
 	payload.raydy = (inverse(ubo.view) * vec4(normalize(dytarget.xyz), 0)).xyz;
 
-	traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
+	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color, 1.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
 }

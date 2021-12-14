@@ -87,7 +87,7 @@ void Application::createAccelerationStructure() {
 									.transformData = _accStructTransformBuffer.getDeviceAddress() + offsetInTransformBuffer * sizeof(VkTransformMatrixKHR),
 								},
 						},
-					.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+					.flags = 0,
 				});
 
 				VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
@@ -209,7 +209,7 @@ void Application::createAccelerationStructure() {
 						.data = _accStructInstancesBuffer.getDeviceAddress(),
 					},
 			},
-		.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
+		.flags = 0,
 	};
 
 	VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
@@ -282,6 +282,8 @@ void Application::createRayTracingPipeline() {
 	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
 	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+	Shader anyhitShader(_device, "./shaders_spv/anyhit.rahit.spv");
+	shader_stages.push_back(anyhitShader.getStageCreateInfo(VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
 
 	// Ray generation group
 	shader_groups.push_back({
@@ -311,13 +313,13 @@ void Application::createRayTracingPipeline() {
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	});
 
-	// Ray closest hit group
+	// Ray hit group
 	shader_groups.push_back({
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 		.generalShader = VK_SHADER_UNUSED_KHR,
 		.closestHitShader = 3,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
+		.anyHitShader = 4,
 		.intersectionShader = VK_SHADER_UNUSED_KHR,
 	});
 

@@ -96,6 +96,7 @@
     <None Include="shaders\triangle.vert" />
     <None Include="shaders\ubo.vert" />
     <None Include="src\IrradianceProbes.hpp" />
+    <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\common.glsl" />
     <None Include="src\shaders\Material.glsl" />
     <None Include="src\shaders\pbrMetallicRoughness.glsl" />
@@ -103,6 +104,7 @@
     <None Include="src\shaders\probes_raygen.rgen" />
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\probe_instanced.vert" />
+    <None Include="src\shaders\rayPayload.glsl" />
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\shaders\Vertex.glsl" />
   </ItemGroup>

@@ -1,0 +1,48 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : enable
+
+#include "common.glsl"
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0) uniform sampler2D textures[];
+layout(binding = 2, set = 0) buffer VerticesBlock { vec4 Vertices[]; };
+layout(binding = 3, set = 0) buffer Indices { uint  i[]; } indices;
+layout(binding = 4, set = 0) buffer Offsets { uint  o[]; } offsets;
+layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
+
+#include "Vertex.glsl"
+#include "Material.glsl"
+
+hitAttributeEXT vec3 attribs;
+
+#include "rayPayload.glsl"
+
+// Simple Any-Hit shader that skips intersection if transparent (no blending, just skips below a threshold).
+// Still have to do a bit of unpacking and a texture lookup for that sadly, we could at least add a flag in the material for fully opaque objects to avoid the texture lookup.
+
+void main()
+{
+	uint materialInstanceIndex = offsets.o[3 * gl_InstanceID + 0];
+	Material m = unpackMaterial(materialInstanceIndex);
+
+	if(m.albedoTexture != -1)
+	{
+		ivec3 index = ivec3(indices.i[indexOffset], indices.i[indexOffset + 1], indices.i[indexOffset + 2]);
+		uint vertexInstanceOffset = offsets.o[3 * gl_InstanceID + 1];
+		uint indexInstanceOffset = offsets.o[3 * gl_InstanceID + 2];
+		uint indexOffset = indexInstanceOffset + 3 * gl_PrimitiveID;
+
+		Vertex v0 = unpack(vertexInstanceOffset + index.x);
+		Vertex v1 = unpack(vertexInstanceOffset + index.y);
+		Vertex v2 = unpack(vertexInstanceOffset + index.z);
+
+		const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+		vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
+	
+		vec4 texColor = texture(textures[m.albedoTexture], texCoord);
+
+		if(texColor.a < 1e-2) 
+			ignoreIntersectionEXT;
+	}
+}

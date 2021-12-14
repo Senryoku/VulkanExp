@@ -37,14 +37,7 @@ layout(binding = 10, set = 0) uniform sampler2D irradianceDepth;
 
 #include "Vertex.glsl"
 #include "Material.glsl"
-
-struct rayPayload {
-	vec3 raydx;
-	vec3 raydy;
-
-	vec3 color; // Result
-	float depth;
-};
+#include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadInEXT rayPayload payload;
 layout(location = 1) rayPayloadEXT bool isShadowed;
@@ -119,7 +112,7 @@ struct Light {
 };
 
 Light Lights[3] = {
-	Light(0, vec3(4.0), normalize(vec3(-1, 5, 2))),
+	Light(0, vec3(4.0), normalize(vec3(-1, 7, 2))),
 	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(-620, 160, 143.5)),
 	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(487, 160, 143.5))
 };
@@ -161,6 +154,9 @@ void main()
 
 	vec3 color = vec3(0) + emissiveLight;
 
+	if(payload.depth > 0 && payload.depth < gl_HitTEXT)
+		color += payload.color.rgb;
+
 	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth);  
 	color += indirectLight * texColor.rgb;
 
@@ -169,7 +165,7 @@ void main()
 		vec3 direction = Lights[i].type == 0 ? Lights[i].direction : normalize(Lights[i].direction - position);
 		float tmax = Lights[i].type == 0 ? 10000.0 : length(Lights[i].direction - position);
 		traceRayEXT(topLevelAS,            // acceleration structure
-					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
+					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
 					0xFF,                  // cullMask
 					0,                     // sbtRecordOffset
 					0,                     // sbtRecordStride
@@ -196,6 +192,6 @@ void main()
 		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, indirectLight, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	}
 
-	payload.color = color;
+	payload.color = vec4(color, texColor.a);
 	payload.depth = gl_HitTEXT;
 }

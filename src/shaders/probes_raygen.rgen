@@ -31,13 +31,7 @@ layout(push_constant) uniform Push {
     mat3 randomOrientation;
 } push;
 
-struct rayPayload {
-	vec3 raydx;
-	vec3 raydy;
-
-	vec3 color; // Result
-	float depth;
-};
+#include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
 
@@ -67,7 +61,7 @@ void main()
 		const float tmin = 0.1;
 		const float tmax = 10000.0;
 
-		payload.color = vec3(1.0, 0.0, 0.0);
+		payload.color = vec4(0.0);
 
         vec2 polar = cartesianToPolar(direction);
 		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
@@ -81,7 +75,7 @@ void main()
                 // TODO: This could be pre-computed
                 vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.colorRes));
                 float colorWeight = max(0.0, dot(texelDirection, direction));
-                results[x][y] += vec4(colorWeight * payload.color, colorWeight);
+                results[x][y] += vec4(colorWeight * payload.color.rgb, colorWeight);
 	        }
         for(int x = 0; x < depthResults.length(); ++x)
             for(int y = 0; y < depthResults[0].length(); ++y) {
