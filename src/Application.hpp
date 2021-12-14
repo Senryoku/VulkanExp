@@ -138,6 +138,9 @@ class Application {
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
 
+	void createGBufferPipeline();
+	void createGatherPipeline();
+
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;
 	DeviceMemory		_cameraUniformBuffersMemory;

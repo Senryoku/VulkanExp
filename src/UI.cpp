@@ -2,9 +2,14 @@
 
 #include <ImGuiExtensions.hpp>
 
-std::vector<ImTextureID> SceneUITextureIDs;
-ImTextureID				 ProbesColor;
-ImTextureID				 ProbesDepth;
+struct TextureRef {
+	const Texture const& texture;
+	const ImTextureID	 imID;
+};
+
+std::vector<TextureRef> SceneUITextureIDs;
+ImTextureID				ProbesColor;
+ImTextureID				ProbesDepth;
 
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
@@ -72,7 +77,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	for(const auto& texture : Textures) {
-		SceneUITextureIDs.push_back(ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+		SceneUITextureIDs.push_back({texture, ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -137,14 +142,14 @@ void Application::drawUI() {
 			}
 		}
 
-		ImGui::Text("Loaded Textures");
-		size_t n = 0;
-		for(const auto& texture : SceneUITextureIDs) {
-			if(ImGui::TreeNode(std::to_string(n).c_str())) {
-				ImGui::Image(texture, ImVec2(100, 100));
-				ImGui::TreePop();
+		if(ImGui::TreeNode("Loaded Textures")) {
+			for(const auto& texture : SceneUITextureIDs) {
+				if(ImGui::TreeNode(texture.texture.source.string().c_str())) {
+					ImGui::Image(texture.imID, ImVec2(100, 100));
+					ImGui::TreePop();
+				}
 			}
-			++n;
+			ImGui::TreePop();
 		}
 		ImGui::End();
 	}

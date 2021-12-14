@@ -28,6 +28,8 @@
     <ClCompile Include="ext\imgui-docking\imgui_widgets.cpp" />
     <ClCompile Include="ext\stb_image.cpp" />
     <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\GatherPipeline.cpp" />
+    <ClCompile Include="src\GBufferPipeline.cpp" />
     <ClCompile Include="src\glTF.cpp" />
     <ClCompile Include="src\IrradianceProbes.cpp" />
     <ClCompile Include="src\AppRaytracing.cpp" />
