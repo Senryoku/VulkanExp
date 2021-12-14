@@ -99,8 +99,8 @@ void Application::initVulkan() {
 	Images[blankPath].image.upload(image, graphicsFamily);
 	Images[blankPath].imageView.create(_device, Images[blankPath].image, VK_FORMAT_R8G8B8A8_SRGB);
 	_blankTexture.gpuImage = &Images[blankPath];
-	_blankTexture.sampler =
-		getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, Images[blankPath].image.getMipLevels());
+	_blankTexture.sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+									   Images[blankPath].image.getMipLevels());
 
 	auto bounds = _scene.computeBounds();
 	_irradianceProbes.init(_device, graphicsFamily, bounds.min, bounds.max);

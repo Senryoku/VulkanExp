@@ -93,8 +93,8 @@ void glTF::load(std::filesystem::path path) {
 		for(const auto& texture : object["textures"]) {
 			Textures.push_back(Texture{
 				.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_UNORM, // FIXME: Use this for normal maps only! (or not?)
-				.samplerDescription = object["samplers"][texture["sampler"].as<int>()].asObject(),
+				.format = VK_FORMAT_R8G8B8A8_UNORM,											// FIXME: Use this for normal maps only! (or not?)
+				.samplerDescription = object["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
 			});
 		}
 
@@ -274,6 +274,9 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	_defaultScene = object("scene", 0);
+	_root.name = "Dummy Node";
+	_root.transform = glm::mat4(1.0);
+	_root.children = _scenes[_defaultScene].nodes;
 }
 
 void glTF::allocateMeshes(const Device& device) {

@@ -65,10 +65,10 @@ void Application::createAccelerationStructure() {
 
 		// This is a leaf
 		if(n.mesh != -1) {
+			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+			_accStructTransformMemory.fill(reinterpret_cast<VkTransformMatrixKHR*>(&transform), 1, offsetInTransformBuffer);
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
 				submeshesIndices.push_back(n.mesh + i);
-				transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-				_accStructTransformMemory.fill(reinterpret_cast<VkTransformMatrixKHR*>(&transform), 1, offsetInTransformBuffer);
 				VkAccelerationStructureKHR blas;
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -89,7 +89,6 @@ void Application::createAccelerationStructure() {
 						},
 					.flags = VK_GEOMETRY_OPAQUE_BIT_KHR,
 				});
-				++offsetInTransformBuffer;
 
 				VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
@@ -141,6 +140,7 @@ void Application::createAccelerationStructure() {
 					.transformOffset = 0,
 				});
 			}
+			++offsetInTransformBuffer;
 		}
 	};
 	visitNode(_scene.getRoot(), glm::mat4(1.0f));
@@ -365,18 +365,20 @@ void Application::createRaytracingDescriptorSets() {
 				   .offset = 0,
 				   .range = sizeof(IrradianceProbes::GridInfo),
 			   });
-	writer.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			   {
-				   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-				   .imageView = _irradianceProbes.getColorView(),
-				   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			   });
-	writer.add(10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			   {
-				   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-				   .imageView = _irradianceProbes.getDepthView(),
-				   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			   });
+	writer.add(
+		9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		{
+			.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+			.imageView = _irradianceProbes.getColorView(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		});
+	writer.add(
+		10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		{
+			.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+			.imageView = _irradianceProbes.getDepthView(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		});
 
 	writer.update(_device);
 }

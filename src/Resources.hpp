@@ -31,4 +31,5 @@ inline Buffer									 MaterialBuffer;
 inline DeviceMemory								 MaterialMemory;
 
 void	 uploadTextures(const Device& device, uint32_t queueFamilyIndex);
-Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT, float maxLod);
+Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
+					float maxLod);

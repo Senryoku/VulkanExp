@@ -65,10 +65,8 @@ class glTF {
 	inline const std::vector<Scene>& getScenes() const { return _scenes; }
 	inline const std::vector<Node>&	 getNodes() const { return _nodes; }
 
-	inline const Node& getRoot() const {
-		assert(_scenes[_defaultScene].nodes.size() == 1); // I've yet to see a scene with multiple roots, maybe we'll have to fix this later
-		return _nodes[_scenes[_defaultScene].nodes[0]];
-	}
+	// Returns a dummy node with stands for the current scene (since it can have multiple children).
+	inline const Node& getRoot() const { return _root; }
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
@@ -116,6 +114,7 @@ class glTF {
 
   private:
 	uint32_t		   _defaultScene = 0;
+	Node			   _root;
 	std::vector<Mesh>  _meshes;
 	std::vector<Scene> _scenes;
 	std::vector<Node>  _nodes;

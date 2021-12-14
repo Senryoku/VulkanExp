@@ -6,10 +6,26 @@ VkFilter glTFToVkFilter(int e) {
 	switch(e) {
 		case 9728: return VK_FILTER_NEAREST;
 		case 9729: return VK_FILTER_LINEAR;
-		case 9987: return VK_FILTER_LINEAR; // LINEAR_MIPMAP_LINEAR
+		case 9984: return VK_FILTER_NEAREST; // NEAREST_MIPMAP_NEAREST
+		case 9985: return VK_FILTER_NEAREST; // LINEAR_MIPMAP_NEAREST
+		case 9986: return VK_FILTER_NEAREST; // NEAREST_MIPMAP_LINEAR
+		case 9987: return VK_FILTER_LINEAR;	 // LINEAR_MIPMAP_LINEAR
 	}
 	assert(false);
 	return VK_FILTER_LINEAR;
+}
+
+VkSamplerMipmapMode glTFToVkSamplerMipmapMode(int e) {
+	switch(e) {
+		case 9728: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		case 9729: return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		case 9984: return VK_SAMPLER_MIPMAP_MODE_NEAREST; // NEAREST_MIPMAP_NEAREST
+		case 9985: return VK_SAMPLER_MIPMAP_MODE_NEAREST; // LINEAR_MIPMAP_NEAREST
+		case 9986: return VK_SAMPLER_MIPMAP_MODE_LINEAR;  // NEAREST_MIPMAP_LINEAR
+		case 9987: return VK_SAMPLER_MIPMAP_MODE_LINEAR;  // LINEAR_MIPMAP_LINEAR
+	}
+	assert(false);
+	return VK_SAMPLER_MIPMAP_MODE_LINEAR;
 }
 
 VkSamplerAddressMode glTFtoVkSamplerAddressMode(int e) {
@@ -36,14 +52,17 @@ void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 		texR.gpuImage = &Images[path];
 		auto magFilter = glTFToVkFilter(texR.samplerDescription["magFilter"].as<int>(9729));
 		auto minFilter = glTFToVkFilter(texR.samplerDescription["minFilter"].as<int>(9729));
+		auto mipMapMode = glTFToVkSamplerMipmapMode(texR.samplerDescription["minFilter"].as<int>(9729));
 		auto wrapS = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapS"].as<int>(10497));
 		auto wrapT = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapT"].as<int>(10497));
-		texR.sampler = getSampler(device, magFilter, minFilter, wrapS, wrapT, Images[path].image.getMipLevels());
+		texR.sampler = getSampler(device, magFilter, minFilter, mipMapMode, wrapS, wrapT, Images[path].image.getMipLevels());
 	}
 }
 
-inline Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT, float maxLod) {
-	size_t key = magFilter | (minFilter << 8) | (wrapS << 16) | (wrapT << 24) | (static_cast<size_t>(maxLod) << 32);
+Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
+					float maxLod) {
+	// 4 bits per properties should be enough (Unless we count Vulkan extensions... Eh.)
+	size_t key = magFilter | (minFilter << 4) | (wrapS << 8) | (wrapT << 12) | (mipmapMode << 16) || (static_cast<uint32_t>(maxLod) << 32);
 	if(!Samplers.contains(key)) {
 		Samplers.try_emplace(key);
 		VkPhysicalDeviceProperties properties{};
@@ -52,7 +71,7 @@ inline Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter mi
 										 .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 										 .magFilter = magFilter,
 										 .minFilter = minFilter,
-										 .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+										 .mipmapMode = mipmapMode,
 										 .addressModeU = wrapS,
 										 .addressModeV = wrapT,
 										 .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
