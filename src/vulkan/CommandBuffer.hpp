@@ -29,11 +29,7 @@ class CommandBuffer : public HandleWrapper<VkCommandBuffer> {
 		}
 	}
 
-	void beginRenderPass(const RenderPass& renderPass, const Framebuffer& framebuffer, VkExtent2D extent) const {
-		std::array<VkClearValue, 2> clearValues{
-			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.5f}},
-			VkClearValue{.depthStencil = {1.0f, 0}},
-		};
+	void beginRenderPass(const RenderPass& renderPass, const Framebuffer& framebuffer, VkExtent2D extent, std::vector<VkClearValue> clearValues) const {
 		VkRenderPassBeginInfo renderPassInfo{
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			.renderPass = renderPass,

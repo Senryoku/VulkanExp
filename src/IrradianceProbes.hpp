@@ -58,7 +58,7 @@ class IrradianceProbes {
 	const Device* _device;
 
 	Fence				_fence;
-	Pipeline			_pipeline;
+	Pipeline			_pipelineGBuffer;
 	PipelineLayout		_pipelineLayout;
 	DescriptorSetLayout _descriptorSetLayout;
 	DescriptorPool		_descriptorPool;

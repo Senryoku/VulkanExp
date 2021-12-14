@@ -108,9 +108,9 @@ class Application {
 	Texture _blankTexture;
 
 	VkSwapchainKHR		   _swapChain;
-	std::vector<VkImage>   _swapChainImages;
 	VkFormat			   _swapChainImageFormat;
 	VkExtent2D			   _swapChainExtent;
+	std::vector<VkImage>   _swapChainImages;
 	std::vector<ImageView> _swapChainImageViews;
 
 	VkFormat  _depthFormat;
@@ -123,8 +123,13 @@ class Application {
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
 	RenderPass						 _renderPass;
 	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
-	Pipeline						 _pipeline;
-	std::vector<Framebuffer>		 _swapChainFramebuffers;
+	Pipeline						 _pipelineGBuffer;
+	std::vector<DescriptorSetLayout> _gatherDescriptorSetLayouts;
+	DescriptorPool					 _gatherDescriptorPool;
+	Pipeline						 _pipelineGather;
+	std::vector<Image>				 _gbufferImages;
+	std::vector<ImageView>			 _gbufferImageViews;
+	std::vector<Framebuffer>		 _gbufferFramebuffers;
 	CommandPool						 _commandPool;
 	CommandPool						 _tempCommandPool;
 	CommandBuffers					 _commandBuffers;
@@ -140,7 +145,7 @@ class Application {
 	DescriptorPool _descriptorPool;
 
 	VkDescriptorPool		 _imguiDescriptorPool;
-	std::vector<Framebuffer> _imguiFramebuffers;
+	std::vector<Framebuffer> _presentFramebuffers;
 	RenderPass				 _imguiRenderPass;
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;

@@ -124,8 +124,8 @@ void IrradianceProbes::updateUniforms() {
 }
 
 void IrradianceProbes::createPipeline() {
-	if(_pipeline)
-		_pipeline.destroy();
+	if(_pipelineGBuffer)
+		_pipelineGBuffer.destroy();
 
 	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
@@ -186,7 +186,7 @@ void IrradianceProbes::createPipeline() {
 		.maxPipelineRayRecursionDepth = 2,
 		.layout = _pipelineLayout,
 	};
-	_pipeline.create(*_device, pipelineCreateInfo);
+	_pipelineGBuffer.create(*_device, pipelineCreateInfo);
 
 	createShaderBindingTable();
 }
@@ -234,7 +234,7 @@ void IrradianceProbes::createShaderBindingTable() {
 	  };
 	auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
 	std::vector<uint8_t> shader_handle_storage(stb_size);
-	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(*_device, _pipeline, 0, totalEntries, stb_size, shader_handle_storage.data()));
+	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(*_device, _pipelineGBuffer, 0, totalEntries, stb_size, shader_handle_storage.data()));
 
 	size_t offsetInShaderHandleStorage = 0;
 	if(!_shaderBindingTable.buffer) {
@@ -314,7 +314,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 		auto& cmdBuff = _commandBuffers.getBuffers()[i];
 		cmdBuff.begin();
 
-		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
+		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineGBuffer);
 		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 		vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
 		vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
@@ -390,7 +390,7 @@ void IrradianceProbes::destroy() {
 	_gridInfoBuffer.destroy();
 	_descriptorPool.destroy();
 	_descriptorSetLayout.destroy();
-	_pipeline.destroy();
+	_pipelineGBuffer.destroy();
 	_pipelineLayout.destroy();
 
 	_workDepthView.destroy();

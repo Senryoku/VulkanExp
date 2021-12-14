@@ -93,7 +93,7 @@ void Application::drawFrame() {
 	VkRenderPassBeginInfo rpinfo{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = _imguiRenderPass,
-		.framebuffer = _imguiFramebuffers[imageIndex],
+		.framebuffer = _presentFramebuffers[imageIndex],
 		.renderArea = {.extent = _swapChainExtent},
 		.clearValueCount = 1,
 		.pClearValues = clearValues.data(),
