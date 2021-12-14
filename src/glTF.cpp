@@ -41,11 +41,12 @@ glm::quat JSON::value::to<glm::quat>() const {
 	assert(_type == Type::array);
 	assert(_value.as_array.size() == 4);
 	const auto& a = _value.as_array;
+	// glm::quat constructor takes w as the first argument.
 	return glm::quat{
+		a[3].to<float>(),
 		a[0].to<float>(),
 		a[1].to<float>(),
 		a[2].to<float>(),
-		a[3].to<float>(),
 	};
 }
 
