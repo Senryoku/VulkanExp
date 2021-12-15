@@ -3,26 +3,30 @@
 #include "Raytracing.hpp"
 
 void Application::createStorageImage() {
-	_rayTraceStorageImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-								 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
-	_rayTraceStorageImage.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	_rayTraceStorageImageView.create(_device, VkImageViewCreateInfo{
-												  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-												  .image = _rayTraceStorageImage,
-												  .viewType = VK_IMAGE_VIEW_TYPE_2D,
-												  .format = VK_FORMAT_B8G8R8A8_UNORM,
-												  .subresourceRange =
-													  VkImageSubresourceRange{
-														  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-														  .baseMipLevel = 0,
-														  .levelCount = 1,
-														  .baseArrayLayer = 0,
-														  .layerCount = 1,
-													  },
-											  });
+	_rayTraceStorageImages.resize(_swapChainImages.size());
+	_rayTraceStorageImageViews.resize(_swapChainImages.size());
+	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+		_rayTraceStorageImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+										 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+		_rayTraceStorageImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_rayTraceStorageImageViews[i].create(_device, VkImageViewCreateInfo{
+														  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+														  .image = _rayTraceStorageImages[i],
+														  .viewType = VK_IMAGE_VIEW_TYPE_2D,
+														  .format = VK_FORMAT_B8G8R8A8_UNORM,
+														  .subresourceRange =
+															  VkImageSubresourceRange{
+																  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+																  .baseMipLevel = 0,
+																  .levelCount = 1,
+																  .baseArrayLayer = 0,
+																  .layerCount = 1,
+															  },
+													  });
 
-	_rayTraceStorageImage.transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
-										   VK_IMAGE_LAYOUT_GENERAL);
+		_rayTraceStorageImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+												   VK_IMAGE_LAYOUT_GENERAL);
+	}
 }
 
 void Application::createAccelerationStructure() {
@@ -257,6 +261,11 @@ void Application::createAccelerationStructure() {
 }
 
 void Application::createRayTracingPipeline() {
+	auto rayTracingPipelineProperties = _device.getPhysicalDevice().getRaytracingPipelineProperties();
+	if(rayTracingPipelineProperties.maxRecursionDepth <= 1) {
+		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 2 for this pipeline.");
+	}
+
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				  // Camera
@@ -333,11 +342,16 @@ void Application::createRayTracingPipeline() {
 		.layout = _rayTracingPipelineLayout,
 	};
 	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info, _pipelineCache);
+
+	_raytracingShaderBindingTable.create(_device, {1, 2, 1, 0}, _rayTracingPipeline);
 }
 
 void Application::createRaytracingDescriptorSets() {
 	assert(_topLevelAccelerationStructure != VK_NULL_HANDLE);
-	_rayTracingDescriptorPool.create(_device, 1,
+	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
+	for(size_t i = 0; i < _swapChainImages.size(); ++i)
+		layoutsToAllocate.push_back(_rayTracingDescriptorSetLayout);
+	_rayTracingDescriptorPool.create(_device, layoutsToAllocate.size(),
 									 std::array<VkDescriptorPoolSize, 5>{
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
@@ -345,138 +359,68 @@ void Application::createRaytracingDescriptorSets() {
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
 									 });
-	_rayTracingDescriptorPool.allocate({_rayTracingDescriptorSetLayout.getHandle()});
+	_rayTracingDescriptorPool.allocate(layoutsToAllocate);
 
-	auto writer = baseSceneWriter(_rayTracingDescriptorPool.getDescriptorSets()[0], _scene, _topLevelAccelerationStructure);
-	// Camera
-	writer.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			   {
-				   .buffer = _cameraUniformBuffers[_currentFrame],
-				   .offset = 0,
-				   .range = sizeof(CameraBuffer),
-			   });
-	// Result
-	writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			   {
-				   .imageView = _rayTraceStorageImageView,
-				   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-			   });
-	writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			   {
-				   .buffer = _irradianceProbes.getGridParametersBuffer(),
-				   .offset = 0,
-				   .range = sizeof(IrradianceProbes::GridInfo),
-			   });
-	writer.add(
-		9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		{
-			.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-			.imageView = _irradianceProbes.getColorView(),
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		});
-	writer.add(
-		10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		{
-			.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-			.imageView = _irradianceProbes.getDepthView(),
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		});
+	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+		auto writer = baseSceneWriter(_rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure);
+		// Camera
+		writer.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				   {
+					   .buffer = _cameraUniformBuffers[i],
+					   .offset = 0,
+					   .range = sizeof(CameraBuffer),
+				   });
+		// Result
+		writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _rayTraceStorageImageViews[i],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+		writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				   {
+					   .buffer = _irradianceProbes.getGridParametersBuffer(),
+					   .offset = 0,
+					   .range = sizeof(IrradianceProbes::GridInfo),
+				   });
+		writer.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				   {
+					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					   .imageView = _irradianceProbes.getColorView(),
+					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				   });
+		writer.add(10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				   {
+					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					   .imageView = _irradianceProbes.getDepthView(),
+					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				   });
 
-	writer.update(_device);
+		writer.update(_device);
+	}
 }
 
 void Application::recordRayTracingCommands() {
-	VkPhysicalDeviceRayTracingPropertiesNV rayTracingPipelineProperties = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
-	VkPhysicalDeviceProperties2			   deviceProperties{
-				   .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-				   .pNext = &rayTracingPipelineProperties,
-	   };
-	vkGetPhysicalDeviceProperties2(_device.getPhysicalDevice(), &deviceProperties);
-	if(rayTracingPipelineProperties.maxRecursionDepth <= 1) {
-		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 2.");
-	}
-
-	const size_t entriesCount[4] = {
-		1, // rgen
-		2, // miss
-		1, // hit
-		0, // callable
-	};
-	const size_t   totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];
-	const auto	   handle_size = rayTracingPipelineProperties.shaderGroupHandleSize;
-	const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment);
-	const size_t   regionSizes[4] = {
-		  entriesCount[0] * handle_size_aligned,
-		  entriesCount[1] * handle_size_aligned,
-		  entriesCount[2] * handle_size_aligned,
-		  entriesCount[3] * handle_size_aligned,
-	  };
-	auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
-	std::vector<uint8_t> shader_handle_storage(stb_size);
-	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(_device, _rayTracingPipeline, 0, totalEntries, stb_size, shader_handle_storage.data()));
-
-	size_t offsetInShaderHandleStorage = 0;
-	for(size_t i = 0; i < _rayShaderBindingTablesCount; ++i) {
-		if(!_rayTracingShaderBindingTables[i]) {
-			_rayTracingShaderBindingTables[i].create(
-				_device, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, regionSizes[i]);
-			_rayTracingShaderBindingTablesMemory[i].allocate(_device, _rayTracingShaderBindingTables[i],
-															 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		}
-
-		char* mapped = (char*)_rayTracingShaderBindingTablesMemory[i].map(regionSizes[i]);
-		for(size_t handleIdx = 0; handleIdx < entriesCount[i]; ++handleIdx) {
-			memcpy(mapped + handleIdx * handle_size_aligned, shader_handle_storage.data() + offsetInShaderHandleStorage + handleIdx * handle_size, handle_size);
-		}
-		_rayTracingShaderBindingTablesMemory[i].unmap();
-		offsetInShaderHandleStorage += entriesCount[i] * handle_size;
-	}
-
 	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
 	for(size_t i = 0; i < _rayTraceCommandBuffers.getBuffers().size(); i++) {
 		auto& cmdBuff = _rayTraceCommandBuffers.getBuffers()[i];
 		cmdBuff.begin();
 
-		/*
-			Setup the strided device address regions pointing at the shader identifiers in the shader binding table
-		*/
-
-		VkStridedDeviceAddressRegionKHR raygen_shader_sbt_entry{
-			.deviceAddress = _rayTracingShaderBindingTables[0].getDeviceAddress(),
-			.stride = handle_size_aligned,
-			.size = regionSizes[0],
-		};
-
-		VkStridedDeviceAddressRegionKHR miss_shader_sbt_entry{
-			.deviceAddress = _rayTracingShaderBindingTables[1].getDeviceAddress(),
-			.stride = handle_size_aligned,
-			.size = regionSizes[1],
-		};
-
-		VkStridedDeviceAddressRegionKHR hit_shader_sbt_entry{
-			.deviceAddress = _rayTracingShaderBindingTables[2].getDeviceAddress(),
-			.stride = handle_size_aligned,
-			.size = regionSizes[2],
-		};
-		VkStridedDeviceAddressRegionKHR callable_shader_sbt_entry{};
-
-		/*
-			Dispatch the ray tracing commands
-		*/
+		// Dispatch the ray tracing commands
 		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipeline);
-		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 1, &_rayTracingDescriptorPool.getDescriptorSets()[0], 0, 0);
+		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 1, &_rayTracingDescriptorPool.getDescriptorSets()[i], 0, 0);
 
-		vkCmdTraceRaysKHR(cmdBuff, &raygen_shader_sbt_entry, &miss_shader_sbt_entry, &hit_shader_sbt_entry, &callable_shader_sbt_entry, _width, _height, 1);
+		vkCmdTraceRaysKHR(cmdBuff, &_raytracingShaderBindingTable.raygenEntry, &_raytracingShaderBindingTable.missEntry, &_raytracingShaderBindingTable.anyhitEntry,
+						  &_raytracingShaderBindingTable.callableEntry, _width, _height, 1);
 
-		/*
-			Copy ray tracing output to swap chain image
-		*/
+		// Copy ray tracing output to swap chain image
 
 		// Prepare current swap chain image as transfer destination
 		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
 		// Prepare ray tracing output image as transfer source
-		Image::setLayout(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
+		Image::setLayout(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
 
 		VkImageCopy copy_region{
 			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
@@ -485,12 +429,12 @@ void Application::recordRayTracingCommands() {
 			.dstOffset = {0, 0, 0},
 			.extent = {_width, _height, 1},
 		};
-		vkCmdCopyImage(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+		vkCmdCopyImage(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 
 		// Transition swap chain image back to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to prepare for UI rendering
 		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, subresource_range);
 		// Transition ray tracing output image back to general layout
-		Image::setLayout(cmdBuff, _rayTraceStorageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
+		Image::setLayout(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
 
 		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}

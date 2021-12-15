@@ -210,73 +210,7 @@ void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStruc
 }
 
 void IrradianceProbes::createShaderBindingTable() {
-	VkPhysicalDeviceRayTracingPropertiesNV rayTracingPipelineProperties = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
-	VkPhysicalDeviceProperties2			   deviceProperties{
-				   .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-				   .pNext = &rayTracingPipelineProperties,
-	   };
-	vkGetPhysicalDeviceProperties2(_device->getPhysicalDevice(), &deviceProperties);
-
-	const size_t entriesCount[4] = {
-		1, // rgen
-		2, // miss
-		1, // hit
-		0, // callable
-	};
-	const size_t   totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];
-	const auto	   handle_size = rayTracingPipelineProperties.shaderGroupHandleSize;
-	const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment);
-	const size_t   regionSizes[4] = {
-		  entriesCount[0] * handle_size_aligned,
-		  entriesCount[1] * handle_size_aligned,
-		  entriesCount[2] * handle_size_aligned,
-		  entriesCount[3] * handle_size_aligned,
-	  };
-	auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
-	std::vector<uint8_t> shader_handle_storage(stb_size);
-	VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(*_device, _pipeline, 0, totalEntries, stb_size, shader_handle_storage.data()));
-
-	size_t offsetInShaderHandleStorage = 0;
-	if(!_shaderBindingTable.buffer) {
-		_shaderBindingTable.buffer.create(*_device, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-										  stb_size);
-		_shaderBindingTable.memory.allocate(*_device, _shaderBindingTable.buffer,
-											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	}
-
-	size_t offset = 0;
-	for(size_t i = 0; i < 4; ++i) {
-		if(regionSizes[i] > 0) {
-			char* mapped = (char*)_shaderBindingTable.memory.map(regionSizes[i], offset);
-			for(size_t handleIdx = 0; handleIdx < entriesCount[i]; ++handleIdx) {
-				memcpy(mapped + handleIdx * handle_size_aligned, shader_handle_storage.data() + offsetInShaderHandleStorage + handleIdx * handle_size, handle_size);
-				offset += handle_size_aligned;
-			}
-			_shaderBindingTable.memory.unmap();
-			offsetInShaderHandleStorage += entriesCount[i] * handle_size;
-		}
-	}
-
-	auto bufferAddr = _shaderBindingTable.buffer.getDeviceAddress();
-	_shaderBindingTable.raygenEntry = {
-		.deviceAddress = bufferAddr,
-		.stride = handle_size_aligned,
-		.size = regionSizes[0],
-	};
-
-	_shaderBindingTable.missEntry = {
-		.deviceAddress = bufferAddr + regionSizes[0],
-		.stride = handle_size_aligned,
-		.size = regionSizes[1],
-	};
-
-	_shaderBindingTable.anyhitEntry = {
-		.deviceAddress = bufferAddr + regionSizes[0] + regionSizes[1],
-		.stride = handle_size_aligned,
-		.size = regionSizes[2],
-	};
-
-	_shaderBindingTable.callableEntry = {};
+	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _pipeline);
 }
 
 #include <glm/gtc/matrix_transform.hpp>

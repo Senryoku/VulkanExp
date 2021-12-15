@@ -260,5 +260,6 @@
     <None Include="src\shaders\GBuffer.frag" />
     <None Include="src\shaders\GBuffer.vert" />
     <None Include="src\shaders\FullScreenQuad.vert" />
+    <None Include="src\shaders\reflectionShadow.rgen" />
   </ItemGroup>
 </Project>

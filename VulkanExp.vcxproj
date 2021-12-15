@@ -111,6 +111,7 @@
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\probe_instanced.vert" />
     <None Include="src\shaders\rayPayload.glsl" />
+    <None Include="src\shaders\reflectionShadow.rgen" />
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\shaders\Vertex.glsl" />
   </ItemGroup>

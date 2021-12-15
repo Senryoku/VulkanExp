@@ -14,7 +14,7 @@ void Application::createGatherPipeline() {
 	builder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT);
-	_gatherDescriptorSetLayouts.push_back(builder.build(_device));
+	_gatherDescriptorSetLayout = builder.build(_device);
 
 	uint32_t			  descriptorSetsCount = _swapChainImages.size();
 	DescriptorPoolBuilder poolBuilder;
@@ -23,7 +23,7 @@ void Application::createGatherPipeline() {
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
-		descriptorSetsLayoutsToAllocate.push_back(_gatherDescriptorSetLayouts[0]);
+		descriptorSetsLayoutsToAllocate.push_back(_gatherDescriptorSetLayout);
 	_gatherDescriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{
@@ -126,10 +126,6 @@ void Application::createGatherPipeline() {
 		.pDynamicStates = dynamicStates,
 	};
 
-	std::vector<VkDescriptorSetLayout> layouts;
-	for(const auto& layout : _gatherDescriptorSetLayouts)
-		layouts.push_back(layout);
-
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 		DescriptorSetWriter dsw(_gatherDescriptorPool.getDescriptorSets()[i]);
 		dsw.add(0, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
@@ -156,7 +152,7 @@ void Application::createGatherPipeline() {
 		dsw.update(_device);
 	}
 
-	_gatherPipeline.getLayout().create(_device, layouts);
+	_gatherPipeline.getLayout().create(_device, {_gatherDescriptorSetLayout});
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,

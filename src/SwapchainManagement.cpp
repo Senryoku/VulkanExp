@@ -108,13 +108,20 @@ void Application::createSwapChain() {
 	// Create GBuffer Images & Views
 	_gbufferImages.resize(3 * _swapChainImages.size());
 	_gbufferImageViews.resize(3 * _swapChainImages.size());
-	for(size_t i = 0; i < _swapChainImages.size(); i++)
+	_reflectionImages.resize(_swapChainImages.size());
+	_reflectionImageViews.resize(_swapChainImages.size());
+	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t j = 0; j < 3; j++) {
 			_gbufferImages[3 * i + j].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 			_gbufferImages[3 * i + j].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_gbufferImageViews[3 * i + j].create(_device, _gbufferImages[3 * i + j], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
+		_reflectionImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+									VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		_reflectionImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_reflectionImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+	}
 	_depthFormat = findSupportedFormat(_physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL,
 									   VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	_depthImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, _depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
@@ -388,7 +395,7 @@ void Application::initSwapChain() {
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 				})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -398,7 +405,7 @@ void Application::initSwapChain() {
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 			})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -408,7 +415,7 @@ void Application::initSwapChain() {
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 			})
 			.add({
 				.format = _depthFormat,
@@ -461,7 +468,7 @@ void Application::initSwapChain() {
 					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
 					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				})
 			.add({
@@ -471,7 +478,7 @@ void Application::initSwapChain() {
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
@@ -481,7 +488,7 @@ void Application::initSwapChain() {
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
@@ -531,11 +538,13 @@ void Application::initSwapChain() {
 
 	createGBufferPipeline();
 	createGatherPipeline();
+	createReflectionShadowPipeline();
 
 	_commandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
 
 	_imagesInFlight.resize(_swapChainImages.size());
 
+	// Write descriptor sets for each material, for each image in the swap chain.
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {
 			DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + m]);
@@ -610,36 +619,39 @@ void Application::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& b = _commandBuffers.getBuffers()[i];
 		b.begin();
-		std::vector<VkClearValue> clearValues{
+		const std::vector<VkClearValue> clearValues{
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 			VkClearValue{.depthStencil = {1.0f, 0}},
 		};
-		b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
-		_gbufferPipeline.bind(b);
+		{
+			b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
+			_gbufferPipeline.bind(b);
 
-		const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
-			transform = transform * n.transform;
+			const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
+				transform = transform * n.transform;
 
-			if(n.mesh != -1) {
-				for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-					vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
-											&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
-					vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &transform);
-					b.bind<1>({submesh.getVertexBuffer()});
-					vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-					vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
+				if(n.mesh != -1) {
+					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
+						vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
+												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
+						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &transform);
+						b.bind<1>({submesh.getVertexBuffer()});
+						vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+						vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
+					}
 				}
-			}
 
-			for(const auto& c : n.children)
-				visitNode(_scene.getNodes()[c], transform);
-		};
-		visitNode(_scene.getRoot(), glm::mat4(1.0f));
+				for(const auto& c : n.children)
+					visitNode(_scene.getNodes()[c], transform);
+			};
+			visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
-		b.endRenderPass();
-
+			b.endRenderPass();
+		}
+		/*
+		// Is it really necessary?
 		std::vector<VkImageMemoryBarrier> barriers{{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 													.pNext = VK_NULL_HANDLE,
 													.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -709,14 +721,21 @@ void Application::recordCommandBuffers() {
 													}}};
 		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
 							 static_cast<uint32_t>(barriers.size()), barriers.data());
+		*/
 
 		// TODO: Compute reflection & Shadow via Ray Tracing
-
+		/*
+		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline.getLayout(), 0, 1, &_reflectionShadowDescriptorPool.getDescriptorSets()[0], 0,
+								0);
+		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
+						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
+		*/
 		// TODO: Generate reflection mipmaps
 
 		// Gather
 		{
-			std::vector<VkClearValue> clearValues{
+			const std::vector<VkClearValue> clearValues{
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
 			};
@@ -729,7 +748,7 @@ void Application::recordCommandBuffers() {
 
 		// Probes Debug
 		if(_probeDebug) {
-			std::vector<VkClearValue> clearValues{
+			const std::vector<VkClearValue> clearValues{
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 				VkClearValue{.depthStencil = {1.0f, 0}},
 			};
@@ -774,8 +793,8 @@ void Application::cleanupSwapChain() {
 	_rayTracingDescriptorPool.destroy();
 	_rayTracingDescriptorSetLayout.destroy();
 	_rayTracingPipelineLayout.destroy();
-	_rayTraceStorageImageView.destroy();
-	_rayTraceStorageImage.destroy();
+	_rayTraceStorageImageViews.clear();
+	_rayTraceStorageImages.clear();
 
 	_presentFramebuffers.clear();
 	_imguiCommandBuffers.free();
@@ -791,6 +810,7 @@ void Application::cleanupSwapChain() {
 		b.destroy();
 	_cameraUniformBuffersMemory.free();
 	_gbufferDescriptorPool.destroy();
+	_reflectionShadowDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
 	_gatherFramebuffers.clear();
@@ -799,16 +819,20 @@ void Application::cleanupSwapChain() {
 	_commandBuffers.free();
 
 	_gbufferPipeline.destroy();
+	_reflectionShadowPipeline.destroy();
 	_gatherPipeline.destroy();
 
 	_gbufferDescriptorSetLayouts.clear();
-	_gatherDescriptorSetLayouts.clear();
+	_reflectionShadowDescriptorSetLayout.destroy();
+	_gatherDescriptorSetLayout.destroy();
 
 	_gbufferRenderPass.destroy();
 	_gatherRenderPass.destroy();
 
 	_gbufferImages.clear();
 	_gbufferImageViews.clear();
+	_reflectionImages.clear();
+	_reflectionImageViews.clear();
 	_depthImageView.destroy();
 	_depthImage.destroy();
 	_swapChainImageViews.clear();

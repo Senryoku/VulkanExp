@@ -120,6 +120,8 @@ class Application {
 	PipelineCache						_pipelineCache;
 
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
+	Image							 _depthImage;
+	ImageView						 _depthImageView;
 	std::vector<Image>				 _gbufferImages;
 	std::vector<ImageView>			 _gbufferImageViews;
 	std::vector<Framebuffer>		 _gbufferFramebuffers;
@@ -127,11 +129,16 @@ class Application {
 	DescriptorPool					 _gbufferDescriptorPool;
 	std::vector<DescriptorSetLayout> _gbufferDescriptorSetLayouts;
 	Pipeline						 _gbufferPipeline;
+	std::vector<Image>				 _reflectionImages;
+	std::vector<ImageView>			 _reflectionImageViews;
+	DescriptorPool					 _reflectionShadowDescriptorPool;
+	DescriptorSetLayout				 _reflectionShadowDescriptorSetLayout;
 	Pipeline						 _reflectionShadowPipeline;
+	ShaderBindingTable				 _reflectionShadowShaderBindingTable;
 	std::vector<Framebuffer>		 _gatherFramebuffers;
 	RenderPass						 _gatherRenderPass;
 	DescriptorPool					 _gatherDescriptorPool;
-	std::vector<DescriptorSetLayout> _gatherDescriptorSetLayouts;
+	DescriptorSetLayout				 _gatherDescriptorSetLayout;
 	Pipeline						 _gatherPipeline;
 	CommandPool						 _commandPool;
 	CommandBuffers					 _commandBuffers;
@@ -139,8 +146,6 @@ class Application {
 	std::vector<Semaphore>			 _imageAvailableSemaphore;
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
-	Image							 _depthImage;
-	ImageView						 _depthImageView;
 
 	void createGBufferPipeline();
 	void createReflectionShadowPipeline();
@@ -170,8 +175,8 @@ class Application {
 
 	// Raytracing test
 	bool									_raytracingDebug = true;
-	Image									_rayTraceStorageImage;
-	ImageView								_rayTraceStorageImageView;
+	std::vector<Image>						_rayTraceStorageImages;
+	std::vector<ImageView>					_rayTraceStorageImageViews;
 	CommandBuffers							_rayTraceCommandBuffers;
 	std::vector<Buffer>						_blasBuffers;
 	std::vector<DeviceMemory>				_blasMemories;
@@ -183,9 +188,7 @@ class Application {
 	DescriptorPool							_rayTracingDescriptorPool;
 	PipelineLayout							_rayTracingPipelineLayout;
 	Pipeline								_rayTracingPipeline;
-	static constexpr size_t					_rayShaderBindingTablesCount = 3;
-	Buffer									_rayTracingShaderBindingTables[_rayShaderBindingTablesCount];
-	DeviceMemory							_rayTracingShaderBindingTablesMemory[_rayShaderBindingTablesCount];
+	ShaderBindingTable						_raytracingShaderBindingTable;
 	Buffer									_accStructTransformBuffer;
 	DeviceMemory							_accStructTransformMemory;
 	Buffer									_accStructInstancesBuffer;

@@ -6,22 +6,8 @@
 #include <Image.hpp>
 #include <Pipeline.hpp>
 
+#include <Raytracing.hpp>
 #include <glTF.hpp>
-
-struct ShaderBindingTable {
-	Buffer		 buffer;
-	DeviceMemory memory;
-
-	VkStridedDeviceAddressRegionKHR raygenEntry;
-	VkStridedDeviceAddressRegionKHR missEntry;
-	VkStridedDeviceAddressRegionKHR anyhitEntry;
-	VkStridedDeviceAddressRegionKHR callableEntry;
-
-	void destroy() {
-		buffer.destroy();
-		memory.free();
-	}
-};
 
 class IrradianceProbes {
   public:

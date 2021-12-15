@@ -1,0 +1,65 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 6, set = 0) uniform UniformBufferObject 
+{
+    mat4 view;
+    mat4 proj;
+} ubo;
+layout(binding = 11, set = 0, rgba32f) uniform image2D positionDepthTex;
+layout(binding = 12, set = 0, rgba32f) uniform image2D normalMaterialTex;
+layout(binding = 13, set = 0, rgba32f) uniform image2D albedoTex;
+
+layout(binding = 7, set = 0, rgba32f) uniform image2D reflectionOut;
+//layout(binding = 14, set = 0, rgba8) uniform image2D directLightOut;
+
+#include "rayPayload.glsl"
+
+layout(location = 0) rayPayloadEXT rayPayload payload;
+
+vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
+	return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
+}
+
+const float tmin = 0.001;
+const float tmax = 100000.0;
+
+void main() 
+{
+	vec4 origin = inverse(ubo.view) * vec4(0, 0, 0, 1);
+	
+	vec4 positionDepth = imageLoad(positionDepthTex, ivec2(gl_LaunchIDEXT.xy));
+	vec4 normalMaterial = imageLoad(normalMaterialTex, ivec2(gl_LaunchIDEXT.xy));
+	vec4 albedo = imageLoad(albedoTex, ivec2(gl_LaunchIDEXT.xy));
+
+	vec3 position = positionDepth.xyz;
+	float depth = positionDepth.w;
+	vec3 normal = normalMaterial.xyz;
+	uint material = floatBitsToUint(normalMaterial.w);
+
+	vec3 toOrigin = normalize(origin.xyz - position);
+
+    payload.color = vec4(0.0);
+
+	// Basis for ray differentials
+	vec3 tangent;
+	vec3 bitangent;
+	if(dot(toOrigin, normal) > 0.1) {
+		bitangent = cross(toOrigin, normal);
+		tangent = cross(normal, bitangent);
+	} else {
+		bitangent = cross(vec3(1.0, 0.0, 0.0), normal);
+		tangent = cross(normal, bitangent);
+	}
+
+	// Reflection
+
+	vec3 direction = reflect(-toOrigin, normal);
+	payload.raydx = rotateAxis(direction, normal, 0.1);
+	payload.raydy = rotateAxis(cross(normal, direction), normal, 0.1);
+	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
+
+	// Direct Light
+}
