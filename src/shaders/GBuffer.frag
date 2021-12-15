@@ -29,8 +29,4 @@ void main() {
     outPositionDepth = positionDepth;
     outNormalMaterial = vec4(finalNormal, uintBitsToFloat(material));
     outAlbedo = texColor;
-
-    // DEBUG
-    //  outColor = vec4(indirectLight, 1.0);
-    //outColor = vec4(indirectLight * texColor.rgb, 1.0);
 }

@@ -156,7 +156,7 @@ void Application::createGatherPipeline() {
 		dsw.update(_device);
 	}
 
-	_pipelineGather.getLayout().create(_device, layouts);
+	_gatherPipeline.getLayout().create(_device, layouts);
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -170,12 +170,12 @@ void Application::createGatherPipeline() {
 		.pDepthStencilState = &depthStencil, // Optional
 		.pColorBlendState = &colorBlending,
 		.pDynamicState = nullptr, // Optional
-		.layout = _pipelineGather.getLayout(),
-		.renderPass = _renderPass,
-		.subpass = 2,
+		.layout = _gatherPipeline.getLayout(),
+		.renderPass = _gatherRenderPass,
+		.subpass = 0,
 		.basePipelineHandle = VK_NULL_HANDLE, // Optional
 		.basePipelineIndex = -1,			  // Optional
 	};
 
-	_pipelineGather.create(_device, pipelineInfo, _pipelineCache);
+	_gatherPipeline.create(_device, pipelineInfo, _pipelineCache);
 }

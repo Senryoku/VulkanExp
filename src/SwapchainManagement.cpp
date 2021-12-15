@@ -373,10 +373,20 @@ void Application::initProbeDebug() {
 }
 
 void Application::initSwapChain() {
-
-	RenderPassBuilder rpb;
-	// Attachments
-	rpb.add({
+	{
+		RenderPassBuilder rpb;
+		// Attachments
+		rpb.add({
+					.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+					.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				})
+			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -386,125 +396,148 @@ void Application::initSwapChain() {
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			})
-		.add({
-			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		})
-		.add({
-			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		})
-		.add({
-			.format = _swapChainImageFormat,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		})
-		.add({
-			.format = _depthFormat,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		})
-		// Suqbpasses
-		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-					{// Output (GBuffer)
-					 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
-					{}, {},
-					{// Depth
-					 4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
-					{})
-		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-					{
-						// Output
-						{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					},
-					{// Input (GBuffer)
-					 {0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-					 {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-					 {2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-					{},
-					{// Depth
-					 VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
-					{})
-		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-					{
-						// Output
-						{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					},
-					{// Inputs (GBuffer)
-					 {0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-					 {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-					 {2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
-					{},
-					{// Depth
-					 4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
-					{})
-		// Dependencies (FIXME!)
-		.add({
-			.srcSubpass = VK_SUBPASS_EXTERNAL,
-			.dstSubpass = 0,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-		})
-		.add({
-			.srcSubpass = 0,
-			.dstSubpass = 1,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		})
-		.add({
-			.srcSubpass = 1,
-			.dstSubpass = 2,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		});
-	_renderPass = rpb.build(_device);
+			.add({
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			})
+			.add({
+				.format = _depthFormat,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			})
+			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
+						{// Output (GBuffer)
+						 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+						 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+						 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+						{}, {},
+						{// Depth
+						 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+						{})
+			// Dependencies (FIXME!)
+			.add({
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			});
+		_gbufferRenderPass = rpb.build(_device);
+
+		_gbufferFramebuffers.resize(_swapChainImageViews.size());
+		for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+			_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
+										   {
+											   _gbufferImageViews[3 * i + 0],
+											   _gbufferImageViews[3 * i + 1],
+											   _gbufferImageViews[3 * i + 2],
+											   _depthImageView,
+										   },
+										   _swapChainExtent);
+	}
+	{
+		RenderPassBuilder rpb;
+		// Attachments
+		rpb.add({
+					.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+					.samples = VK_SAMPLE_COUNT_1_BIT,
+					.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+					.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				})
+			.add({
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			})
+			.add({
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			})
+			.add({
+				.format = _swapChainImageFormat,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			})
+			.add({
+				.format = _depthFormat,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			})
+			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
+						{// Output
+						 {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+						{// Inputs (GBuffer)
+						 {0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						 {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						 {2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}},
+						{},
+						// Depth
+						{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL}, {})
+			// Dependencies (FIXME!)
+			.add({
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			});
+		_gatherRenderPass = rpb.build(_device);
+
+		_gatherFramebuffers.resize(_swapChainImageViews.size());
+		for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+			_gatherFramebuffers[i].create(_device, _gatherRenderPass,
+										  {
+											  _gbufferImageViews[3 * i + 0],
+											  _gbufferImageViews[3 * i + 1],
+											  _gbufferImageViews[3 * i + 2],
+											  _swapChainImageViews[i],
+											  _depthImageView,
+										  },
+										  _swapChainExtent);
+	}
 
 	initCameraBuffer();
 
 	createGBufferPipeline();
 	createGatherPipeline();
-
-	_gbufferFramebuffers.resize(_swapChainImageViews.size());
-	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
-		_gbufferFramebuffers[i].create(_device, _renderPass,
-									   {
-										   _gbufferImageViews[3 * i + 0],
-										   _gbufferImageViews[3 * i + 1],
-										   _gbufferImageViews[3 * i + 2],
-										   _swapChainImageViews[i],
-										   _depthImageView,
-									   },
-									   _swapChainExtent);
 
 	_commandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
 
@@ -512,7 +545,7 @@ void Application::initSwapChain() {
 
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {
-			DescriptorSetWriter dsw(_descriptorPool.getDescriptorSets()[i * Materials.size() + m]);
+			DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + m]);
 			dsw.add(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 					{
 						.buffer = _cameraUniformBuffers[i],
@@ -618,17 +651,17 @@ void Application::recordCommandBuffers() {
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
 		};
-		b.beginRenderPass(_renderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
-		_pipelineGBuffer.bind(b);
+		b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
+		_gbufferPipeline.bind(b);
 
 		const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
 			transform = transform * n.transform;
 
 			if(n.mesh != -1) {
 				for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-					vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineGBuffer.getLayout(), 0, 1,
-											&_descriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
-					vkCmdPushConstants(b, _pipelineGBuffer.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &transform);
+					vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
+											&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
+					vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &transform);
 					b.bind<1>({submesh.getVertexBuffer()});
 					vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 					vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
@@ -640,17 +673,17 @@ void Application::recordCommandBuffers() {
 		};
 		visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
-		vkCmdNextSubpass(b, VK_SUBPASS_CONTENTS_INLINE);
+		b.endRenderPass();
 
 		// TODO: Compute reflection & Shadow via Ray Tracing
 
 		// TODO: Generate reflection mipmaps
 
-		vkCmdNextSubpass(b, VK_SUBPASS_CONTENTS_INLINE);
+		b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
 
 		// TODO: Gather
-		_pipelineGather.bind(b);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineGather.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
+		_gatherPipeline.bind(b);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 		vkCmdDraw(b, 3, 1, 0, 0);
 
 		b.endRenderPass();
@@ -719,21 +752,28 @@ void Application::cleanupSwapChain() {
 	for(auto& b : _cameraUniformBuffers)
 		b.destroy();
 	_cameraUniformBuffersMemory.free();
-	_descriptorPool.destroy();
+	_gbufferDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
+	_gatherFramebuffers.clear();
 
 	// Only free up the command buffer, not the command pool
 	_commandBuffers.free();
-	_pipelineGBuffer.destroy();
-	_pipelineGather.destroy();
-	_descriptorSetLayouts.clear();
+
+	_gbufferPipeline.destroy();
+	_gatherPipeline.destroy();
+
+	_gbufferDescriptorSetLayouts.clear();
 	_gatherDescriptorSetLayouts.clear();
-	_renderPass.destroy();
+
+	_gbufferRenderPass.destroy();
+	_gatherRenderPass.destroy();
+
 	_gbufferImages.clear();
 	_gbufferImageViews.clear();
 	_depthImageView.destroy();
 	_depthImage.destroy();
 	_swapChainImageViews.clear();
+
 	vkDestroySwapchainKHR(_device, _swapChain, nullptr);
 }

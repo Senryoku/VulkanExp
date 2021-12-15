@@ -112,40 +112,43 @@ class Application {
 	VkExtent2D			   _swapChainExtent;
 	std::vector<VkImage>   _swapChainImages;
 	std::vector<ImageView> _swapChainImageViews;
+	VkFormat			   _depthFormat;
 
-	VkFormat  _depthFormat;
-	Image	  _depthImage;
-	ImageView _depthImageView;
+	CommandPool _tempCommandPool;
 
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
 
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
-	RenderPass						 _renderPass;
-	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
-	Pipeline						 _pipelineGBuffer;
-	std::vector<DescriptorSetLayout> _gatherDescriptorSetLayouts;
-	DescriptorPool					 _gatherDescriptorPool;
-	Pipeline						 _pipelineGather;
 	std::vector<Image>				 _gbufferImages;
 	std::vector<ImageView>			 _gbufferImageViews;
 	std::vector<Framebuffer>		 _gbufferFramebuffers;
+	RenderPass						 _gbufferRenderPass;
+	DescriptorPool					 _gbufferDescriptorPool;
+	std::vector<DescriptorSetLayout> _gbufferDescriptorSetLayouts;
+	Pipeline						 _gbufferPipeline;
+	Pipeline						 _reflectionShadowPipeline;
+	std::vector<Framebuffer>		 _gatherFramebuffers;
+	RenderPass						 _gatherRenderPass;
+	DescriptorPool					 _gatherDescriptorPool;
+	std::vector<DescriptorSetLayout> _gatherDescriptorSetLayouts;
+	Pipeline						 _gatherPipeline;
 	CommandPool						 _commandPool;
-	CommandPool						 _tempCommandPool;
 	CommandBuffers					 _commandBuffers;
 	std::vector<Semaphore>			 _renderFinishedSemaphore;
 	std::vector<Semaphore>			 _imageAvailableSemaphore;
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
+	Image							 _depthImage;
+	ImageView						 _depthImageView;
 
 	void createGBufferPipeline();
+	void createReflectionShadowPipeline();
 	void createGatherPipeline();
 
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;
 	DeviceMemory		_cameraUniformBuffersMemory;
-
-	DescriptorPool _descriptorPool;
 
 	VkDescriptorPool		 _imguiDescriptorPool;
 	std::vector<Framebuffer> _presentFramebuffers;

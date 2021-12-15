@@ -271,19 +271,19 @@ void Application::createRayTracingPipeline() {
 		Setup ray tracing shader groups
 		Each shader group points at the corresponding shader in the pipeline
 	*/
-	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
-
 	Shader raygenShader(_device, "./shaders_spv/raygen.rgen.spv");
-	shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
-	shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader raymissShadowShader(_device, "./shaders_spv/shadow.rmiss.spv");
-	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
-	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 	Shader anyhitShader(_device, "./shaders_spv/anyhit.rahit.spv");
-	shader_stages.push_back(anyhitShader.getStageCreateInfo(VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
+
+	std::vector<VkPipelineShaderStageCreateInfo> shader_stages{
+		raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR),	  raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR),
+		raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR), closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR),
+		anyhitShader.getStageCreateInfo(VK_SHADER_STAGE_ANY_HIT_BIT_KHR),
+	};
+
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 
 	// Ray generation group
 	shader_groups.push_back({

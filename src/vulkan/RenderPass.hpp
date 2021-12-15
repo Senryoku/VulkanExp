@@ -118,7 +118,7 @@ class RenderPassBuilder {
 		_preserveAttachments.reserve(32);
 	}
 
-	RenderPassBuilder& add(const VkAttachmentDescription attachment) {
+	RenderPassBuilder& add(const VkAttachmentDescription& attachment) {
 		_attachments.push_back(attachment);
 		return *this;
 	}

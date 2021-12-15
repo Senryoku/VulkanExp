@@ -16,23 +16,23 @@ void Application::createGBufferPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-	_descriptorSetLayouts.push_back(builder.build(_device));
+	_gbufferDescriptorSetLayouts.push_back(builder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> layouts;
-	for(const auto& layout : _descriptorSetLayouts)
+	for(const auto& layout : _gbufferDescriptorSetLayouts)
 		layouts.push_back(layout);
 
 	uint32_t			  descriptorSetsCount = _swapChainImages.size() * Materials.size();
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * descriptorSetsCount).add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * descriptorSetsCount);
-	_descriptorPool = poolBuilder.build(_device, descriptorSetsCount);
+	_gbufferDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		for(const auto& material : Materials) {
-			descriptorSetsLayoutsToAllocate.push_back(_descriptorSetLayouts[0]);
+			descriptorSetsLayoutsToAllocate.push_back(_gbufferDescriptorSetLayouts[0]);
 		}
-	_descriptorPool.allocate(descriptorSetsLayoutsToAllocate);
+	_gbufferDescriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 
 	auto bindingDescription = Vertex::getBindingDescription();
 	auto attributeDescriptions = Vertex::getAttributeDescriptions();
@@ -148,7 +148,7 @@ void Application::createGBufferPipeline() {
 		.size = sizeof(glm::mat4) + sizeof(unsigned int),
 	}};
 
-	_pipelineGBuffer.getLayout().create(_device, layouts, pushConstants);
+	_gbufferPipeline.getLayout().create(_device, layouts, pushConstants);
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -162,12 +162,12 @@ void Application::createGBufferPipeline() {
 		.pDepthStencilState = &depthStencil, // Optional
 		.pColorBlendState = &colorBlending,
 		.pDynamicState = nullptr, // Optional
-		.layout = _pipelineGBuffer.getLayout(),
-		.renderPass = _renderPass,
+		.layout = _gbufferPipeline.getLayout(),
+		.renderPass = _gbufferRenderPass,
 		.subpass = 0,
 		.basePipelineHandle = VK_NULL_HANDLE, // Optional
 		.basePipelineIndex = -1,			  // Optional
 	};
 
-	_pipelineGBuffer.create(_device, pipelineInfo, _pipelineCache);
+	_gbufferPipeline.create(_device, pipelineInfo, _pipelineCache);
 }

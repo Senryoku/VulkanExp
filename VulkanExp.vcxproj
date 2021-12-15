@@ -33,6 +33,7 @@
     <ClCompile Include="src\glTF.cpp" />
     <ClCompile Include="src\IrradianceProbes.cpp" />
     <ClCompile Include="src\AppRaytracing.cpp" />
+    <ClCompile Include="src\ReflectionShadowPipeline.cpp" />
     <ClCompile Include="src\Resources.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
