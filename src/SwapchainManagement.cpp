@@ -494,16 +494,6 @@ void Application::initSwapChain() {
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			})
-			.add({
-				.format = _depthFormat,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			})
 			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
 						{// Output
 						 {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
@@ -518,10 +508,10 @@ void Application::initSwapChain() {
 			.add({
 				.srcSubpass = VK_SUBPASS_EXTERNAL,
 				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
 			});
 		_gatherRenderPass = rpb.build(_device);
 
@@ -533,7 +523,6 @@ void Application::initSwapChain() {
 											  _gbufferImageViews[3 * i + 1],
 											  _gbufferImageViews[3 * i + 2],
 											  _swapChainImageViews[i],
-											  _depthImageView,
 										  },
 										  _swapChainExtent);
 	}
@@ -622,8 +611,10 @@ void Application::recordCommandBuffers() {
 		auto& b = _commandBuffers.getBuffers()[i];
 		b.begin();
 		std::vector<VkClearValue> clearValues{
-			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
-			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
+			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+			VkClearValue{.depthStencil = {1.0f, 0}},
 		};
 		b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
 		_gbufferPipeline.bind(b);
@@ -724,12 +715,17 @@ void Application::recordCommandBuffers() {
 		// TODO: Generate reflection mipmaps
 
 		// Gather
-
-		b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
-		_gatherPipeline.bind(b);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
-		vkCmdDraw(b, 3, 1, 0, 0);
-		b.endRenderPass();
+		{
+			std::vector<VkClearValue> clearValues{
+				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
+			};
+			b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
+			_gatherPipeline.bind(b);
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
+			vkCmdDraw(b, 3, 1, 0, 0);
+			b.endRenderPass();
+		}
 
 		// Probes Debug
 		if(_probeDebug) {
