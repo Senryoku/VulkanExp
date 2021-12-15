@@ -26,7 +26,7 @@ void main() {
     vec3 tangentSpaceNormal = normalize(2.0 * texture(normalTexSampler, texCoord).rgb - 1.0);
     vec3 finalNormal = mat3(tangent.xyz, bitangent, normalize(normal)) * tangentSpaceNormal;
 
-    outPositionDepth = vec4(1.0, 0.0, 0.0, 1.0); //positionDepth;
+    outPositionDepth = positionDepth;
     outNormalMaterial = vec4(finalNormal, uintBitsToFloat(material));
     outAlbedo = texColor;
 }

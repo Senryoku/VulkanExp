@@ -116,11 +116,17 @@ void Application::createSwapChain() {
 											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 			_gbufferImages[3 * i + j].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_gbufferImageViews[3 * i + j].create(_device, _gbufferImages[3 * i + j], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+			// Set initial layout to avoid errors when used in the UI even if we've never render to them
+			_gbufferImages[3 * i + j].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
+													   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
 		_reflectionImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 									VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		_reflectionImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		_reflectionImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		// FIXME: these images currently do not change layout during execution, but this may change and make this call useless
+		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
+											  VK_IMAGE_LAYOUT_GENERAL);
 	}
 	_depthFormat = findSupportedFormat(_physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL,
 									   VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
@@ -724,13 +730,13 @@ void Application::recordCommandBuffers() {
 		*/
 
 		// TODO: Compute reflection & Shadow via Ray Tracing
-		/*
+
 		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline.getLayout(), 0, 1, &_reflectionShadowDescriptorPool.getDescriptorSets()[0], 0,
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline.getLayout(), 0, 1, &_reflectionShadowDescriptorPool.getDescriptorSets()[i], 0,
 								0);
 		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
-		*/
+
 		// TODO: Generate reflection mipmaps
 
 		// Gather

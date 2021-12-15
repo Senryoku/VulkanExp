@@ -124,12 +124,10 @@ void Application::createImGuiRenderPass() {
 
 void Application::uiOnSwapChainReady() {
 	DebugTextureIDs.clear();
-	DebugTextureIDs.push_back({"Attachment 0", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
-	DebugTextureIDs.push_back({"Attachment 1", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
-	DebugTextureIDs.push_back({"Attachment 2", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[2], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
-	DebugTextureIDs.push_back({"Attachment 3", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[3], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
-	DebugTextureIDs.push_back({"Attachment 4", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[4], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
-	DebugTextureIDs.push_back({"Attachment 5", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[5], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
+		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
+	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
+		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 }
 
 void Application::drawUI() {
@@ -146,8 +144,9 @@ void Application::drawUI() {
 		}
 		ImGui::EndMainMenuBar();
 	}
-	if(ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
-		if(ImGui::Checkbox("Probe Debug", &_probeDebug)) {
+
+	if(ImGui::Begin("Probes Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		if(ImGui::Checkbox("Probe Debug Display", &_probeDebug)) {
 			_outdatedCommandBuffers = true;
 		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
@@ -166,16 +165,33 @@ void Application::drawUI() {
 		ImGui::Image(ProbesDepth,
 					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
 							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
+	}
+	ImGui::End();
+
+	if(ImGui::Begin("Intermediate Buffers", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		auto quickDisplay = [&](size_t idx) {
+			if(idx > DebugTextureIDs.size()) {
+				ImGui::Text("Index %d out of DebugTextureIDs bounds.", idx);
+			}
+			const auto& tex = DebugTextureIDs[idx];
+			ImGui::Text("%s", tex.name.c_str());
+			ImGui::Image(tex.id, ImVec2(_width / 2, _height / 2));
+		};
+
+		quickDisplay(_currentFrame);
+		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 0);
+		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 1);
+		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 2);
 
 		for(const auto& texture : DebugTextureIDs) {
-			if(ImGui::TreeNodeEx(texture.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::Image(texture.id, ImVec2(200, 200));
+			if(ImGui::TreeNode(texture.name.c_str())) {
+				ImGui::Image(texture.id, ImVec2(_width / 2, _height / 2));
 				ImGui::TreePop();
 			}
 		}
-
-		ImGui::End();
 	}
+	ImGui::End();
+
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
 		const auto						  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
@@ -208,8 +224,9 @@ void Application::drawUI() {
 			}
 			ImGui::TreePop();
 		}
-		ImGui::End();
 	}
+	ImGui::End();
+
 	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
 		ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
@@ -248,9 +265,8 @@ void Application::drawUI() {
 				_irradianceProbes.updateUniforms();
 			ImGui::TreePop();
 		}
-
-		ImGui::End();
 	}
+	ImGui::End();
 }
 
 void Application::cleanupUI() {
