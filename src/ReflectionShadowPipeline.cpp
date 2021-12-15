@@ -54,14 +54,11 @@ void Application::createReflectionShadowPipeline() {
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				 //  6 Camera
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				 //  7 Result
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)		 //  8 Grid Parameters
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) //  9 Probes Color
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // 10 Probes Depth
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				 // 11 GBuffer 0
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				 // 12 GBuffer 1
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);				 // 13 GBuffer 2
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) //  9 Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 10 Result
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 11 GBuffer 0
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 12 GBuffer 1
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // 13 GBuffer 2
 
 	_reflectionShadowDescriptorSetLayout = dslBuilder.build(_device);
 	_reflectionShadowPipeline.getLayout().create(_device, {_reflectionShadowDescriptorSetLayout});
@@ -92,39 +89,19 @@ void Application::createReflectionShadowPipeline() {
 	_reflectionShadowDescriptorPool.allocate(layoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure);
+		auto writer = baseSceneWriter(_device, _reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes);
 		// Camera
-		writer.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
 		// Result
-		writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _reflectionImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				   {
-					   .buffer = _irradianceProbes.getGridParametersBuffer(),
-					   .offset = 0,
-					   .range = sizeof(IrradianceProbes::GridInfo),
-				   });
-		writer.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				   {
-					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					   .imageView = _irradianceProbes.getColorView(),
-					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				   });
-		writer.add(10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				   {
-					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					   .imageView = _irradianceProbes.getDepthView(),
-					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				   });
 		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {

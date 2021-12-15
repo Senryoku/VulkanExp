@@ -21,11 +21,11 @@
 #include "irradiance.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 6, set = 0, r11f_g11f_b10f) uniform image2D color;
-layout(binding = 7, set = 0, rg16f) uniform image2D depth;
-layout(binding = 8, set = 0, std140) uniform Block {
+layout(binding = 6, set = 0, std140) uniform Block {
     ProbeGrid grid;
 };
+layout(binding = 9, set = 0, r11f_g11f_b10f) uniform image2D color;
+layout(binding = 10, set = 0, rg16f) uniform image2D depth;
 
 layout(push_constant) uniform Push {
     mat3 randomOrientation;

@@ -6,7 +6,7 @@
 #include <Image.hpp>
 #include <Pipeline.hpp>
 
-#include <Raytracing.hpp>
+#include <ShaderBindingTable.hpp>
 #include <glTF.hpp>
 
 class IrradianceProbes {

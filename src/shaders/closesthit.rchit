@@ -29,11 +29,11 @@ layout(binding = 2, set = 0) buffer VerticesBlock { vec4 Vertices[]; };
 layout(binding = 3, set = 0) buffer Indices { uint  i[]; } indices;
 layout(binding = 4, set = 0) buffer Offsets { uint  o[]; } offsets;
 layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
-layout(binding = 8, set = 0) uniform UBOBlock {
+layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
 };
-layout(binding = 9, set = 0) uniform sampler2D irradianceColor;
-layout(binding = 10, set = 0) uniform sampler2D irradianceDepth;
+layout(binding = 7, set = 0) uniform sampler2D irradianceColor;
+layout(binding = 8, set = 0) uniform sampler2D irradianceDepth;
 
 #include "Vertex.glsl"
 #include "Material.glsl"

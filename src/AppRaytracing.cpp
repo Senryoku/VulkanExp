@@ -268,11 +268,8 @@ void Application::createRayTracingPipeline() {
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				  // Camera
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)				  // Result
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)		  // Grid Parameters
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)  // Probes Color
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR); // Probes Depth
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Result
 	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
 	_rayTracingPipelineLayout.create(_device, {_rayTracingDescriptorSetLayout});
 
@@ -362,39 +359,19 @@ void Application::createRaytracingDescriptorSets() {
 	_rayTracingDescriptorPool.allocate(layoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure);
+		auto writer = baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes);
 		// Camera
-		writer.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
 		// Result
-		writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _rayTraceStorageImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				   {
-					   .buffer = _irradianceProbes.getGridParametersBuffer(),
-					   .offset = 0,
-					   .range = sizeof(IrradianceProbes::GridInfo),
-				   });
-		writer.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				   {
-					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					   .imageView = _irradianceProbes.getColorView(),
-					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				   });
-		writer.add(10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				   {
-					   .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											  VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					   .imageView = _irradianceProbes.getDepthView(),
-					   .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				   });
 
 		writer.update(_device);

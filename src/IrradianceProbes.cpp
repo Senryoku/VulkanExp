@@ -89,11 +89,8 @@ void IrradianceProbes::init(const Device& device, uint32_t familyQueueIndex, glm
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // Color
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // Depth
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // Grid Info
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)						  // Grid Info
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);						  // Grid Info
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// Color
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Depth
 	_descriptorSetLayout = dslBuilder.build(device);
 
 	_pipelineLayout.create(device, {_descriptorSetLayout},
@@ -192,20 +189,9 @@ void IrradianceProbes::createPipeline() {
 }
 
 void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas) {
-	auto writer = baseSceneWriter(_descriptorPool.getDescriptorSets()[0], scene, tlas);
-	writer.add(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workColorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
-	writer.add(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
-	writer.add(8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, {.buffer = _gridInfoBuffer, .offset = 0, .range = VK_WHOLE_SIZE});
-	writer.add(
-		9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		{.sampler = *getSampler(*_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-		 .imageView = _colorView,
-		 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
-	writer.add(
-		10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		{.sampler = *getSampler(*_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-		 .imageView = _depthView,
-		 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, tlas, *this);
+	writer.add(9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workColorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
+	writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.update(*_device);
 }
 
