@@ -11,6 +11,12 @@ std::vector<TextureRef> SceneUITextureIDs;
 ImTextureID				ProbesColor;
 ImTextureID				ProbesDepth;
 
+struct DebugTexture {
+	const std::string name;
+	const ImTextureID id;
+};
+std::vector<DebugTexture> DebugTextureIDs;
+
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -83,6 +89,49 @@ void Application::initImGui(uint32_t queueFamily) {
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
+void Application::createImGuiRenderPass() {
+	// UI
+	VkAttachmentReference colorAttachment = {
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
+	_imguiRenderPass.create(_device,
+							std::array<VkAttachmentDescription, 1>{VkAttachmentDescription{
+								.format = _swapChainImageFormat,
+								.samples = VK_SAMPLE_COUNT_1_BIT,
+								.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+								.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+								.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+								.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+								.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+								.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+							}},
+							std::array<VkSubpassDescription, 1>{VkSubpassDescription{
+								.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+								.colorAttachmentCount = 1,
+								.pColorAttachments = &colorAttachment,
+							}},
+							std::array<VkSubpassDependency, 1>{VkSubpassDependency{
+								.srcSubpass = VK_SUBPASS_EXTERNAL,
+								.dstSubpass = 0,
+								.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+								.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+								.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+								.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+							}});
+	_imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainImageViews.size());
+}
+
+void Application::uiOnSwapChainReady() {
+	DebugTextureIDs.clear();
+	DebugTextureIDs.push_back({"Attachment 0", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	DebugTextureIDs.push_back({"Attachment 1", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	DebugTextureIDs.push_back({"Attachment 2", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[2], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	DebugTextureIDs.push_back({"Attachment 3", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[3], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	DebugTextureIDs.push_back({"Attachment 4", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[4], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	DebugTextureIDs.push_back({"Attachment 5", ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[5], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+}
+
 void Application::drawUI() {
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
@@ -117,6 +166,14 @@ void Application::drawUI() {
 		ImGui::Image(ProbesDepth,
 					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
 							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
+
+		for(const auto& texture : DebugTextureIDs) {
+			if(ImGui::TreeNodeEx(texture.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::Image(texture.id, ImVec2(200, 200));
+				ImGui::TreePop();
+			}
+		}
+
 		ImGui::End();
 	}
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {

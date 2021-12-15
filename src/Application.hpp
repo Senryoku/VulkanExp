@@ -166,6 +166,7 @@ class Application {
 	DescriptorPool					 _probeDebugDescriptorPool;
 	std::vector<DescriptorSetLayout> _probeDebugDescriptorSetLayouts;
 	Pipeline						 _probeDebugPipeline;
+	std::vector<Framebuffer>		 _probeDebugFramebuffers;
 
 	// Raytracing test
 	bool									_raytracingDebug = true;
@@ -218,6 +219,8 @@ class Application {
 	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();
+	void createImGuiRenderPass();
+	void uiOnSwapChainReady();
 
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing

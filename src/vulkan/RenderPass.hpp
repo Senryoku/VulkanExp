@@ -112,7 +112,7 @@ class RenderPassBuilder {
 	RenderPassBuilder() {
 		// Avoid reallocations
 		_attachments.reserve(32);
-		_attachmentReferences.reserve(32);
+		_attachmentReferences.reserve(128);
 		_subpasses.reserve(32);
 		_dependencies.reserve(32);
 		_preserveAttachments.reserve(32);
@@ -126,33 +126,41 @@ class RenderPassBuilder {
 	RenderPassBuilder& addSubPass(VkPipelineBindPoint bindPoint, std::vector<VkAttachmentReference>&& colorAttachments, std::vector<VkAttachmentReference>&& inputAttachment,
 								  std::vector<VkAttachmentReference>&& resolveAttachments, VkAttachmentReference&& depthStencilAttachment,
 								  std::vector<uint32_t>&& preserveAttachments, VkSubpassDescriptionFlags flags = 0) {
-		_attachmentReferences.reserve(_attachmentReferences.size() + 5);
-
 		_attachmentReferences.push_back(std::move(colorAttachments));
 		const auto& cA = _attachmentReferences.back();
-		_attachmentReferences.push_back(std::move(inputAttachment));
-		const auto&							iA = _attachmentReferences.back();
+
+		std::vector<VkAttachmentReference>* inputA = nullptr;
+		if(inputAttachment.size() > 0) {
+			_attachmentReferences.push_back(std::move(inputAttachment));
+			inputA = &_attachmentReferences.back();
+		}
+
 		std::vector<VkAttachmentReference>* resolveA = nullptr;
 		if(resolveAttachments.size() > 0) {
 			_attachmentReferences.push_back(std::move(resolveAttachments));
 			resolveA = &_attachmentReferences.back();
 		}
+
 		_attachmentReferences.push_back({depthStencilAttachment});
 		VkAttachmentReference* dSA = _attachmentReferences.back().data();
-		_preserveAttachments.push_back(std::move(preserveAttachments));
-		const auto& pA = _preserveAttachments.back();
+
+		std::vector<uint32_t>* preserveA = nullptr;
+		if(preserveAttachments.size() > 0) {
+			_preserveAttachments.push_back(std::move(preserveAttachments));
+			preserveA = &_preserveAttachments.back();
+		}
 
 		VkSubpassDescription desc{
 			.flags = flags,
 			.pipelineBindPoint = bindPoint,
-			.inputAttachmentCount = static_cast<uint32_t>(iA.size()),
-			.pInputAttachments = iA.data(),
+			.inputAttachmentCount = inputA ? static_cast<uint32_t>(inputA->size()) : 0,
+			.pInputAttachments = inputA ? inputA->data() : nullptr,
 			.colorAttachmentCount = static_cast<uint32_t>(cA.size()),
 			.pColorAttachments = cA.data(),
 			.pResolveAttachments = resolveA ? resolveA->data() : nullptr,
 			.pDepthStencilAttachment = dSA,
-			.preserveAttachmentCount = static_cast<uint32_t>(pA.size()),
-			.pPreserveAttachments = pA.data(),
+			.preserveAttachmentCount = preserveA ? static_cast<uint32_t>(preserveA->size()) : 0,
+			.pPreserveAttachments = preserveA ? preserveA->data() : nullptr,
 		};
 		_subpasses.push_back(desc);
 		return *this;

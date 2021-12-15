@@ -111,7 +111,7 @@ void Application::createSwapChain() {
 	for(size_t i = 0; i < _swapChainImages.size(); i++)
 		for(size_t j = 0; j < 3; j++) {
 			_gbufferImages[3 * i + j].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT);
+											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 			_gbufferImages[3 * i + j].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			_gbufferImageViews[3 * i + j].create(_device, _gbufferImages[3 * i + j], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
@@ -370,6 +370,10 @@ void Application::initProbeDebug() {
 				});
 		dsw.update(_device);
 	}
+
+	_probeDebugFramebuffers.resize(_swapChainImageViews.size());
+	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+		_probeDebugFramebuffers[i].create(_device, _probeDebugRenderPass, {_swapChainImageViews[i], _depthImageView}, _swapChainExtent);
 }
 
 void Application::initSwapChain() {
@@ -384,7 +388,7 @@ void Application::initSwapChain() {
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -394,7 +398,7 @@ void Application::initSwapChain() {
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -404,7 +408,7 @@ void Application::initSwapChain() {
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
 				.format = _depthFormat,
@@ -454,11 +458,11 @@ void Application::initSwapChain() {
 					.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 					.samples = VK_SAMPLE_COUNT_1_BIT,
 					.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-					.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -467,18 +471,18 @@ void Application::initSwapChain() {
 				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
 				.format = _swapChainImageFormat,
@@ -591,40 +595,11 @@ void Application::initSwapChain() {
 		}
 	}
 
-	// UI
-	VkAttachmentReference colorAttachment = {
-		.attachment = 0,
-		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-	};
-	_imguiRenderPass.create(_device,
-							std::array<VkAttachmentDescription, 1>{VkAttachmentDescription{
-								.format = _swapChainImageFormat,
-								.samples = VK_SAMPLE_COUNT_1_BIT,
-								.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-								.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-								.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-								.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-								.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-								.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-							}},
-							std::array<VkSubpassDescription, 1>{VkSubpassDescription{
-								.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-								.colorAttachmentCount = 1,
-								.pColorAttachments = &colorAttachment,
-							}},
-							std::array<VkSubpassDependency, 1>{VkSubpassDependency{
-								.srcSubpass = VK_SUBPASS_EXTERNAL,
-								.dstSubpass = 0,
-								.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-								.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-								.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-								.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-							}});
+	createImGuiRenderPass();
+
 	_presentFramebuffers.resize(_swapChainImageViews.size());
-	for(size_t i = 0; i < _swapChainImageViews.size(); i++) {
+	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_presentFramebuffers[i].create(_device, _imguiRenderPass, _swapChainImageViews[i], _swapChainExtent);
-	}
-	_imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainImageViews.size());
 
 	// Raytracing
 	_rayTraceCommandBuffers.allocate(_device, _commandPool, _swapChainImageViews.size());
@@ -637,7 +612,6 @@ void Application::initSwapChain() {
 	_irradianceProbes.createPipeline();
 	// FIXME: Should not be there, just WIP
 	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure);
-	_irradianceProbes.update(_scene, _graphicsQueue);
 	initProbeDebug();
 
 	recordCommandBuffers();
@@ -674,18 +648,34 @@ void Application::recordCommandBuffers() {
 		visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
 		b.endRenderPass();
-
+		/*
+		VkImageMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+									 .pNext = VK_NULL_HANDLE,
+									 .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+									 .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+									 .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+									 .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+									 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+									 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+									 .image = _gbufferImages[3 * i + 2],
+									 .subresourceRange = VkImageSubresourceRange{
+										 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+										 .baseMipLevel = 0,
+										 .levelCount = 1,
+										 .baseArrayLayer = 0,
+										 .layerCount = 1,
+									 }};
+		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		*/
 		// TODO: Compute reflection & Shadow via Ray Tracing
 
 		// TODO: Generate reflection mipmaps
 
+		// Gather
 		b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
-
-		// TODO: Gather
 		_gatherPipeline.bind(b);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 		vkCmdDraw(b, 3, 1, 0, 0);
-
 		b.endRenderPass();
 
 		// Probes Debug
@@ -694,7 +684,7 @@ void Application::recordCommandBuffers() {
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
 				VkClearValue{.depthStencil = {1.0f, 0}},
 			};
-			b.beginRenderPass(_probeDebugRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
+			b.beginRenderPass(_probeDebugRenderPass, _probeDebugFramebuffers[i], _swapChainExtent, clearValues);
 			_probeDebugPipeline.bind(b);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _probeDebugPipeline.getLayout(), 0, 1, &_probeDebugDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 
@@ -707,9 +697,6 @@ void Application::recordCommandBuffers() {
 							 0);
 			b.endRenderPass();
 		}
-
-		// FIXME: Temp, manually change the layout because we draw nothing rn.
-		// Image::setLayout(b, _swapChainImages[i], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
 
 		b.end();
 	}
@@ -729,6 +716,7 @@ void Application::recreateSwapChain() {
 
 	createSwapChain();
 	initSwapChain();
+	uiOnSwapChainReady();
 }
 
 void Application::cleanupSwapChain() {
@@ -744,6 +732,7 @@ void Application::cleanupSwapChain() {
 	_imguiCommandBuffers.free();
 	_imguiRenderPass.destroy();
 
+	_probeDebugFramebuffers.clear();
 	_probeDebugRenderPass.destroy();
 	_probeDebugDescriptorPool.destroy();
 	_probeDebugDescriptorSetLayouts.clear();

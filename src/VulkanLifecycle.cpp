@@ -122,6 +122,7 @@ void Application::initVulkan() {
 		f.create(_device);
 
 	initImGui(graphicsFamily);
+	uiOnSwapChainReady();
 }
 
 void Application::createInstance() {
