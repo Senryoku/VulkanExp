@@ -46,12 +46,12 @@ void main()
 	// FIXME!
 	vec3 tangent;
 	vec3 bitangent;
-	if(dot(toOrigin, normal) > 0.1) {
-		bitangent = cross(toOrigin, normal);
-		tangent = cross(normal, bitangent);
+	if(normal.x < 0.9) {
+		tangent = cross(vec3(1.0, 0.0, 0.0), normal);
+		bitangent = cross(normal, tangent);
 	} else {
-		bitangent = cross(vec3(1.0, 0.0, 0.0), normal);
-		tangent = cross(normal, bitangent);
+		tangent = cross(vec3(0.0, 0.0, 1.0), normal);
+		bitangent = cross(normal, tangent);
 	}
 
 	// Reflection

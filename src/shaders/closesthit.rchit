@@ -188,7 +188,7 @@ void main()
 
 		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1));
 		// Hopefully a better one someday :) - Missing the specular rn, so way darker
-		vec3 specularLight = indirectLight; // FIXME: Should be pulled from a previous reflection pass, using indirectLight as a placeholder for now.
+		vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.
 		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, indirectLight, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	}
 
