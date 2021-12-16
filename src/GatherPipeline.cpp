@@ -13,7 +13,14 @@ void Application::createGatherPipeline() {
 	DescriptorSetLayoutBuilder builder;
 	builder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT);
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT) // Reflection
+		//.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT) // Direct Light
+		.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)		 // Materials
+		.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Grid Parameters
+		.add(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
+		.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
+		.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		 // Camera
 	_gatherDescriptorSetLayout = builder.build(_device);
 
 	uint32_t			  descriptorSetsCount = _swapChainImages.size();
@@ -134,21 +141,69 @@ void Application::createGatherPipeline() {
 						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					.imageView = _gbufferImageViews[3 * i + 0],
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				});
-		dsw.add(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				})
+			.add(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _gbufferImageViews[3 * i + 1],
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _gbufferImageViews[3 * i + 2],
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _reflectionImageViews[i],
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 });
+		/*
+		dsw.add(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				{
 					.sampler =
 						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					.imageView = _gbufferImageViews[3 * i + 1],
+					.imageView = _directLightImageViews[i],
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
-		dsw.add(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				*/
+		dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 				{
-					.sampler =
-						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					.imageView = _gbufferImageViews[3 * i + 2],
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				});
+					.buffer = MaterialBuffer,
+					.offset = 0,
+					.range = sizeof(Material::GPUData) * Materials.size(),
+				})
+			.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				 {
+					 .buffer = _irradianceProbes.getGridParametersBuffer(),
+					 .offset = 0,
+					 .range = sizeof(IrradianceProbes::GridInfo),
+				 })
+			.add(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _irradianceProbes.getColorView(),
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _irradianceProbes.getDepthView(),
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				 {
+					 .buffer = _cameraUniformBuffers[i],
+					 .offset = 0,
+					 .range = sizeof(CameraBuffer),
+				 });
 		dsw.update(_device);
 	}
 

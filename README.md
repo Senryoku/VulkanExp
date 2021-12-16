@@ -2,6 +2,9 @@
 
 ## Todos
 
+### Bugs
+ - Shader recompilation causes ImGui texture rendering to crash (most likely from swapchain recreation and some images (tied to swapchain extent) destructions)
+
 ### Major Features
  - Better lightning model < !
  - >>>> Glossy lightning term by raytracing the entire screen first reflect bounce and then sampling that texture (using mipmaps for roughness approximation)

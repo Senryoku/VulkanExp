@@ -33,6 +33,15 @@ class DescriptorSetLayoutBuilder {
 		});
 	}
 
+	DescriptorSetLayoutBuilder& add(uint32_t binding, VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t count = 1) {
+		return add(VkDescriptorSetLayoutBinding{
+			.binding = binding,
+			.descriptorType = type,
+			.descriptorCount = count,
+			.stageFlags = stageFlags,
+		});
+	}
+
 	DescriptorSetLayoutBuilder& add(const VkDescriptorSetLayoutBinding& binding) {
 		bindings.push_back(binding);
 		return *this;
