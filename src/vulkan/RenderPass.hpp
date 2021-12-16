@@ -10,6 +10,7 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
 	template<int A, int S, int D>
 	void create(VkDevice device, const std::array<VkAttachmentDescription, A>& attachments, const std::array<VkSubpassDescription, S>& subpasses,
 				const std::array<VkSubpassDependency, D>& dependencies) {
+		_device = device;
 		VkRenderPassCreateInfo renderPassInfo{
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 			.attachmentCount = A,
@@ -19,12 +20,11 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
 			.dependencyCount = D,
 			.pDependencies = dependencies.data(),
 		};
-
 		VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &_handle));
-		_device = device;
 	}
 	void create(VkDevice device, const std::vector<VkAttachmentDescription>& attachments, const std::vector<VkSubpassDescription>& subpasses,
 				const std::vector<VkSubpassDependency>& dependencies, VkRenderPassCreateFlags flags = 0, const void* next = nullptr) {
+		_device = device;
 		VkRenderPassCreateInfo renderPassInfo{
 			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 			.pNext = next,
@@ -36,9 +36,7 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
 			.dependencyCount = static_cast<uint32_t>(dependencies.size()),
 			.pDependencies = dependencies.data(),
 		};
-
 		VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &_handle));
-		_device = device;
 	}
 
 	void create(VkDevice device, VkFormat imageFormat, VkFormat depthFormat) {
