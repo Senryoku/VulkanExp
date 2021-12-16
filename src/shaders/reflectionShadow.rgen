@@ -59,7 +59,7 @@ void main()
 	vec3 direction = reflect(-toOrigin, normal);
 	payload.raydx = rotateAxis(direction, normal, 0.1);
 	payload.raydy = rotateAxis(cross(normal, direction), normal, 0.1);
-	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
 	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
 
 	// Direct Light
