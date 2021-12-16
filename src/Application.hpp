@@ -395,6 +395,11 @@ class Application {
 		while(!glfwWindowShouldClose(_window)) {
 			glfwPollEvents();
 
+			if(_dirtyShaders) {
+				compileShaders();
+				_dirtyShaders = false;
+			}
+
 			ImGui_ImplVulkan_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
@@ -405,11 +410,6 @@ class Application {
 			if(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				ImGui::UpdatePlatformWindows();
 				ImGui::RenderPlatformWindowsDefault();
-			}
-
-			if(_dirtyShaders) {
-				compileShaders();
-				_dirtyShaders = false;
 			}
 
 			if(_irradianceProbeAutoUpdate)

@@ -3,7 +3,7 @@
 ## Todos
 
 ### Bugs
- - Shader recompilation causes ImGui texture rendering to crash (most likely from swapchain recreation and some images (tied to swapchain extent) destructions)
+ - Probably a lot.
 
 ### Major Features
  - Better lightning model < !
