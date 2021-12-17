@@ -112,7 +112,7 @@ struct Light {
 };
 
 Light Lights[3] = {
-	Light(0, vec3(4.0), normalize(vec3(-1, 7, 2))),
+	Light(0, vec3(4.0), normalize(vec3(-1, 2, -2))),
 	Light(1, vec3(300.0, 100.0, 100.0), vec3(-620, 160, 143.5)),
 	Light(1, vec3(300.0, 100.0, 100.0), vec3(487, 160, 143.5))
 };
@@ -134,6 +134,7 @@ void main()
 	Vertex v2 = unpack(vertexInstanceOffset + index.z);
 	Material m = unpackMaterial(materialInstanceIndex);
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
+	// FIXME: Both of these should be transformed by the model transform!
 	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
 	vec3 normal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
 	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
@@ -181,7 +182,18 @@ void main()
 		--payload.recursionDepth;
 		specularLight = payload.color.rgb;
 	}
-	color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+	vec3 view = normalize(-gl_WorldRayDirectionEXT);
+	vec3 halfVector = normal; // normalize(light + (-view)), but here light = reflect(-view, normal)
+	float VdotH = clamp(dot(view, halfVector), 0.0, 1.0);
+	vec3 f0 = vec3(0.04);
+	vec3 diffuseColor = texColor.rgb * (1.0 - f0);
+	diffuseColor *= (1.0 - m.metallicFactor);
+	vec3 specularColor = mix(f0, diffuseColor, m.metallicFactor);
+	float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+	vec3 specularEnvironmentR0 = specularColor.rgb;	float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
+	vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
+	vec3 F = specularReflection(specularEnvironmentR0, specularEnvironmentR90, VdotH);
+	color += (F /*Missing BRDF parameters */) * pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 
 	// Direct lighting
 	for(int i = 0; i < Lights.length(); ++i) {
@@ -200,16 +212,11 @@ void main()
 					tmax,                  // ray max range
 					1                      // payload (location = 1)
 		);
-		float attenuation = 1.0;
-		if(isShadowed) {
-			attenuation = 0.005;
-		} else {
-			attenuation = 1.0;
+		if(!isShadowed) {
+			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
+			vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / (length(Lights[i].direction - position) + 1); // Should realistically be ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1)); but require very powerfull light to have an impact, idk.
+			color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), lightColor, Lights[i].direction, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 		}
-		
-		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / (length(Lights[i].direction - position) + 1); // Should realistically be ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1)); but require very powerfull light to have an impact, idk.
-		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	}
 
 	payload.color = vec4(color, texColor.a);

@@ -27,19 +27,6 @@ layout(location = 0) out vec4 color;
 
 #include "pbrMetallicRoughness.glsl"
 
-// TEMP
-struct Light {
-	uint type; // 0 Directional, 1 Point light
-	vec3 color;
-	vec3 direction;
-};
-
-Light Lights[3] = {
-	Light(0, vec3(4.0), normalize(vec3(-1, 7, 2))),
-	Light(1, vec3(30.0, 10.0, 10.0), vec3(-620, 160, 143.5)),
-	Light(1, vec3(30.0, 10.0, 10.0), vec3(487, 160, 143.5))
-};
-
 void main() {
 	color = vec4(0.0, 0.0, 0.0, 1.0);
 	

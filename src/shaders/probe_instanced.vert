@@ -26,12 +26,14 @@ layout(location = 5) out ivec2 probeUVOffset;
 layout(location = 6) out ivec2 probeDepthUVOffset;
 layout(location = 7) out vec2 uvScaling;
 
+const float ProbeSize = 0.1;
+
 void main() {
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);
     uvScaling = vec2(grid.resolution.x * grid.resolution.y, grid.resolution.z);
     probeUVOffset = probeIndexToColorUVOffset(probeLinearIndexToGridIndex(gl_InstanceIndex, grid), grid);
     probeDepthUVOffset = probeIndexToDepthUVOffset(probeLinearIndexToGridIndex(gl_InstanceIndex, grid), grid);
-    gl_Position = ubo.proj * ubo.view * vec4(8.0 * inPosition + probePosition, 1.0);
+    gl_Position = ubo.proj * ubo.view * vec4(ProbeSize * inPosition + probePosition, 1.0);
     color = inColor;
     normal = inNormal;
     tangent = inTangent;

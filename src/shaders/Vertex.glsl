@@ -7,7 +7,7 @@ struct Vertex {
 	vec3 normal;
 	vec4 tangent;
 	vec2 texCoord;
-	uint material;
+	uint padding;
 };
 
 // Expect an array named "Vertices" to be accessible
@@ -24,11 +24,11 @@ Vertex unpack(uint index)
 
 	Vertex v;
 	v.pos = d0.xyz;
-	v.color = vec3(d0.w, d1.x, d1.y);
-	v.normal = vec3(d1.z, d1.w, d2.x);
-	v.tangent = vec4(d2.y, d2.z, d2.w, d3.x);
-	v.texCoord = vec2(d3.y, d3.z);
-	v.material = floatBitsToUint(d3.w);
+	v.color = vec3(d0.w, d1.xy);
+	v.normal = vec3(d1.zw, d2.x);
+	v.tangent = vec4(d2.yzw, d3.x);
+	v.texCoord = vec2(d3.yz);
+	v.padding = floatBitsToUint(d3.w);
 
 	return v;
 }

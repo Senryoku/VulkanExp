@@ -1,5 +1,6 @@
 #include "Resources.hpp"
 
+#include <QuickTimer.hpp>
 #include <ThreadPool.hpp>
 #include <array>
 
@@ -43,18 +44,22 @@ void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 	std::unordered_map<std::string, STBImage> images;
 	std::mutex								  imagesMutex;
 	std::vector<std::future<void>>			  wait;
-	for(auto& tex : Textures) {
-		auto path = tex.source.lexically_normal().string();
-		if(!Images.contains(path)) {
-			wait.emplace_back(ThreadPool::GetInstance().queue([&, path] {
-				STBImage					 image{tex.source.c_str()};
-				std::unique_lock<std::mutex> lock(imagesMutex);
-				images[path] = std::move(image);
-			}));
+	{
+		QuickTimer qt("Loading textures from disk");
+		for(auto& tex : Textures) {
+			auto path = tex.source.lexically_normal().string();
+			if(!Images.contains(path)) {
+				wait.emplace_back(ThreadPool::GetInstance().queue([&, path] {
+					STBImage					 image{tex.source.c_str()};
+					std::unique_lock<std::mutex> lock(imagesMutex);
+					images[path] = std::move(image);
+				}));
+			}
 		}
+		for(auto& f : wait)
+			f.wait();
 	}
-	for(auto& f : wait)
-		f.wait();
+	QuickTimer qt("Upload textures to device");
 	for(auto& tex : Textures) {
 		auto  path = tex.source.lexically_normal().string();
 		auto& texR = tex;
@@ -78,7 +83,7 @@ void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
 					float maxLod) {
 	// 4 bits per properties should be enough (Unless we count Vulkan extensions... Eh.)
-	size_t key = magFilter | (minFilter << 4) | (wrapS << 8) | (wrapT << 12) | (mipmapMode << 16) || (static_cast<uint32_t>(maxLod) << 32);
+	size_t key = magFilter | (minFilter << 4) | (wrapS << 8) | (wrapT << 12) | (mipmapMode << 16) || (static_cast<size_t>(maxLod) << 32);
 	if(!Samplers.contains(key)) {
 		Samplers.try_emplace(key);
 		VkPhysicalDeviceProperties properties{};
