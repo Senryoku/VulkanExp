@@ -28,7 +28,7 @@ layout(location = 5) out flat uint material;
 void main() {
     gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
     positionDepth = vec4((PushConstants.model * vec4(inPosition, 1.0)).xyz, gl_Position.z / gl_Position.z);
-    normal = mat3(PushConstants.model) * inNormal; // transpose inverse?
+    normal = transpose(inverse(mat3(PushConstants.model))) * inNormal; // transpose(inverse()) is only important in case of non-uniform transformation
     tangent = vec4(mat3(PushConstants.model) * inTangent.xyz, inTangent.w);
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
