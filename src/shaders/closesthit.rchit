@@ -47,8 +47,10 @@ hitAttributeEXT vec3 attribs;
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
-vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy) {
-    vec3 dpdu, dpdv;
+vec4 texDerivative(vec3 worldPosition, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy) {
+    vec3 normal = normalize(cross(v1.pos - v0.pos, v2.pos - v0.pos));
+
+	vec3 dpdu, dpdv;
     vec3 p01 = v1.pos - v0.pos;
     vec3 p02 = v2.pos - v0.pos;
 
@@ -126,10 +128,10 @@ void main()
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
 	vec3 tangentSpaceNormal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
 	vec3 normal = normalize(vec3(tangentSpaceNormal * gl_WorldToObjectEXT)); // To world space
-
-	vec4 grad = texDerivative(position, normal, v0, v1, v2, payload.raydx, payload.raydy); 
+		
+	vec4 grad = texDerivative(position, v0, v1, v2, payload.raydx, payload.raydy); 
 	vec4 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw);
-
+	
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
 		vec4 tangentData = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
