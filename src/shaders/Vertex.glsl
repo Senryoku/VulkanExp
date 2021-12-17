@@ -14,8 +14,7 @@ struct Vertex {
 Vertex unpack(uint index)
 {
 	// Unpack the vertices from the SSBO
-	const int vertexSizeInBytes = 4 * 16;
-	const int stride = vertexSizeInBytes / 16;
+	const uint stride = 4; // 4 vec4 per vertex
 
 	vec4 d0 = Vertices[stride * index + 0];
 	vec4 d1 = Vertices[stride * index + 1];

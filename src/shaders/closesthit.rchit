@@ -18,6 +18,7 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_debug_printf : enable
 
 #include "common.glsl"
 #include "irradiance.glsl"
@@ -104,18 +105,7 @@ vec4 texDerivative(vec3 worldPosition, vec3 normal, Vertex v0, Vertex v1, Vertex
 	return vec4(dudx, dvdx, dudy, dvdy);
 }
 
-// FIXME: To Uniforms?
-struct Light {
-	uint type; // 0 Directional, 1 Point light
-	vec3 color;
-	vec3 direction;
-};
-
-Light Lights[3] = {
-	Light(0, vec3(4.0), normalize(vec3(-1, 2, -2))),
-	Light(1, vec3(300.0, 100.0, 100.0), vec3(-620, 160, 143.5)),
-	Light(1, vec3(300.0, 100.0, 100.0), vec3(487, 160, 143.5))
-};
+#include "Lights.glsl"
 
 void main()
 {
@@ -134,18 +124,21 @@ void main()
 	Vertex v2 = unpack(vertexInstanceOffset + index.z);
 	Material m = unpackMaterial(materialInstanceIndex);
 	vec2 texCoord = v0.texCoord * barycentricCoords.x + v1.texCoord * barycentricCoords.y + v2.texCoord * barycentricCoords.z;
-	// FIXME: Both of these should be transformed by the model transform!
-	vec4 tangent = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
-	vec3 normal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
-	vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
-	
+	vec3 tangentSpaceNormal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
+	vec3 normal = normalize(vec3(tangentSpaceNormal * gl_WorldToObjectEXT)); // To world space
+
 	vec4 grad = texDerivative(position, normal, v0, v1, v2, payload.raydx, payload.raydy); 
 	vec4 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw);
 
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
-		vec3 tangentSpaceNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
-		normal = normalize(mat3(tangent.xyz, bitangent, normal) * tangentSpaceNormal);
+		vec4 tangentData = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
+		vec3 tangent = normalize(vec3(tangentData.xyz * gl_WorldToObjectEXT)); // To world space
+		float tangentHandedness = tangentData.w;
+		vec3 bitangent = cross(normal, tangent) * tangentHandedness;
+	
+		vec3 mappedNormal = normalize(2.0 * textureGrad(textures[m.normalTexture], texCoord, grad.xy, grad.zw).rgb - 1.0);
+		normal = normalize(mat3(tangent, bitangent, normal) * mappedNormal);
 	}
 	
 	vec3 emissiveLight = vec3(0);

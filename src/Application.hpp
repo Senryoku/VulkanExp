@@ -191,8 +191,6 @@ class Application {
 	PipelineLayout							_rayTracingPipelineLayout;
 	Pipeline								_rayTracingPipeline;
 	ShaderBindingTable						_raytracingShaderBindingTable;
-	Buffer									_accStructTransformBuffer;
-	DeviceMemory							_accStructTransformMemory;
 	Buffer									_accStructInstancesBuffer;
 	DeviceMemory							_accStructInstancesMemory;
 	void									createStorageImage();

@@ -174,8 +174,6 @@ void Application::cleanupVulkan() {
 	_tlasMemory.free();
 	_accStructInstancesBuffer.destroy();
 	_accStructInstancesMemory.free();
-	_accStructTransformBuffer.destroy();
-	_accStructTransformMemory.free();
 
 	// We souldn't have to recreate the underlying buffer/memory on swapchain re-creation.
 	_reflectionShadowShaderBindingTable.destroy();

@@ -37,20 +37,13 @@ void Application::createAccelerationStructure() {
 	assert(formatProperties.formatProperties.bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR);
 
 	VkTransformMatrixKHR rootTransformMatrix = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
-	const size_t		 maxTransforms = 1024; // FIXME.
-	size_t				 offsetInTransformBuffer = 0;
-	_accStructTransformBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-									 maxTransforms * sizeof(VkTransformMatrixKHR));
-	_accStructTransformMemory.allocate(_device, _accStructTransformBuffer,
-									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	_accStructTransformMemory.fill(&rootTransformMatrix, 1);
-	++offsetInTransformBuffer;
 
 	size_t submeshesCount = 0;
 	for(const auto& m : _scene.getMeshes())
 		submeshesCount += m.SubMeshes.size();
 
 	std::vector<uint32_t>							submeshesIndices;
+	std::vector<VkTransformMatrixKHR>				transforms;
 	std::vector<VkAccelerationStructureGeometryKHR> geometries;
 	geometries.reserve(submeshesCount); // Avoid reallocation since buildInfos will refer to this.
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
@@ -70,9 +63,9 @@ void Application::createAccelerationStructure() {
 		// This is a leaf
 		if(n.mesh != -1) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			_accStructTransformMemory.fill(reinterpret_cast<VkTransformMatrixKHR*>(&transform), 1, offsetInTransformBuffer);
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
 				submeshesIndices.push_back(n.mesh + i);
+				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
 				VkAccelerationStructureKHR blas;
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -88,7 +81,7 @@ void Application::createAccelerationStructure() {
 									.maxVertex = static_cast<uint32_t>(meshes[n.mesh].SubMeshes[i].getVertices().size()),
 									.indexType = VK_INDEX_TYPE_UINT32,
 									.indexData = meshes[n.mesh].SubMeshes[i].getIndexBuffer().getDeviceAddress(),
-									.transformData = _accStructTransformBuffer.getDeviceAddress() + offsetInTransformBuffer * sizeof(VkTransformMatrixKHR),
+									.transformData = 0,
 								},
 						},
 					.flags = 0,
@@ -144,7 +137,6 @@ void Application::createAccelerationStructure() {
 					.transformOffset = 0,
 				});
 			}
-			++offsetInTransformBuffer;
 		}
 	};
 	visitNode(_scene.getRoot(), glm::mat4(1.0f));
@@ -185,7 +177,7 @@ void Application::createAccelerationStructure() {
 		auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(_device, &BLASAddressInfo);
 
 		_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
-			.transform = rootTransformMatrix,
+			.transform = transforms[customIndex],
 			.instanceCustomIndex = submeshesIndices[customIndex],
 			.mask = 0xFF,
 			.instanceShaderBindingTableRecordOffset = 0,
