@@ -3,7 +3,7 @@
 #include <ImGuiExtensions.hpp>
 
 struct TextureRef {
-	const Texture const& texture;
+	const Texture& const texture;
 	const ImTextureID	 imID;
 };
 
@@ -197,10 +197,17 @@ void Application::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
-		const auto						  nodes = _scene.getNodes();
+		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
 				ImGui::Matrix("Transform", nodes[n].transform);
+				auto translation = glm::vec3(nodes[n].transform[3]);
+				if(ImGui::InputFloat3("Position", reinterpret_cast<float*>(&translation))) {
+					nodes[n].transform[3].x = translation.x;
+					nodes[n].transform[3].y = translation.y;
+					nodes[n].transform[3].z = translation.z;
+					// TODO: Update Uniform & Acceleration Structure
+				}
 				if(nodes[n].mesh != -1)
 					ImGui::Text("Mesh: %s", _scene.getMeshes()[nodes[n].mesh].name.c_str());
 				for(const auto& c : nodes[n].children) {

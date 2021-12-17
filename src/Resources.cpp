@@ -1,5 +1,6 @@
 #include "Resources.hpp"
 
+#include <ThreadPool.hpp>
 #include <array>
 
 VkFilter glTFToVkFilter(int e) {
@@ -39,14 +40,29 @@ VkSamplerAddressMode glTFtoVkSamplerAddressMode(int e) {
 }
 
 void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
+	std::unordered_map<std::string, STBImage> images;
+	std::mutex								  imagesMutex;
+	std::vector<std::future<void>>			  wait;
+	for(auto& tex : Textures) {
+		auto path = tex.source.lexically_normal().string();
+		if(!Images.contains(path)) {
+			wait.emplace_back(ThreadPool::GetInstance().queue([&, path] {
+				STBImage					 image{tex.source.c_str()};
+				std::unique_lock<std::mutex> lock(imagesMutex);
+				images[path] = std::move(image);
+			}));
+		}
+	}
+	for(auto& f : wait)
+		f.wait();
 	for(auto& tex : Textures) {
 		auto  path = tex.source.lexically_normal().string();
 		auto& texR = tex;
+
 		if(!Images.contains(path)) {
-			STBImage image{texR.source.c_str()};
 			Images.try_emplace(path);
 			Images[path].image.setDevice(device);
-			Images[path].image.upload(image, queueFamilyIndex, texR.format);
+			Images[path].image.upload(images[path], queueFamilyIndex, texR.format);
 			Images[path].imageView.create(device, Images[path].image, texR.format);
 		}
 		texR.gpuImage = &Images[path];

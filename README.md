@@ -7,12 +7,16 @@
  - Probably a lot.
 
 ### Major Features
+ - Scene
+ - - Import model(s) INTO a scene;
+ - - Save
  - Better lightning model < !
- - >>>> Glossy lightning term by raytracing the entire screen first reflect bounce and then sampling that texture (using mipmaps for roughness approximation)
+ - - Glossy Term: Correctly sample a BRDF; Generate screen reflections mip maps and pick the correct one based on material (and depth?)
  - GI. Irradiance Probes for Indirect lightning.
  - - With visibility term: https://www.gdcvault.com/play/1026182/
  - - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
  - Performance Metrics (GPU)
+ - Some sort of AO
  
 ### Improvements 
 - Many

@@ -8,12 +8,14 @@
 class STBImage {
   public:
 	STBImage() = default;
-	STBImage(STBImage&&);
+	STBImage(STBImage&&) noexcept;
+	STBImage& operator=(STBImage&&) noexcept;
 	STBImage(const std::filesystem::path& path) { load(path); }
 	~STBImage() {
 		if(_data) {
 			stbi_image_free(_data);
 			_data = nullptr;
+			_x = _y = _n = 0;
 		}
 	}
 

@@ -102,7 +102,7 @@ class RenderPass : public HandleWrapper<VkRenderPass> {
 	}
 
   private:
-	VkDevice _device;
+	VkDevice _device = VK_NULL_HANDLE;
 };
 
 class RenderPassBuilder {

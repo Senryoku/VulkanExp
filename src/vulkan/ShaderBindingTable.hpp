@@ -22,12 +22,12 @@ struct ShaderBindingTable {
 		const size_t   totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];
 		const auto	   handle_size = rayTracingPipelineProperties.shaderGroupHandleSize;
 		const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment);
-		const size_t   regionSizes[4] = {
-			  entriesCount[0] * handle_size_aligned,
-			  entriesCount[1] * handle_size_aligned,
-			  entriesCount[2] * handle_size_aligned,
-			  entriesCount[3] * handle_size_aligned,
-		  };
+		const uint32_t regionSizes[4] = {
+			entriesCount[0] * handle_size_aligned,
+			entriesCount[1] * handle_size_aligned,
+			entriesCount[2] * handle_size_aligned,
+			entriesCount[3] * handle_size_aligned,
+		};
 		auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
 		std::vector<uint8_t> shader_handle_storage(stb_size);
 		VK_CHECK(vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, totalEntries, stb_size, shader_handle_storage.data()));
