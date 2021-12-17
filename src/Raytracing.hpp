@@ -1,26 +1,29 @@
 #pragma once
 
 #include <DescriptorPool.hpp>
+#include <IrradianceProbes.hpp>
 #include <glTF.hpp>
-
-inline uint32_t aligned_size(uint32_t value, uint32_t alignment) {
-	return (value + alignment - 1) & ~(alignment - 1);
-}
 
 inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 	uint32_t				   texturesCount = Textures.size();
 	DescriptorSetLayoutBuilder dslBuilder;
 	// Slot for binding top level acceleration structures to the ray generation shader
 	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, texturesCount) // Texture
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)					  // Vertices
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)					  // Indices
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)					  // Instance Offsets
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1);					  // Materials
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, texturesCount)			   // Texture
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)								   // Vertices
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)								   // Indices
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1)								   // Instance Offsets
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1) // Materials
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)									   // Grid Parameters
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)															   // Probes Color
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);															   // Probes Depth
+
 	return dslBuilder;
 }
 
-inline DescriptorSetWriter baseSceneWriter(VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure) {
+// Writes all the necessary descriptors for ray tracing
+inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure,
+										   const IrradianceProbes& irradianceProbes) {
 	DescriptorSetWriter dsw(descSet);
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
@@ -72,6 +75,26 @@ inline DescriptorSetWriter baseSceneWriter(VkDescriptorSet descSet, const glTF& 
 				.offset = 0,
 				.range = sizeof(Material::GPUData) * Materials.size(),
 			});
+	dsw.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			{
+				.buffer = irradianceProbes.getGridParametersBuffer(),
+				.offset = 0,
+				.range = sizeof(IrradianceProbes::GridInfo),
+			});
+	dsw.add(
+		7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		{
+			.sampler = *getSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+			.imageView = irradianceProbes.getColorView(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		});
+	dsw.add(
+		8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		{
+			.sampler = *getSampler(device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+			.imageView = irradianceProbes.getDepthView(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		});
 
 	return dsw;
 }

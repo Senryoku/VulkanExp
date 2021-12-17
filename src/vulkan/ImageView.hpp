@@ -43,8 +43,7 @@ class ImageView : public HandleWrapper<VkImageView> {
 	}
 
 	void create(VkDevice device, const VkImageViewCreateInfo& info) {
-		if(vkCreateImageView(device, &info, nullptr, &_handle) != VK_SUCCESS)
-			throw std::runtime_error("Failed to create image views.");
+		VK_CHECK(vkCreateImageView(device, &info, nullptr, &_handle));
 
 		_device = device;
 	}

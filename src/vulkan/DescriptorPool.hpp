@@ -106,7 +106,7 @@ class DescriptorSetWriter {
 		_writeAccelerationStructures.reserve(MaxWritePerType);
 	}
 
-	void add(uint32_t binding, VkDescriptorType type, const VkDescriptorImageInfo& info) {
+	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const VkDescriptorImageInfo& info) {
 		assert(_imageInfos.size() < MaxImages);
 		_imageInfos.push_back(info);
 		writeDescriptorSets.push_back({
@@ -117,9 +117,10 @@ class DescriptorSetWriter {
 			.descriptorType = type,
 			.pImageInfo = &_imageInfos.back(),
 		});
+		return *this;
 	}
 
-	void add(uint32_t binding, VkDescriptorType type, const std::vector<VkDescriptorImageInfo>& infos) {
+	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const std::vector<VkDescriptorImageInfo>& infos) {
 		assert(_imageInfos.size() < MaxImages + 1 - infos.size());
 		for(const auto& i : infos)
 			_imageInfos.push_back(i);
@@ -131,9 +132,10 @@ class DescriptorSetWriter {
 			.descriptorType = type,
 			.pImageInfo = &_imageInfos[_imageInfos.size() - infos.size()],
 		});
+		return *this;
 	}
 
-	void add(uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo& info) {
+	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo& info) {
 		assert(_bufferInfos.size() < MaxWritePerType);
 		_bufferInfos.push_back(info);
 		writeDescriptorSets.push_back({
@@ -144,9 +146,10 @@ class DescriptorSetWriter {
 			.descriptorType = type,
 			.pBufferInfo = &_bufferInfos.back(),
 		});
+		return *this;
 	}
 
-	void add(uint32_t binding, VkDescriptorType type, const VkBufferView& info) {
+	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const VkBufferView& info) {
 		assert(_bufferViews.size() < MaxWritePerType);
 		_bufferViews.push_back(info);
 		writeDescriptorSets.push_back({
@@ -157,9 +160,10 @@ class DescriptorSetWriter {
 			.descriptorType = type,
 			.pTexelBufferView = &_bufferViews.back(),
 		});
+		return *this;
 	}
 
-	void add(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR& info) {
+	DescriptorSetWriter& add(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR& info) {
 		assert(_writeAccelerationStructures.size() < MaxWritePerType);
 		_writeAccelerationStructures.push_back(info);
 		writeDescriptorSets.push_back({
@@ -170,6 +174,7 @@ class DescriptorSetWriter {
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
 		});
+		return *this;
 	}
 
 	void update(VkDevice device) { vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, VK_NULL_HANDLE); }

@@ -4,6 +4,7 @@
 
 #include "common.glsl"
 
+// Fresnel-Schlick approximation 
 vec3 specularReflection(vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float VdotH)
 {
 	return specularEnvironmentR0 + (specularEnvironmentR90 - specularEnvironmentR0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
@@ -31,7 +32,7 @@ float microfacetDistribution(float alphaRoughness, float NdotH)
  /* https://github.com/KhronosGroup/glTF-WebGL-PBR
   * view: Point to Camera normalize direction
   */
- vec4 pbrMetallicRoughness(vec3 normal, vec3 view, vec3 lightColor, vec3 lightDirection, vec3 specularLight, vec4 albedo, float metallicFactor, float roughnessFactor) {
+ vec4 pbrMetallicRoughness(vec3 normal, vec3 view, vec3 lightColor, vec3 lightDirection, vec4 albedo, float metallicFactor, float roughnessFactor) {
 
 	vec3 f0 = vec3(0.04);
 	vec3 diffuseColor = albedo.rgb * (1.0 - f0);
@@ -71,20 +72,6 @@ float microfacetDistribution(float alphaRoughness, float NdotH)
 
 	// Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
 	vec3 color = NdotL * lightColor * (diffuseContrib + specContrib);
-
-	// Todo: Specular highlight from raytraced reflections
-	//color += specularLight * (specularColor * brdf.x + brdf.y);
-	// TEMP:
-	color += specularLight * (specularColor * NdotV);
-
-	// Apply optional PBR terms for additional (optional) shading
-	/*
-	const float u_OcclusionStrength = 1.0f;
-	if (material.occlusionTextureSet > -1) {
-		float ao = texture(aoMap, (material.occlusionTextureSet == 0 ? inUV0 : inUV1)).r;
-		color = mix(color, color * ao, u_OcclusionStrength);
-	}
-	*/
 
 	return vec4(color, albedo.a);
 }

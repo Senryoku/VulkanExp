@@ -2,6 +2,10 @@
 
 ## Todos
 
+### Bugs
+ - Irradiance probes leave clear artifacts on the edge of each cell (also visible on test probe display). I was suspecting a problem with the UV calculation, but never successed in proving that, may be something else entirely.
+ - Probably a lot.
+
 ### Major Features
  - Better lightning model < !
  - >>>> Glossy lightning term by raytracing the entire screen first reflect bounce and then sampling that texture (using mipmaps for roughness approximation)
@@ -11,13 +15,11 @@
  - Performance Metrics (GPU)
  
 ### Improvements 
-- RT: Discard hit on transparency.
+- Many
 
 ### Nice to have
  - load glTF by drag&drop?
  - Multisampling (Raster & RT)
- - Debug display of textures in ImGui
- - Shader library (a way to #include stuff. Need to re-think the way shaders are auto-compiled, maybe simply switching to glslc, which supports #include out of the box, is enough)
 
 ### Major Features, but not priorities
  - Rigging

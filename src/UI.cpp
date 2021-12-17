@@ -2,9 +2,20 @@
 
 #include <ImGuiExtensions.hpp>
 
-std::vector<ImTextureID> SceneUITextureIDs;
-ImTextureID				 ProbesColor;
-ImTextureID				 ProbesDepth;
+struct TextureRef {
+	const Texture const& texture;
+	const ImTextureID	 imID;
+};
+
+std::vector<TextureRef> SceneUITextureIDs;
+ImTextureID				ProbesColor;
+ImTextureID				ProbesDepth;
+
+struct DebugTexture {
+	const std::string name;
+	const ImTextureID id;
+};
+std::vector<DebugTexture> DebugTextureIDs;
 
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
@@ -72,10 +83,54 @@ void Application::initImGui(uint32_t queueFamily) {
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	for(const auto& texture : Textures) {
-		SceneUITextureIDs.push_back(ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+		SceneUITextureIDs.push_back({texture, ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void Application::createImGuiRenderPass() {
+	// UI
+	VkAttachmentReference colorAttachment = {
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
+	_imguiRenderPass.create(_device,
+							std::array<VkAttachmentDescription, 1>{VkAttachmentDescription{
+								.format = _swapChainImageFormat,
+								.samples = VK_SAMPLE_COUNT_1_BIT,
+								.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+								.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+								.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+								.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+								.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+								.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+							}},
+							std::array<VkSubpassDescription, 1>{VkSubpassDescription{
+								.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+								.colorAttachmentCount = 1,
+								.pColorAttachments = &colorAttachment,
+							}},
+							std::array<VkSubpassDependency, 1>{VkSubpassDependency{
+								.srcSubpass = VK_SUBPASS_EXTERNAL,
+								.dstSubpass = 0,
+								.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+								.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+								.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+								.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+							}});
+	_imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainImageViews.size());
+}
+
+void Application::uiOnSwapChainReady() {
+	DebugTextureIDs.clear();
+	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
+		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(size_t i = 0; i < _directLightImageViews.size(); ++i)
+		DebugTextureIDs.push_back(
+			{fmt::format("Direct Light {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _directLightImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
+		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 }
 
 void Application::drawUI() {
@@ -92,8 +147,9 @@ void Application::drawUI() {
 		}
 		ImGui::EndMainMenuBar();
 	}
-	if(ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
-		if(ImGui::Checkbox("Probe Debug", &_probeDebug)) {
+
+	if(ImGui::Begin("Probes Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		if(ImGui::Checkbox("Probe Debug Display", &_probeDebug)) {
 			_outdatedCommandBuffers = true;
 		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
@@ -112,8 +168,34 @@ void Application::drawUI() {
 		ImGui::Image(ProbesDepth,
 					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
 							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
-		ImGui::End();
 	}
+	ImGui::End();
+
+	if(ImGui::Begin("Intermediate Buffers", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		auto quickDisplay = [&](size_t idx) {
+			if(idx > DebugTextureIDs.size()) {
+				ImGui::Text("Index %d out of DebugTextureIDs bounds.", idx);
+			}
+			const auto& tex = DebugTextureIDs[idx];
+			ImGui::Text("%s", tex.name.c_str());
+			ImGui::Image(tex.id, ImVec2(_width / 2, _height / 2));
+		};
+
+		quickDisplay(_currentFrame);
+		quickDisplay(_reflectionImageViews.size() + _currentFrame);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 0);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 1);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 2);
+
+		for(const auto& texture : DebugTextureIDs) {
+			if(ImGui::TreeNode(texture.name.c_str())) {
+				ImGui::Image(texture.id, ImVec2(_width / 2, _height / 2));
+				ImGui::TreePop();
+			}
+		}
+	}
+	ImGui::End();
+
 	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
 		const auto						  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
@@ -137,17 +219,18 @@ void Application::drawUI() {
 			}
 		}
 
-		ImGui::Text("Loaded Textures");
-		size_t n = 0;
-		for(const auto& texture : SceneUITextureIDs) {
-			if(ImGui::TreeNode(std::to_string(n).c_str())) {
-				ImGui::Image(texture, ImVec2(100, 100));
-				ImGui::TreePop();
+		if(ImGui::TreeNode("Loaded Textures")) {
+			for(const auto& texture : SceneUITextureIDs) {
+				if(ImGui::TreeNode(texture.texture.source.string().c_str())) {
+					ImGui::Image(texture.imID, ImVec2(100, 100));
+					ImGui::TreePop();
+				}
 			}
-			++n;
+			ImGui::TreePop();
 		}
-		ImGui::End();
 	}
+	ImGui::End();
+
 	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
 		ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
@@ -186,9 +269,8 @@ void Application::drawUI() {
 				_irradianceProbes.updateUniforms();
 			ImGui::TreePop();
 		}
-
-		ImGui::End();
 	}
+	ImGui::End();
 }
 
 void Application::cleanupUI() {

@@ -105,6 +105,15 @@
     <ClCompile Include="src\IrradianceProbes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\GatherPipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GBufferPipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ReflectionShadowPipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.hpp">
@@ -215,6 +224,9 @@
     <ClInclude Include="src\Raytracing.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\vulkan\ShaderBindingTable.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />
@@ -248,5 +260,9 @@
     <None Include="src\shaders\Material.glsl" />
     <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\rayPayload.glsl" />
+    <None Include="src\shaders\GBuffer.frag" />
+    <None Include="src\shaders\GBuffer.vert" />
+    <None Include="src\shaders\FullScreenQuad.vert" />
+    <None Include="src\shaders\reflectionShadow.rgen" />
   </ItemGroup>
 </Project>

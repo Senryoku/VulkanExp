@@ -108,39 +108,57 @@ class Application {
 	Texture _blankTexture;
 
 	VkSwapchainKHR		   _swapChain;
-	std::vector<VkImage>   _swapChainImages;
 	VkFormat			   _swapChainImageFormat;
 	VkExtent2D			   _swapChainExtent;
+	std::vector<VkImage>   _swapChainImages;
 	std::vector<ImageView> _swapChainImageViews;
+	VkFormat			   _depthFormat;
 
-	VkFormat  _depthFormat;
-	Image	  _depthImage;
-	ImageView _depthImageView;
+	CommandPool _tempCommandPool;
 
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
 
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
-	RenderPass						 _renderPass;
-	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
-	Pipeline						 _pipeline;
-	std::vector<Framebuffer>		 _swapChainFramebuffers;
+	Image							 _depthImage;
+	ImageView						 _depthImageView;
+	std::vector<Image>				 _gbufferImages;
+	std::vector<ImageView>			 _gbufferImageViews;
+	std::vector<Framebuffer>		 _gbufferFramebuffers;
+	RenderPass						 _gbufferRenderPass;
+	DescriptorPool					 _gbufferDescriptorPool;
+	std::vector<DescriptorSetLayout> _gbufferDescriptorSetLayouts;
+	Pipeline						 _gbufferPipeline;
+	std::vector<Image>				 _reflectionImages;
+	std::vector<ImageView>			 _reflectionImageViews;
+	std::vector<Image>				 _directLightImages;
+	std::vector<ImageView>			 _directLightImageViews;
+	DescriptorPool					 _reflectionShadowDescriptorPool;
+	DescriptorSetLayout				 _reflectionShadowDescriptorSetLayout;
+	Pipeline						 _reflectionShadowPipeline;
+	ShaderBindingTable				 _reflectionShadowShaderBindingTable;
+	std::vector<Framebuffer>		 _gatherFramebuffers;
+	RenderPass						 _gatherRenderPass;
+	DescriptorPool					 _gatherDescriptorPool;
+	DescriptorSetLayout				 _gatherDescriptorSetLayout;
+	Pipeline						 _gatherPipeline;
 	CommandPool						 _commandPool;
-	CommandPool						 _tempCommandPool;
 	CommandBuffers					 _commandBuffers;
 	std::vector<Semaphore>			 _renderFinishedSemaphore;
 	std::vector<Semaphore>			 _imageAvailableSemaphore;
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
 
+	void createGBufferPipeline();
+	void createReflectionShadowPipeline();
+	void createGatherPipeline();
+
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;
 	DeviceMemory		_cameraUniformBuffersMemory;
 
-	DescriptorPool _descriptorPool;
-
 	VkDescriptorPool		 _imguiDescriptorPool;
-	std::vector<Framebuffer> _imguiFramebuffers;
+	std::vector<Framebuffer> _presentFramebuffers;
 	RenderPass				 _imguiRenderPass;
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
@@ -155,11 +173,12 @@ class Application {
 	DescriptorPool					 _probeDebugDescriptorPool;
 	std::vector<DescriptorSetLayout> _probeDebugDescriptorSetLayouts;
 	Pipeline						 _probeDebugPipeline;
+	std::vector<Framebuffer>		 _probeDebugFramebuffers;
 
 	// Raytracing test
 	bool									_raytracingDebug = true;
-	Image									_rayTraceStorageImage;
-	ImageView								_rayTraceStorageImageView;
+	std::vector<Image>						_rayTraceStorageImages;
+	std::vector<ImageView>					_rayTraceStorageImageViews;
 	CommandBuffers							_rayTraceCommandBuffers;
 	std::vector<Buffer>						_blasBuffers;
 	std::vector<DeviceMemory>				_blasMemories;
@@ -171,9 +190,7 @@ class Application {
 	DescriptorPool							_rayTracingDescriptorPool;
 	PipelineLayout							_rayTracingPipelineLayout;
 	Pipeline								_rayTracingPipeline;
-	static constexpr size_t					_rayShaderBindingTablesCount = 3;
-	Buffer									_rayTracingShaderBindingTables[_rayShaderBindingTablesCount];
-	DeviceMemory							_rayTracingShaderBindingTablesMemory[_rayShaderBindingTablesCount];
+	ShaderBindingTable						_raytracingShaderBindingTable;
 	Buffer									_accStructTransformBuffer;
 	DeviceMemory							_accStructTransformMemory;
 	Buffer									_accStructInstancesBuffer;
@@ -207,6 +224,8 @@ class Application {
 	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();
+	void createImGuiRenderPass();
+	void uiOnSwapChainReady();
 
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
@@ -378,6 +397,11 @@ class Application {
 		while(!glfwWindowShouldClose(_window)) {
 			glfwPollEvents();
 
+			if(_dirtyShaders) {
+				compileShaders();
+				_dirtyShaders = false;
+			}
+
 			ImGui_ImplVulkan_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
@@ -388,11 +412,6 @@ class Application {
 			if(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 				ImGui::UpdatePlatformWindows();
 				ImGui::RenderPlatformWindowsDefault();
-			}
-
-			if(_dirtyShaders) {
-				compileShaders();
-				_dirtyShaders = false;
 			}
 
 			if(_irradianceProbeAutoUpdate)

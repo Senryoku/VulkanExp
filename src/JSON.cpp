@@ -117,20 +117,28 @@ JSON::string JSON::parseString(std::ifstream& file) {
 }
 
 JSON::number JSON::parseNumber(std::ifstream& file) {
-	char		byte;
-	std::string str;
-	bool		isFloat = false;
+	char   byte;
+	char   buffer[32];
+	size_t size = 0;
+	bool   isFloat = false;
 	file.get(byte);
 	do {
-		str += byte;
+		assert(size < 32);
+		buffer[size] = byte;
+		++size;
 		if(byte == '.' || byte == 'e' || byte == 'E')
 			isFloat = true;
 		file.get(byte);
 	} while(file && (byte == '-' || byte == '+' || (byte >= '0' && byte <= '9') || byte == '.' || byte == 'e' || byte == 'E'));
-	if(isFloat)
-		return number{std::stof(str)};
-	else
-		return number{std::stoi(str)};
+	if(isFloat) {
+		float f;
+		std::from_chars(buffer + 0, buffer + size, f);
+		return number{f};
+	} else {
+		int i;
+		std::from_chars(buffer + 0, buffer + size, i);
+		return number{i};
+	}
 }
 
 bool JSON::parseBoolean(std::ifstream& file) {

@@ -28,6 +28,7 @@ void Application::run() {
 	system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
 	{
 		QuickTimer qt("glTF load");
+		//_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		_scene.load("./data/models/Sponza/Sponza.gltf");
 		//_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
@@ -93,7 +94,7 @@ void Application::drawFrame() {
 	VkRenderPassBeginInfo rpinfo{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = _imguiRenderPass,
-		.framebuffer = _imguiFramebuffers[imageIndex],
+		.framebuffer = _presentFramebuffers[imageIndex],
 		.renderArea = {.extent = _swapChainExtent},
 		.clearValueCount = 1,
 		.pClearValues = clearValues.data(),

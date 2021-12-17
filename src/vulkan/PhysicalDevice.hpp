@@ -11,6 +11,16 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	PhysicalDevice() = default;
 	explicit PhysicalDevice(VkPhysicalDevice handle) : HandleWrapper(handle) {}
 
+	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPipelineProperties() const {
+		VkPhysicalDeviceRayTracingPropertiesNV r = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+		VkPhysicalDeviceProperties2			   deviceProperties{
+					   .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+					   .pNext = &r,
+		   };
+		vkGetPhysicalDeviceProperties2(_handle, &deviceProperties);
+		return r;
+	};
+
 	struct QueueFamilyIndices {
 		QueueFamilyIndices(VkSurfaceKHR surface, VkPhysicalDevice device) {
 			uint32_t queueFamilyCount = 0;

@@ -122,6 +122,7 @@ void Application::initVulkan() {
 		f.create(_device);
 
 	initImGui(graphicsFamily);
+	uiOnSwapChainReady();
 }
 
 void Application::createInstance() {
@@ -175,10 +176,10 @@ void Application::cleanupVulkan() {
 	_accStructInstancesMemory.free();
 	_accStructTransformBuffer.destroy();
 	_accStructTransformMemory.free();
-	for(size_t i = 0; i < _rayShaderBindingTablesCount; ++i) {
-		_rayTracingShaderBindingTables[i].destroy();
-		_rayTracingShaderBindingTablesMemory[i].free();
-	}
+
+	// We souldn't have to recreate the underlying buffer/memory on swapchain re-creation.
+	_reflectionShadowShaderBindingTable.destroy();
+	_raytracingShaderBindingTable.destroy();
 
 	for(auto& f : _inFlightFences)
 		f.destroy();
