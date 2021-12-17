@@ -262,8 +262,8 @@ void Application::createAccelerationStructure() {
 
 void Application::createRayTracingPipeline() {
 	auto rayTracingPipelineProperties = _device.getPhysicalDevice().getRaytracingPipelineProperties();
-	if(rayTracingPipelineProperties.maxRecursionDepth <= 1) {
-		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 2 for this pipeline.");
+	if(rayTracingPipelineProperties.maxRecursionDepth <= 2) {
+		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 3 for this pipeline.");
 	}
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
@@ -335,7 +335,7 @@ void Application::createRayTracingPipeline() {
 		.pStages = shader_stages.data(),
 		.groupCount = static_cast<uint32_t>(shader_groups.size()),
 		.pGroups = shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 2,
+		.maxPipelineRayRecursionDepth = 3,
 		.layout = _rayTracingPipelineLayout,
 	};
 	_rayTracingPipeline.create(_device, raytracing_pipeline_create_info, _pipelineCache);

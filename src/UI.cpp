@@ -126,6 +126,9 @@ void Application::uiOnSwapChainReady() {
 	DebugTextureIDs.clear();
 	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
 		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(size_t i = 0; i < _directLightImageViews.size(); ++i)
+		DebugTextureIDs.push_back(
+			{fmt::format("Direct Light {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _directLightImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
 		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 }
@@ -179,9 +182,10 @@ void Application::drawUI() {
 		};
 
 		quickDisplay(_currentFrame);
-		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 0);
-		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 1);
-		quickDisplay(_reflectionImageViews.size() + _currentFrame * _swapChainImages.size() + 2);
+		quickDisplay(_reflectionImageViews.size() + _currentFrame);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 0);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 1);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 2);
 
 		for(const auto& texture : DebugTextureIDs) {
 			if(ImGui::TreeNode(texture.name.c_str())) {

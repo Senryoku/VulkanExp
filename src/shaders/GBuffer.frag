@@ -21,7 +21,7 @@ vec3 lightDir = normalize(vec3(-1, 6, 1));
 
 void main() {
     vec4 texColor = texture(texSampler, texCoord);
-    if(texColor.a == 0) discard; // FIXME: This is a really bad way of handling transparency :)
+    if(texColor.a < 0.05) discard; // FIXME: This is a really bad way of handling transparency :)
 
     vec3 tangentSpaceNormal = normalize(2.0 * texture(normalTexSampler, texCoord).rgb - 1.0);
     vec3 finalNormal = mat3(tangent.xyz, bitangent, normalize(normal)) * tangentSpaceNormal;

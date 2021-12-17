@@ -113,12 +113,12 @@ struct Light {
 
 Light Lights[3] = {
 	Light(0, vec3(4.0), normalize(vec3(-1, 7, 2))),
-	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(-620, 160, 143.5)),
-	Light(1, vec3(30000.0, 10000.0, 10000.0), vec3(487, 160, 143.5))
+	Light(1, vec3(300.0, 100.0, 100.0), vec3(-620, 160, 143.5)),
+	Light(1, vec3(300.0, 100.0, 100.0), vec3(487, 160, 143.5))
 };
 
 void main()
-{		
+{
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
 	vec3 position = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
@@ -154,16 +154,40 @@ void main()
 
 	vec3 color = vec3(0) + emissiveLight;
 
-	if(payload.depth > 0 && payload.depth < gl_HitTEXT)
-		color += payload.color.rgb;
-
 	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth);  
 	color += indirectLight * texColor.rgb;
+	
+	float tmax = 10000.0;
+	vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.
+	vec3 reflectDir = reflect(normalize(position - gl_WorldRayOriginEXT), normal);
+	if(payload.recursionDepth == 0) {
+		++payload.recursionDepth;
+		vec2 polar = cartesianToPolar(reflectDir);
+		payload.color = vec4(0);
+		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));
+		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
+		traceRayEXT(topLevelAS,        // acceleration structure
+				0,                     // rayFlags
+				0xFF,                  // cullMask
+				0,                     // sbtRecordOffset
+				0,                     // sbtRecordStride
+				0,                     // missIndex
+				position,              // ray origin
+				0.1,                   // ray min range
+				reflectDir,            // ray direction
+				tmax,                  // ray max range
+				0                      
+		);
+		--payload.recursionDepth;
+		specularLight = payload.color.rgb;
+	}
+	color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 
+	// Direct lighting
 	for(int i = 0; i < Lights.length(); ++i) {
 		isShadowed = true;
 		vec3 direction = Lights[i].type == 0 ? Lights[i].direction : normalize(Lights[i].direction - position);
-		float tmax = Lights[i].type == 0 ? 10000.0 : length(Lights[i].direction - position);
+		tmax = Lights[i].type == 0 ? 10000.0 : length(Lights[i].direction - position);
 		traceRayEXT(topLevelAS,            // acceleration structure
 					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
 					0xFF,                  // cullMask
@@ -182,14 +206,10 @@ void main()
 		} else {
 			attenuation = 1.0;
 		}
-
-		// Basic Light Model
-		//color += attenuation * clamp(dot(LightDir, normal), 0.2, 1.0) * LightColor * texColor.rgb;
-
-		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1));
-		// Hopefully a better one someday :) - Missing the specular rn, so way darker
-		vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.
-		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, indirectLight, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+		
+		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
+		vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / (length(Lights[i].direction - position) + 1); // Should realistically be ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1)); but require very powerfull light to have an impact, idk.
+		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), attenuation * lightColor, Lights[i].direction, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	}
 
 	payload.color = vec4(color, texColor.a);

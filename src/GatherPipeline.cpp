@@ -14,13 +14,13 @@ void Application::createGatherPipeline() {
 	builder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT) // Reflection
-		//.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT) // Direct Light
-		.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)		 // Materials
-		.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Grid Parameters
-		.add(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
-		.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
-		.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		 // Camera
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Reflection
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Direct Light
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)	  // Materials
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Grid Parameters
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		  // Camera
 	_gatherDescriptorSetLayout = builder.build(_device);
 
 	uint32_t			  descriptorSetsCount = _swapChainImages.size();
@@ -162,22 +162,20 @@ void Application::createGatherPipeline() {
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					 .imageView = _reflectionImageViews[i],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				 });
-		/*
-		dsw.add(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				{
-					.sampler =
-						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					.imageView = _directLightImageViews[i],
-					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				});
-				*/
-		dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				{
-					.buffer = MaterialBuffer,
-					.offset = 0,
-					.range = sizeof(Material::GPUData) * Materials.size(),
-				})
+				 })
+			.add(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _directLightImageViews[i],
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				 {
+					 .buffer = MaterialBuffer,
+					 .offset = 0,
+					 .range = sizeof(Material::GPUData) * Materials.size(),
+				 })
 			.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				 {
 					 .buffer = _irradianceProbes.getGridParametersBuffer(),

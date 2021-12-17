@@ -37,7 +37,8 @@ void main()
 	
 	vec4 dytarget = inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy + uvec2(0, 1)), 1, 1);
 	payload.raydy = (inverse(ubo.view) * vec4(normalize(dytarget.xyz), 0)).xyz;
-
+	
+	payload.recursionDepth = 0;
 	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
