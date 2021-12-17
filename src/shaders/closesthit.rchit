@@ -48,11 +48,10 @@ hitAttributeEXT vec3 attribs;
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl
 vec4 texDerivative(vec3 worldPosition, Vertex v0, Vertex v1, Vertex v2, vec3 raydx, vec3 raydy) {
-    vec3 normal = normalize(cross(v1.pos - v0.pos, v2.pos - v0.pos));
-
 	vec3 dpdu, dpdv;
-    vec3 p01 = v1.pos - v0.pos;
-    vec3 p02 = v2.pos - v0.pos;
+    vec3 p01 = mat3(gl_ObjectToWorldEXT) * (v1.pos - v0.pos);
+    vec3 p02 = mat3(gl_ObjectToWorldEXT) * (v2.pos - v0.pos);
+	vec3 normal = normalize(cross(p01, p02));
 
 	vec2 tex01 = v1.texCoord - v0.texCoord;
 	vec2 tex02 = v2.texCoord - v0.texCoord;
@@ -103,7 +102,7 @@ vec4 texDerivative(vec3 worldPosition, Vertex v0, Vertex v1, Vertex v2, vec3 ray
             dvdy = (-a10 * dpdy[dim0] - a00 * dpdy[dim1]) * inv_det;
         }
     }
-
+	
 	return vec4(dudx, dvdx, dudy, dvdy);
 }
 
