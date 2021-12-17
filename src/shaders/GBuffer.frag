@@ -24,7 +24,7 @@ void main() {
     if(texColor.a < 0.05) discard; // FIXME: This is a really bad way of handling transparency :)
 
     vec3 tangentSpaceNormal = normalize(2.0 * texture(normalTexSampler, texCoord).rgb - 1.0);
-    vec3 finalNormal = mat3(tangent.xyz, bitangent, normalize(normal)) * tangentSpaceNormal;
+    vec3 finalNormal = normalize(mat3(normalize(tangent.xyz), normalize(bitangent), normalize(normal)) * tangentSpaceNormal);
 
     outPositionDepth = positionDepth;
     outNormalMaterial = vec4(finalNormal, uintBitsToFloat(material));
