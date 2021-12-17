@@ -26,7 +26,7 @@ layout(location = 5) out ivec2 probeUVOffset;
 layout(location = 6) out ivec2 probeDepthUVOffset;
 layout(location = 7) out vec2 uvScaling;
 
-const float ProbeSize = 0.1;
+const float ProbeSize = 8;
 
 void main() {
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);

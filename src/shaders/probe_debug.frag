@@ -24,12 +24,12 @@ void main() {
     #if 1
     vec2 localUV = (float(colorRes - 2) / colorRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
     vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
-    vec3 c = texture(colorTex, uv).xyz;
+    vec3 c = textureLod(colorTex, uv, 0).xyz;
     outColor = vec4(c, 1.0);
     # else
     vec2 localUV = (float(depthRes - 2) / depthRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
     vec2 uv = (probeDepthUVOffset  + ivec2(1, 1)) / uvScaling / depthRes + localUV;
-    vec3 c = texture(depthTex, uv).xyz;
+    vec3 c = textureLod(depthTex, uv, 0).xyz;
     outColor = vec4(0.0, c.x, 0.0, 1.0);
     #endif
 }

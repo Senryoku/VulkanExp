@@ -29,8 +29,8 @@ void Application::run() {
 	{
 		QuickTimer qt("glTF load");
 		//_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		//_scene.load("./data/models/Sponza/Sponza.gltf");
-		_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
+		_scene.load("./data/models/Sponza/Sponza.gltf");
+		//_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
 	_probeMesh.load("./data/models/sphere.gltf");

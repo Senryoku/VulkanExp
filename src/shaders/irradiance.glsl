@@ -181,7 +181,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         float fallbackWeight = weight;
 
         // Moment visibility test
-        vec2 depth = texture(depthTex, depthUV).xy;
+        vec2 depth = textureLod(depthTex, depthUV, 0).xy;
         float mean = depth.x;
         float variance = abs(depth.x * depth.x - depth.y);
         float biasedDistToProbe = length(probePosition - biasedPosition);
@@ -200,7 +200,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         weight *= trilinear.x * trilinear.y * trilinear.z + 0.001f;
         fallbackWeight *= trilinear.x * trilinear.y * trilinear.z + 0.001f;
 
-        vec3 color = texture(colorTex, colorUV).xyz;
+        vec3 color = textureLod(colorTex, colorUV, 0).xyz;
         // Non-physical blending, smooths the transitions between probes
         //color = sqrt(color);
         
