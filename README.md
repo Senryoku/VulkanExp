@@ -10,6 +10,8 @@
  - Scene
  - - Import model(s) INTO a scene;
  - - Save
+ - Sun Direction in UBO
+ - - +Time of day that could be used in the miss shader for overcast light?
  - Better lightning model < !
  - - Glossy Term: Correctly sample a BRDF; Generate screen reflections mip maps and pick the correct one based on material (and depth?)
  - GI. Irradiance Probes for Indirect lightning.

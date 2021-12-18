@@ -29,8 +29,8 @@ void Application::run() {
 	{
 		QuickTimer qt("glTF load");
 		//_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		_scene.load("./data/models/Sponza/Sponza.gltf");
-		//_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
+		//_scene.load("./data/models/Sponza/Sponza.gltf");
+		_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
 	_probeMesh.load("./data/models/sphere.gltf");
@@ -178,20 +178,27 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
-	cameraControl(time);
+	{
+		cameraControl(time);
 
-	_camera.updateView();
-	_camera.updateProjection(_swapChainExtent.width / (float)_swapChainExtent.height);
+		_camera.updateView();
+		_camera.updateProjection(_swapChainExtent.width / (float)_swapChainExtent.height);
 
-	CameraBuffer ubo{
-		.view = _camera.getViewMatrix(),
-		.proj = _camera.getProjectionMatrix(),
-	};
-	ubo.proj[1][1] *= -1;
+		CameraBuffer ubo{
+			.view = _camera.getViewMatrix(),
+			.proj = _camera.getProjectionMatrix(),
+		};
+		ubo.proj[1][1] *= -1;
 
-	void*  data;
-	size_t offset = static_cast<size_t>(currentImage) * _uboStride; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
-	VK_CHECK(vkMapMemory(_device, _cameraUniformBuffersMemory, offset, sizeof(ubo), 0, &data));
-	memcpy(data, &ubo, sizeof(ubo));
-	vkUnmapMemory(_device, _cameraUniformBuffersMemory);
+		void*  data;
+		size_t offset = static_cast<size_t>(currentImage) * _uboStride; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
+		VK_CHECK(vkMapMemory(_device, _cameraUniformBuffersMemory, offset, sizeof(ubo), 0, &data));
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(_device, _cameraUniformBuffersMemory);
+	}
+
+	{
+		size_t offset = static_cast<size_t>(currentImage) * _lightUboStride;
+		_lightUniformBuffersMemory.fill(reinterpret_cast<char*>(&_light), sizeof(LightBuffer), offset);
+	}
 }

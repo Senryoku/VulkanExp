@@ -144,20 +144,38 @@ void Application::createSwapChain() {
 	_depthImageView.create(_device, _depthImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-void Application::initCameraBuffer() {
-	VkDeviceSize bufferSize = sizeof(CameraBuffer);
-	_cameraUniformBuffers.resize(_swapChainImages.size());
-	for(size_t i = 0; i < _swapChainImages.size(); i++)
-		_cameraUniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
-	auto   memReq = _cameraUniformBuffers[0].getMemoryRequirements();
-	size_t memSize = (2 + _swapChainImages.size() * bufferSize / memReq.alignment) * memReq.alignment;
-	_cameraUniformBuffersMemory.allocate(_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-										 memSize);
-	size_t offset = 0;
-	_uboStride = (1 + bufferSize / memReq.alignment) * memReq.alignment;
-	for(size_t i = 0; i < _swapChainImages.size(); i++) {
-		vkBindBufferMemory(_device, _cameraUniformBuffers[i], _cameraUniformBuffersMemory, offset);
-		offset += _uboStride;
+void Application::initUniformBuffers() {
+	{
+		VkDeviceSize bufferSize = sizeof(CameraBuffer);
+		_cameraUniformBuffers.resize(_swapChainImages.size());
+		for(size_t i = 0; i < _swapChainImages.size(); i++)
+			_cameraUniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
+		auto   memReq = _cameraUniformBuffers[0].getMemoryRequirements();
+		size_t memSize = _swapChainImages.size() * memReq.size; // (_swapChainImages.size() * (1 + bufferSize / memReq.alignment)) * memReq.alignment;
+		_cameraUniformBuffersMemory.allocate(
+			_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), memSize);
+		size_t offset = 0;
+		_uboStride = (1 + bufferSize / memReq.alignment) * memReq.alignment;
+		for(size_t i = 0; i < _swapChainImages.size(); i++) {
+			vkBindBufferMemory(_device, _cameraUniformBuffers[i], _cameraUniformBuffersMemory, offset);
+			offset += _uboStride;
+		}
+	}
+	{
+		VkDeviceSize bufferSize = sizeof(LightBuffer);
+		_lightUniformBuffers.resize(_swapChainImages.size());
+		for(size_t i = 0; i < _swapChainImages.size(); i++)
+			_lightUniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
+		auto   memReq = _lightUniformBuffers[0].getMemoryRequirements();
+		size_t memSize = _swapChainImages.size() * memReq.size; //(_swapChainImages.size() * (1 + bufferSize / memReq.alignment)) * memReq.alignment;
+		_lightUniformBuffersMemory.allocate(
+			_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), memSize);
+		size_t offset = 0;
+		_lightUboStride = (1 + bufferSize / memReq.alignment) * memReq.alignment;
+		for(size_t i = 0; i < _swapChainImages.size(); i++) {
+			vkBindBufferMemory(_device, _lightUniformBuffers[i], _lightUniformBuffersMemory, offset);
+			offset += _lightUboStride;
+		}
 	}
 }
 
@@ -575,7 +593,7 @@ void Application::initSwapChain() {
 										  _swapChainExtent);
 	}
 
-	initCameraBuffer();
+	initUniformBuffers();
 
 	createGBufferPipeline();
 	createGatherPipeline();
@@ -650,7 +668,7 @@ void Application::initSwapChain() {
 	// Irradiances Probes & Debug
 	_irradianceProbes.createPipeline();
 	// FIXME: Should not be there, just WIP
-	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure);
+	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure, _lightUniformBuffers[0]); // FIXME: Should update the used light buffer with the frame
 	initProbeDebug();
 
 	recordCommandBuffers();
@@ -883,9 +901,10 @@ void Application::cleanupSwapChain() {
 	_probeDebugDescriptorSetLayouts.clear();
 	_probeDebugPipeline.destroy();
 
-	for(auto& b : _cameraUniformBuffers)
-		b.destroy();
+	_cameraUniformBuffers.clear();
 	_cameraUniformBuffersMemory.free();
+	_lightUniformBuffers.clear();
+	_lightUniformBuffersMemory.free();
 	_gbufferDescriptorPool.destroy();
 	_reflectionShadowDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();

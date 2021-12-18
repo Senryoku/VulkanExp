@@ -59,6 +59,7 @@
     <ClInclude Include="src\Camera.hpp" />
     <ClInclude Include="src\glTF.hpp" />
     <ClInclude Include="src\ImGuiExtensions.hpp" />
+    <ClInclude Include="src\Light.hpp" />
     <ClInclude Include="src\QuickTimer.hpp" />
     <ClInclude Include="src\Raytracing.hpp" />
     <ClInclude Include="src\Resources.hpp" />

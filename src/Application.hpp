@@ -37,6 +37,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <IrradianceProbes.hpp>
+#include <Light.hpp>
 #include <QuickTimer.hpp>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -153,9 +154,14 @@ class Application {
 	void createReflectionShadowPipeline();
 	void createGatherPipeline();
 
+	LightBuffer _light;
+
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;
 	DeviceMemory		_cameraUniformBuffersMemory;
+	size_t				_lightUboStride = 0;
+	std::vector<Buffer> _lightUniformBuffers;
+	DeviceMemory		_lightUniformBuffersMemory;
 
 	VkDescriptorPool		 _imguiDescriptorPool;
 	std::vector<Framebuffer> _presentFramebuffers;
@@ -217,7 +223,7 @@ class Application {
 	void createInstance();
 	void createSwapChain();
 	void initSwapChain();
-	void initCameraBuffer();
+	void initUniformBuffers();
 	void initProbeDebug();
 	void recordCommandBuffers();
 	void recreateSwapChain();
@@ -420,7 +426,7 @@ class Application {
 				fencesHandles.reserve(_inFlightFences.size());
 				for(const auto& fence : _inFlightFences)
 					fencesHandles.push_back(fence);
-				VK_CHECK(vkWaitForFences(_device, fencesHandles.size(), fencesHandles.data(), VK_TRUE, UINT64_MAX));
+				VK_CHECK(vkWaitForFences(_device, static_cast<uint32_t>(fencesHandles.size()), fencesHandles.data(), VK_TRUE, UINT64_MAX));
 				recordCommandBuffers();
 				_outdatedCommandBuffers = false;
 			}

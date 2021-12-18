@@ -218,8 +218,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
     //finalColor *= finalColor;
     //fallbackColor *= fallbackColor;
     
-    return mix(fallbackColor, finalColor, clamp(totalWeight, 0 ,1));
-    //return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0 ,1));
+    return mix(fallbackColor, finalColor, clamp(totalWeight, 0, 1));
+    //return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0, 1));
 }
 
 #endif

@@ -2,6 +2,7 @@
 
 #include <DescriptorPool.hpp>
 #include <IrradianceProbes.hpp>
+#include <Light.hpp>
 #include <glTF.hpp>
 
 inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
@@ -16,14 +17,15 @@ inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 1) // Materials
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)									   // Grid Parameters
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)															   // Probes Color
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);															   // Probes Depth
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)															   // Probes Depth
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);									   // Light
 
 	return dslBuilder;
 }
 
 // Writes all the necessary descriptors for ray tracing
 inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure,
-										   const IrradianceProbes& irradianceProbes) {
+										   const IrradianceProbes& irradianceProbes, const Buffer& lightBuffer) {
 	DescriptorSetWriter dsw(descSet);
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
@@ -95,6 +97,12 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 			.imageView = irradianceProbes.getDepthView(),
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		});
+	dsw.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			{
+				.buffer = lightBuffer,
+				.offset = 0,
+				.range = sizeof(LightBuffer),
+			});
 
 	return dsw;
 }

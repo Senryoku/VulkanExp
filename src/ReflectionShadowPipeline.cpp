@@ -91,36 +91,37 @@ void Application::createReflectionShadowPipeline() {
 	_reflectionShadowDescriptorPool.allocate(layoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_device, _reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes);
+		auto writer =
+			baseSceneWriter(_device, _reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
-		writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
-		writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 0],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 1],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 2],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
 		// Result
-		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _reflectionImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _directLightImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,

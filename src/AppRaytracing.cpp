@@ -159,7 +159,7 @@ void Application::createAccelerationStructure() {
 			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
 			immediateSubmit([&](const CommandBuffer& commandBuffer) {
 				// Build all BLAS in a single call. Note: This might cause sync. issues if buffers are shared (We made sure the scratchBuffer is not.)
-				vkCmdBuildAccelerationStructuresKHR(commandBuffer, buildInfos.size(), buildInfos.data(), pRangeInfos.data());
+				vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
 			});
 		}
 	}
@@ -351,16 +351,17 @@ void Application::createRaytracingDescriptorSets() {
 	_rayTracingDescriptorPool.allocate(layoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes);
+		auto writer =
+			baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
-		writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
 		// Result
-		writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _rayTraceStorageImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,

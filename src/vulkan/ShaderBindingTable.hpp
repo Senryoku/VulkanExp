@@ -16,7 +16,7 @@ struct ShaderBindingTable {
 	VkStridedDeviceAddressRegionKHR anyhitEntry;
 	VkStridedDeviceAddressRegionKHR callableEntry;
 
-	void create(const Device& device, const std::array<size_t, 4> entriesCount, VkPipeline pipeline) {
+	void create(const Device& device, const std::array<uint32_t, 4> entriesCount, VkPipeline pipeline) {
 		auto rayTracingPipelineProperties = device.getPhysicalDevice().getRaytracingPipelineProperties();
 
 		const size_t   totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];

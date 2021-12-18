@@ -1,19 +1,24 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#include "Lights.glsl"
+
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
-layout(binding = 9, set = 0) uniform UniformBufferObject 
+layout(binding = 9, set = 0) uniform LightUBO {
+	Light DirectionalLight;
+};
+layout(binding = 10, set = 0) uniform UniformBufferObject 
 {
     mat4 view;
     mat4 proj;
 } ubo;
-layout(binding = 10, set = 0, rgba32f) uniform image2D positionDepthTex;
-layout(binding = 11, set = 0, rgba32f) uniform image2D normalMaterialTex;
-layout(binding = 12, set = 0, rgba32f) uniform image2D albedoTex;
+layout(binding = 11, set = 0, rgba32f) uniform image2D positionDepthTex;
+layout(binding = 12, set = 0, rgba32f) uniform image2D normalMaterialTex;
+layout(binding = 13, set = 0, rgba32f) uniform image2D albedoTex;
 
-layout(binding = 13, set = 0, rgba32f) uniform image2D reflectionOut;
-layout(binding = 14, set = 0, rgba32f) uniform image2D directLightOut;
+layout(binding = 14, set = 0, rgba32f) uniform image2D reflectionOut;
+layout(binding = 15, set = 0, rgba32f) uniform image2D directLightOut;
 
 #include "Material.glsl"
 #include "rayPayload.glsl"
@@ -28,8 +33,6 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 
 const float tmin = 0.001;
 const float tmax = 100000.0;
-
-#include "Lights.glsl"
 
 void main() 
 {
@@ -70,27 +73,23 @@ void main()
 
 	// Direct Light
 	vec3 color = vec3(0.0);
-	for(int i = 0; i < Lights.length(); ++i) {
-		isShadowed = true;
-		vec3 direction = Lights[i].type == 0 ? Lights[i].direction : normalize(Lights[i].direction - position);
-		float tmax = Lights[i].type == 0 ? 10000.0 : length(Lights[i].direction - position);
-		traceRayEXT(topLevelAS,            // acceleration structure
-					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
-					0xFF,                  // cullMask
-					0,                     // sbtRecordOffset
-					0,                     // sbtRecordStride
-					1,                     // missIndex
-					position,              // ray origin
-					0.1,                   // ray min range
-					direction,             // ray direction
-					tmax,                  // ray max range
-					1                      // payload (location = 1)
-		);
-		if(!isShadowed) {
-			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-			vec3 lightColor = Lights[i].type == 0 ? Lights[i].color : Lights[i].color / (length(Lights[i].direction - position) + 1); // Should realistically be ((length(Lights[i].direction - position) + 1) * (length(Lights[i].direction - position) + 1)); but require very powerfull light to have an impact, idk.
-			color += pbrMetallicRoughness(normal, toOrigin, lightColor, Lights[i].direction, albedo, material.metallicFactor, material.roughnessFactor).rgb;
-		}
+	isShadowed = true;
+	float tmax = 10000.0;
+	traceRayEXT(topLevelAS,            // acceleration structure
+				gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
+				0xFF,                  // cullMask
+				0,                     // sbtRecordOffset
+				0,                     // sbtRecordStride
+				1,                     // missIndex
+				position,              // ray origin
+				0.1,                   // ray min range
+				DirectionalLight.direction.xyz,             // ray direction
+				tmax,                  // ray max range
+				1                      // payload (location = 1)
+	);
+	if(!isShadowed) {
+		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
+		color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, material.metallicFactor, material.roughnessFactor).rgb;
 	}
 	imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
 }
