@@ -9,5 +9,5 @@ void main()
 {
 	payload.color = vec4(0.0);
 	payload.depth = -1.0f;
-    //payload.color = vec3(0.5294117647, 0.80784313725, 0.92156862745);
+    payload.color.rgb = 0.5f * vec3(0.5294117647, 0.80784313725, 0.92156862745);
 }

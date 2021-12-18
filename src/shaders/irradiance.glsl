@@ -141,6 +141,8 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 
 #extension GL_EXT_debug_printf : enable
 
+#define LINEAR_BLENDING
+
 vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
@@ -202,7 +204,9 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
 
         vec3 color = textureLod(colorTex, colorUV, 0).xyz;
         // Non-physical blending, smooths the transitions between probes
-        //color = sqrt(color);
+        #ifndef LINEAR_BLENDING     
+        color = sqrt(color);
+        #endif
         
         finalColor += weight * color; 
         totalWeight += weight; 
@@ -210,16 +214,16 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         fallbackColor += fallbackWeight * color;
         totalFallbackWeight += fallbackWeight;
     }
-
+    #ifdef LINEAR_BLENDING
     finalColor *= 1.0 / totalWeight;
     fallbackColor *= 1.0 / totalFallbackWeight;
-
-    // Undo the sqrt
-    //finalColor *= finalColor;
-    //fallbackColor *= fallbackColor;
-    
     return mix(fallbackColor, finalColor, clamp(totalWeight, 0, 1));
-    //return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0, 1));
-}
+    #else
+    // Undo the sqrt
+    finalColor *= finalColor;
+    fallbackColor *= fallbackColor;
+    return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0, 1));
+    #endif
+   }
 
 #endif
