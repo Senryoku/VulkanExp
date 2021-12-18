@@ -112,6 +112,13 @@ vec4 texDerivative(vec3 worldPosition, Vertex v0, Vertex v1, Vertex v2, vec3 ray
 
 void main()
 {
+	// Stop early if we're hiting the back face of a triangle. We're most likely inside a wall, this will prevent some light leaks with irradiance probes.
+	if(gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT) {
+		payload.color = vec4(0);
+		payload.depth = 0;
+		return;
+	}
+
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
 	vec3 position = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
