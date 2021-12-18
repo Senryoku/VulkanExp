@@ -94,7 +94,7 @@ void glTF::load(std::filesystem::path path) {
 		for(const auto& texture : object["textures"]) {
 			Textures.push_back(Texture{
 				.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_UNORM,											// FIXME: Use this for normal maps only! (or not?)
+				.format = VK_FORMAT_R8G8B8A8_SRGB, // VK_FORMAT_R8G8B8A8_UNORM,											// FIXME: Use this for normal maps only! (or not?)
 				.samplerDescription = object["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
 			});
 		}
@@ -120,6 +120,9 @@ void glTF::load(std::filesystem::path path) {
 			}
 			if(mat.contains("normalTexture")) {
 				material.normalTexture = mat["normalTexture"]["index"].as<int>();
+				// Change the default format of this texture now that we know it will be used as a normal map
+				if(material.normalTexture < Textures.size())
+					Textures[material.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
 			}
 			Materials.push_back(material);
 		}
