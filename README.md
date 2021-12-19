@@ -10,12 +10,18 @@
  - Scene
  - - Import model(s) INTO a scene;
  - - Save
+ - Use a sRGB render target
+ - - Contrast is really bad right now (irradiance only start being visible when the direct lights are blinding)
+ - - ImGui doesn't work well with sRGB render target, not sure how to fix it (just convert all the colors of the default style? =/)
  - Sun Direction in UBO
- - - +Time of day that could be used in the miss shader for overcast light?
+ - - Fix time of day scale/math
+ - - Use the actual sun intensity/size for the direct lights? (it is way too high for our renderer rn)
+ - - Display it in the main render path
  - Better lightning model < !
  - - Glossy Term: Correctly sample a BRDF; Generate screen reflections mip maps and pick the correct one based on material (and depth?)
  - GI. Irradiance Probes for Indirect lightning.
  - - With visibility term: https://www.gdcvault.com/play/1026182/
+ - - Add a customizable bias as a uniform
  - - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
  - Performance Metrics (GPU)
  - Some sort of AO

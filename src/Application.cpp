@@ -213,14 +213,15 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 				_hour -= 24;
 			}
 
-			// double fractionalYear = 2 * 3.14159265359 / 365.0 * (_dayOfTheYear - 1.0 + (_hour - 12.0) / 24.0);
-			// double declination = 0.006918 - 0.399912 * std::cos(fractionalYear) + 0.070257 * std::sin(fractionalYear) - 0.006758 * std::cos(2 * fractionalYear) +
-			//					 0.000907 * std::sin(2 * fractionalYear) - 0.002697 * std::cos(3 * fractionalYear) + 0.00148 * std::sin(3 * fractionalYear);
-			double declination = -std::asin(0.39779 * std::cos(toRad(0.98565) * (_dayOfTheYear + 10) + toRad(1.914) * std::sin(toRad(0.98565) * (_dayOfTheYear - 2))));
+			double fractionalYear = 2 * 3.14159265359 / 365.0 * (_dayOfTheYear - 1.0 + (_hour - 12.0) / 24.0);
+			double declination = 0.006918 - 0.399912 * std::cos(fractionalYear) + 0.070257 * std::sin(fractionalYear) - 0.006758 * std::cos(2 * fractionalYear) +
+								 0.000907 * std::sin(2 * fractionalYear) - 0.002697 * std::cos(3 * fractionalYear) + 0.00148 * std::sin(3 * fractionalYear);
 			double lat = toRad(_latitude);
 			double lon = toRad(_longitude);
 			// See https://en.wikipedia.org/wiki/Solar_azimuth_angle#The_formula_based_on_the_subsolar_point_and_the_atan2_function (with some simplifations)
-			double latssp = declination;													 // latitude of the subsolar point
+			double latssp = declination; // latitude of the subsolar point
+			// FIXME: Time scale in completely wrong, but I assume T(GMT) is in hours in the original paper
+			// (https://www.sciencedirect.com/science/article/pii/S0960148121004031?via%3Dihub) so I'm not sure what's wrong
 			double lonssp = -15.0 * (_hour + _minute / 60.0 - _utctimezone - 12.0 + 0 / 60); // longitude of the subsolar point
 			_light.direction = glm::vec4{
 				std::cos(latssp) * std::sin(lonssp - lon),

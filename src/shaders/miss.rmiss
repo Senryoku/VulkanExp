@@ -125,7 +125,7 @@ if(isinf(startOffset) || isnan(startOffset)) debugPrintfEXT("startOffset");
 		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(max(1e-3, 1.0f + g * g - 2.0 * g * miecos), 1.5);
 		color += miePhase * secondary;
 		if(!any(isinf(color)))
-			payload.color.rgb = color;
+			payload.color.rgb = clamp(color, 0, 1); // FIXME: This clamp should not be necessary, but it generates way too much energy right now, and probes leaks horribly (but the root is probably something else entirely)
 	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
 		float depth = traceSphereOutside(vec3(0), OuterRadius, position, gl_WorldRayDirectionEXT);
 		if(depth > 0) {
