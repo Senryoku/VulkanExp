@@ -19,8 +19,8 @@ layout(location = 0) rayPayloadInEXT rayPayload payload;
 const vec3 WaveLengths = vec3(0.650f, 0.570f, 0.475f);
 const vec3 InvWaveLengths = vec3(1.0f / pow(0.650f, 4.0f), 1.0f / pow(0.570f, 4.0f), 1.0f / pow(0.475f, 4.0f));
 const float AvegerageDensityAltitude = 0.25f; // [0, 1] factor of the atmosphere depth
-const float OuterRadius = 250.0f;
-const float InnerRadius = 200.0f;
+const float OuterRadius = 102500.0f;
+const float InnerRadius = 100000.0f;
 const float Scale = 1.0 / (OuterRadius - InnerRadius);
 
 float traceSphereOutside(vec3 center, float radius, vec3 origin, vec3 direction)
@@ -72,22 +72,33 @@ const float g = -0.990f;		// The Mie phase asymmetry factor
 
 void main()
 {
-	const vec3 planetCenter = vec3(0, InnerRadius, 0);
-	float height = length(gl_WorldRayOriginEXT);
-	vec3 lightDir = -normalize(DirectionalLight.direction.xyz);
+	payload.depth = -1.0f;
+	payload.color = vec4(0.0);
 
-	// We'll assume gl_WorldRayOriginEXT is inside the atmosphere
+	// Translate so y = 0 is on the planet surface
+	const vec3 planetCenter = vec3(0, -InnerRadius, 0);
+	vec3 position = gl_WorldRayOriginEXT - planetCenter;
+	float height = length(position);
+	vec3 lightDir = normalize(DirectionalLight.direction.xyz);
 	if(height < OuterRadius) {
-		float rayDepth = traceSphereInside(vec3(0), OuterRadius, gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT);
+		// Stop at the horizon (Intersection with the planet). 
+		if(gl_WorldRayOriginEXT.y > 0) {
+			float planetDistance = traceSphereOutside(vec3(0), InnerRadius, position, gl_WorldRayDirectionEXT);
+			if(planetDistance > 0) return;
+		} else { // We're inside the planet, arbitrary cutoff
+			if(gl_WorldRayDirectionEXT.y < 0) return;
+		}
+
+		float rayDepth = traceSphereInside(vec3(0), OuterRadius, position, gl_WorldRayDirectionEXT);
 		
 		float depth = exp(Scale/AvegerageDensityAltitude * (InnerRadius - height));
-		float startAngle = dot(gl_WorldRayDirectionEXT, gl_WorldRayOriginEXT) / height;
+		float startAngle = dot(gl_WorldRayDirectionEXT, position) / height;
 		float startOffset = depth * scale(startAngle);
 
 		float sampleLength = rayDepth / SampleCount;
 		float scaledLength = sampleLength * Scale;
 		vec3 sampleRay = gl_WorldRayDirectionEXT * sampleLength;
-		vec3 samplePoint = gl_WorldRayOriginEXT + 0.5 * sampleRay;
+		vec3 samplePoint = position + 0.5 * sampleRay;
 
 		vec3 color = vec3(0);
 		for(uint i = 0; i < SampleCount; ++i) {
@@ -107,14 +118,10 @@ void main()
 		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(1.0f + g * g - 2.0 * g * miecos, 1.5);
 		color += miePhase * secondary;
 		payload.color.rgb = color;
-		//payload.color.rgb = vec3(rayDepth / 4000.0);
-	} else { // We're outside the atmosphere
-		float depth = traceSphereOutside(vec3(0), OuterRadius, gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT);
+	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
+		float depth = traceSphereOutside(vec3(0), OuterRadius, position, gl_WorldRayDirectionEXT);
 		if(depth > 0) {
 			payload.color.rgb = 0.5f * vec3(0.5294117647, 0.80784313725, 0.92156862745);
-		} else {
-			payload.color = vec4(0.0);
 		}
 	}
-	payload.depth = -1.0f;
 }
