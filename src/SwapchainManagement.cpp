@@ -177,6 +177,9 @@ void Application::initUniformBuffers() {
 			offset += _lightUboStride;
 		}
 	}
+
+	for(size_t i = 0; i < _swapChainImages.size(); i++)
+		updateUniformBuffer(i);
 }
 
 void Application::initProbeDebug() {

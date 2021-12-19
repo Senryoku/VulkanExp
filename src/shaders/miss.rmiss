@@ -117,7 +117,8 @@ void main()
 		float miecos = dot(lightDir, -gl_WorldRayDirectionEXT);
 		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(1.0f + g * g - 2.0 * g * miecos, 1.5);
 		color += miePhase * secondary;
-		payload.color.rgb = color;
+		if(!any(isinf(color)))
+			payload.color.rgb = color;
 	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
 		float depth = traceSphereOutside(vec3(0), OuterRadius, position, gl_WorldRayDirectionEXT);
 		if(depth > 0) {
