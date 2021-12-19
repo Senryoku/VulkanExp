@@ -32,14 +32,15 @@ void Application::initImGui(uint32_t queueFamily) {
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
-	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.2f;
-	// ImGui::StyleColorsClassic();
+	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.6f;
+	// ImGui::GetStyle().Colors[ImGuiCol_ChildBg].w = 0.2f;
+	//  ImGui::StyleColorsClassic();
 
 	// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
 	ImGuiStyle& style = ImGui::GetStyle();
 	if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
 		style.WindowRounding = 0.0f;
-		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		// style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
 
 	// Create Dear ImGUI Descriptor Pool
