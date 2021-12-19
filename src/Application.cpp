@@ -172,6 +172,10 @@ void Application::cameraControl(float dt) {
 
 #include <glm/gtx/euler_angles.hpp>
 
+double toRad(double degree) {
+	return (degree * (3.14159265359 / 180));
+}
+
 void Application::updateUniformBuffer(uint32_t currentImage) {
 	static auto lastTime = std::chrono::high_resolution_clock::now();
 	auto		currentTime = std::chrono::high_resolution_clock::now();
@@ -198,6 +202,33 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	}
 
 	{
+		if(_deriveLightPositionFromTime) {
+			_minute += _dayCycleSpeed * time / 60.0;
+			while(_minute > 60) {
+				_hour = ++_hour;
+				_minute -= 60;
+			}
+			while(_hour > 24) {
+				_dayOfTheYear = (_dayOfTheYear + 1) % 365;
+				_hour -= 24;
+			}
+
+			// double fractionalYear = 2 * 3.14159265359 / 365.0 * (_dayOfTheYear - 1.0 + (_hour - 12.0) / 24.0);
+			// double declination = 0.006918 - 0.399912 * std::cos(fractionalYear) + 0.070257 * std::sin(fractionalYear) - 0.006758 * std::cos(2 * fractionalYear) +
+			//					 0.000907 * std::sin(2 * fractionalYear) - 0.002697 * std::cos(3 * fractionalYear) + 0.00148 * std::sin(3 * fractionalYear);
+			double declination = -std::asin(0.39779 * std::cos(toRad(0.98565) * (_dayOfTheYear + 10) + toRad(1.914) * std::sin(toRad(0.98565) * (_dayOfTheYear - 2))));
+			double lat = toRad(_latitude);
+			double lon = toRad(_longitude);
+			// See https://en.wikipedia.org/wiki/Solar_azimuth_angle#The_formula_based_on_the_subsolar_point_and_the_atan2_function (with some simplifations)
+			double latssp = declination;													 // latitude of the subsolar point
+			double lonssp = -15.0 * (_hour + _minute / 60.0 - _utctimezone - 12.0 + 0 / 60); // longitude of the subsolar point
+			_light.direction = glm::vec4{
+				std::cos(latssp) * std::sin(lonssp - lon),
+				std::cos(lat) * std::sin(latssp) - std::sin(lat) * std::cos(latssp) * std::cos(lonssp - lon),
+				std::sin(lat) * std::sin(latssp) + std::cos(lat) * std::cos(latssp) * std::cos(lonssp - lon),
+				1.0,
+			};
+		}
 		size_t offset = static_cast<size_t>(currentImage) * _lightUboStride;
 		_lightUniformBuffersMemory.fill(reinterpret_cast<char*>(&_light), sizeof(LightBuffer), offset);
 	}

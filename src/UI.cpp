@@ -241,7 +241,23 @@ void Application::drawUI() {
 
 	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
+		ImGui::Checkbox("Use time of day", &_deriveLightPositionFromTime);
+		if(!_deriveLightPositionFromTime)
+			ImGui::BeginDisabled();
+		ImGui::InputFloat("Day Cycle Speed", &_dayCycleSpeed, 0.0f, 100.f);
+		ImGui::InputInt("Day of the Year", &_dayOfTheYear, 0, 365);
+		ImGui::InputInt("Hour", &_hour, 0, 24);
+		ImGui::InputFloat("Minute", &_minute, 0.0f, 60.0f);
+		ImGui::InputFloat("Longitude", &_longitude, 0.0f, 90.f);
+		ImGui::InputFloat("Latitude", &_latitude, 0.0f, 90.0f);
+		ImGui::InputInt("Timezone", &_utctimezone, -12, 12);
+		if(!_deriveLightPositionFromTime)
+			ImGui::EndDisabled();
+		else
+			ImGui::BeginDisabled();
 		ImGui::InputFloat4("Light Direction", reinterpret_cast<float*>(&_light.direction));
+		if(_deriveLightPositionFromTime)
+			ImGui::EndDisabled();
 		ImGui::InputFloat4("Light Color", reinterpret_cast<float*>(&_light.color));
 		ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);

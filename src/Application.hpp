@@ -155,6 +155,14 @@ class Application {
 	void createGatherPipeline();
 
 	LightBuffer _light;
+	bool		_deriveLightPositionFromTime = true;
+	float		_dayCycleSpeed = 48.0;
+	int			_dayOfTheYear = 160;
+	int			_hour = 12;
+	float		_minute = 0;
+	float		_longitude = 5;
+	float		_latitude = 45;
+	int			_utctimezone = 1; // _timezone is a macro...
 
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;
