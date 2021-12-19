@@ -107,13 +107,24 @@ Breaking Changes:
 
 - Removed CalcListClipping() function. Prefer using ImGuiListClipper which can return non-contiguous ranges.
   Please open an issue if you think you really need this function. (#3841)
+- Backends: OSX: Added NSView* parameter to ImGui_ImplOSX_Init(). (#4759) [@stuartcarnie]
+  Updated Apple+Metal and Apple+GL example applications accordingly.
+
 
 Other Changes:
 
+- Added an assertion for the common user mistake of using "" as an identifier at the root level of a window
+  instead of using "##something". Empty identifiers are valid and useful in a very small amount of cases,
+  but 99.9% of the time if you need an empty label you should use "##something". (#1414, #2562, #2807, #4008,
+  #4158, #4375, #4548, #4657, #4796). READ THE FAQ ABOUT HOW THE ID STACK WORKS -> https://dearimgui.org/faq
 - Added GetMouseClickedCount() function, returning the number of successive clicks. (#3229) [@kudaba]
   (so IsMouseDoubleClicked(ImGuiMouseButton_Left) is same as GetMouseClickedCount(ImGuiMouseButton_Left) == 2,
   but it allows testing for triple clicks and more).
 - Modals: fixed issue hovering popups inside a child inside a modal. (#4676, #4527)
+- Modals, Popups, Windows: changes how appearing windows are interrupting popups and modals. (#4317) [@rokups]
+  - appearing windows created from within the begin stack of a popup/modal will no longer close it.
+  - appearing windows created not within the begin stack of a modal will no longer close the modal,
+    and automatically appear behind it.
 - Fixed IsWindowFocused()/IsWindowHovered() issues with childs inside popups. (#4676)
 - Nav: Ctrl+tabbing to cycle through windows is now enabled regardless of using the _NavEnableKeyboard
   configuration flag. This is part of an effort to generalize the use of keyboard inputs. (#4023, #787).
@@ -126,11 +137,17 @@ Other Changes:
 - Nav: with ImGuiConfigFlags_NavEnableSetMousePos enabled: Fixed absolute mouse position when using
   Home/End leads to scrolling. Fixed not setting mouse position when a failed move request (e.g. when
   already at edge) reactivates the navigation highlight.
+- Menus: fixed closing a menu inside a popup/modal by clicking on the popup/modal. (#3496, #4797)
+- Menus: fixed closing a menu by clicking on its menu-bar item when inside a popup. (#3496, #4797) [@xndcn]
+- Menus: fixed menu inside a popup/modal not inhibiting hovering of items in the popup/modal. (#3496, #4797)
+- Menus: fixed sub-menu items inside a popups from closing the popup.
 - InputText, Nav: fixed repeated calls to SetKeyboardFocusHere() preventing to use InputText(). (#4682)
 - Inputtext, Nav: fixed using SetKeyboardFocusHere() on InputTextMultiline(). (#4761)
 - InputText: made double-click select word, triple-line select line. Word delimitation logic differs
   slightly from the one used by CTRL+arrows. (#2244)
 - InputText: fixed ReadOnly flag preventing callbacks from receiving the text buffer. (#4762) [@actondev]
+- InputTextMultiline: fixed incorrect padding when FrameBorder > 0. (#3781, #4794)
+- InputTextMultiline: fixed vertical tracking with large values of FramePadding.y. (#3781, #4794)
 - Separator: fixed cover all columns while called inside a table. (#4787)
 - Clipper: currently focused item is automatically included in clipper range.
   Fixes issue where e.g. drag and dropping an item and scrolling ensure the item source location is
@@ -146,6 +163,8 @@ Other Changes:
 - Clipper: fixed invalid state when number of frozen table row is smaller than ItemCount.
 - Drag and Drop: BeginDragDropSource() with ImGuiDragDropFlags_SourceAllowNullID doesn't lose
   tooltip when scrolling. (#143)
+- Fonts: fixed infinite loop in ImFontGlyphRangesBuilder::AddRanges() when passing UINT16_MAX without
+  the IMGUI_USE_WCHAR32 compile-time option. (#4802) [@SlavicPotato]
 - Metrics: Added a node showing windows in submission order and showing the Begin() stack.
 - Misc: Added missing ImGuiMouseCursor_NotAllowed cursor for software rendering (when the
   io.MouseDrawCursor flag is enabled). (#4713) [@nobody-special666]
@@ -155,9 +174,18 @@ Other Changes:
 - Backends: Vulkan: Call vkCmdSetScissor() at the end of render with a full-viewport to reduce
   likehood of issues with people using VK_DYNAMIC_STATE_SCISSOR in their app without calling
   vkCmdSetScissor() explicitly every frame. (#4644)
+- Backends: OpenGL3: Using buffer orphaning + glBufferSubData(), seems to fix leaks with multi-viewports
+  with some Intel HD drivers, and perhaps improve performances. (#4468, #4504, #2981, #3381) [@parbo]
+- Backends: OpenGL2, Allegro5, Marmalade: Fixed mishandling of the ImDrawCmd::IdxOffset field.
+  This is an old bug, but due to the way we created drawlists, it never had any visible side-effect before.
+  The new code for handling Modal and CTRL+Tab dimming/whitening recently made the bug surface. (#4790)
 - Backends: DX12: Fixed DRAW_EMPTY_SCISSOR_RECTANGLE warnings. (#4775)
 - Backends: SDL_Renderer: Added support for large meshes (64k+ vertices) with 16-bit indices,
   enabling 'ImGuiBackendFlags_RendererHasVtxOffset' in the backend. (#3926) [@rokups]
+- Backends: OSX: Generally fix keyboard support. Keyboard arrays indexed using kVK_* codes, e.g.
+  ImGui::IsKeyPressed(kVK_Space). Don't set mouse cursor shape unconditionally. Handle two fingers scroll
+  cancel event. (#4759, #4253, #1873) [@stuartcarnie]
+- Backends: OSX: Add Game Controller support (need linking GameController framework) (#4759) [@stuartcarnie]
 - Backends: WebGPU: Passing explicit buffer sizes to wgpuRenderPassEncoderSetVertexBuffer() and
   wgpuRenderPassEncoderSetIndexBuffer() functions as validation layers appears to not do what the
   in-flux specs says. (#4766) [@meshula]
@@ -171,6 +199,7 @@ Docking+Viewports Branch:
 - Docking, Style: Docked windows honor display their border properly. (#2522)
 - Docking: Fixed incorrectly rounded tab bars for dock node that are not at the top of their dock tree.
 - Docking: Fixed single-frame node pos/size inconsistencies when window stop or start being submitted.
+- Docking: Prevent docking any window created above a popup/modal. (#4317)
 - Viewports: Made it possible to explicitly assign ImGuiWindowClass::ParentViewportId to 0 in order
   to ensure a window is not parented. Previously this would use the global default (which might be 0,
   but not always as it would depend on io.ConfigViewportsNoDefaultParent). (#3152, #2871)

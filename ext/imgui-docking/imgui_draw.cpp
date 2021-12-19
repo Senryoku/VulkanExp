@@ -481,6 +481,7 @@ void ImDrawList::_PopUnusedDrawCmd()
 
 void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
 {
+    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     IM_ASSERT(curr_cmd->UserCallback == NULL);
     if (curr_cmd->ElemCount != 0)
@@ -502,6 +503,7 @@ void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
 // Try to merge two last draw commands
 void ImDrawList::_TryMergeDrawCmds()
 {
+    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (ImDrawCmd_HeaderCompare(curr_cmd, prev_cmd) == 0 && curr_cmd->UserCallback == NULL && prev_cmd->UserCallback == NULL)
@@ -516,6 +518,7 @@ void ImDrawList::_TryMergeDrawCmds()
 void ImDrawList::_OnChangedClipRect()
 {
     // If current command is used with different settings we need to add a new command
+    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     if (curr_cmd->ElemCount != 0 && memcmp(&curr_cmd->ClipRect, &_CmdHeader.ClipRect, sizeof(ImVec4)) != 0)
     {
@@ -538,6 +541,7 @@ void ImDrawList::_OnChangedClipRect()
 void ImDrawList::_OnChangedTextureID()
 {
     // If current command is used with different settings we need to add a new command
+    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     if (curr_cmd->ElemCount != 0 && curr_cmd->TextureId != _CmdHeader.TextureId)
     {
@@ -561,6 +565,7 @@ void ImDrawList::_OnChangedVtxOffset()
 {
     // We don't need to compare curr_cmd->VtxOffset != _CmdHeader.VtxOffset because we know it'll be different at the time we call this.
     _VtxCurrentIdx = 0;
+    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     //IM_ASSERT(curr_cmd->VtxOffset != _CmdHeader.VtxOffset); // See #3349
     if (curr_cmd->ElemCount != 0)
@@ -3083,8 +3088,8 @@ void ImFontGlyphRangesBuilder::AddText(const char* text, const char* text_end)
 void ImFontGlyphRangesBuilder::AddRanges(const ImWchar* ranges)
 {
     for (; ranges[0]; ranges += 2)
-        for (ImWchar c = ranges[0]; c <= ranges[1]; c++)
-            AddChar(c);
+        for (unsigned int c = ranges[0]; c <= ranges[1] && c <= IM_UNICODE_CODEPOINT_MAX; c++) //-V560
+            AddChar((ImWchar)c);
 }
 
 void ImFontGlyphRangesBuilder::BuildRanges(ImVector<ImWchar>* out_ranges)

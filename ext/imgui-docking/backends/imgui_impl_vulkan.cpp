@@ -370,7 +370,7 @@ static void ImGui_ImplVulkan_SetupRenderState(ImDrawData* draw_data, VkPipeline 
 	// Bind pipeline and descriptor sets:
 	{
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-		// VkDescriptorSet desc_set[1] = { bd->DescriptorSet };
+		// VkDescriptorSet desc_set[1] = {bd->DescriptorSet};
 		// vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->PipelineLayout, 0, 1, desc_set, 0, NULL);
 	}
 
@@ -525,7 +525,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
 
 				// Bind descriptorset with font or user texture
 				VkDescriptorSet desc_set[1] = {(VkDescriptorSet)pcmd->TextureId};
-				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ImGui_ImplVulkan_GetBackendData()->PipelineLayout, 0, 1, desc_set, 0, NULL);
+				vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->PipelineLayout, 0, 1, desc_set, 0, NULL);
 
 				// Draw
 				vkCmdDrawIndexed(command_buffer, pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);
@@ -602,8 +602,7 @@ bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer) {
 		check_vk_result(err);
 	}
 
-	VkDescriptorSet font_descriptor_set = (VkDescriptorSet)ImGui_ImplVulkan_AddTexture(ImGui_ImplVulkan_GetBackendData()->FontSampler, ImGui_ImplVulkan_GetBackendData()->FontView,
-																					   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorSet font_descriptor_set = (VkDescriptorSet)ImGui_ImplVulkan_AddTexture(bd->FontSampler, bd->FontView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	// Create the Upload Buffer:
 	{
