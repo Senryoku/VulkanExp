@@ -1,5 +1,6 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_debug_printf : enable
 
 #include "common.glsl"
 #include "Lights.glsl"
@@ -80,6 +81,7 @@ void main()
 	vec3 position = gl_WorldRayOriginEXT - planetCenter;
 	float height = length(position);
 	vec3 lightDir = normalize(DirectionalLight.direction.xyz);
+
 	if(height < OuterRadius) {
 		// Stop at the horizon (Intersection with the planet). 
 		if(gl_WorldRayOriginEXT.y > 0) {
@@ -90,10 +92,14 @@ void main()
 		}
 
 		float rayDepth = traceSphereInside(vec3(0), OuterRadius, position, gl_WorldRayDirectionEXT);
+		if(isinf(rayDepth) || isnan(rayDepth)) return; // FIXME
 		
 		float depth = exp(Scale/AvegerageDensityAltitude * (InnerRadius - height));
+if(isinf(depth) || isnan(depth)) debugPrintfEXT("depth");
 		float startAngle = dot(gl_WorldRayDirectionEXT, position) / height;
+if(isinf(startAngle) || isnan(startAngle)) debugPrintfEXT("startAngle");
 		float startOffset = depth * scale(startAngle);
+if(isinf(startOffset) || isnan(startOffset)) debugPrintfEXT("startOffset");
 
 		float sampleLength = rayDepth / SampleCount;
 		float scaledLength = sampleLength * Scale;
@@ -108,14 +114,15 @@ void main()
 			float cameraAngle = dot(gl_WorldRayDirectionEXT, samplePoint) / height;
 			float scatter = startOffset + depth * (scale(lightAngle) - scale(cameraAngle));
 			vec3 attenuate = exp(-scatter * (InvWaveLengths * Kr4PI + Km4PI));
+			if(any(isinf(attenuate)) || any(isnan(attenuate))) continue; // FIXME
 			color += attenuate * (depth * scaledLength);
 			samplePoint += sampleRay;
 		}
 
-		vec3 secondary = color * KmESun;
+		vec3 secondary = color * KmESun;	
 		color *= InvWaveLengths * KrESun;
 		float miecos = dot(lightDir, -gl_WorldRayDirectionEXT);
-		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(1.0f + g * g - 2.0 * g * miecos, 1.5);
+		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(max(1e-3, 1.0f + g * g - 2.0 * g * miecos), 1.5);
 		color += miePhase * secondary;
 		if(!any(isinf(color)))
 			payload.color.rgb = color;
