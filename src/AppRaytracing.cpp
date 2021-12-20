@@ -157,7 +157,7 @@ void Application::createAccelerationStructure() {
 				pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
 
 			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
-			immediateSubmit([&](const CommandBuffer& commandBuffer) {
+			immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
 				// Build all BLAS in a single call. Note: This might cause sync. issues if buffers are shared (We made sure the scratchBuffer is not.)
 				vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
 			});
@@ -249,7 +249,7 @@ void Application::createAccelerationStructure() {
 	};
 	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
 
-	immediateSubmit([&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
+	immediateSubmitCompute([&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
 void Application::createRayTracingPipeline() {

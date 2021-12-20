@@ -80,7 +80,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	};
 	ImGui_ImplVulkan_Init(&init_info, _imguiRenderPass);
 
-	immediateSubmit([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
+	immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	for(const auto& texture : Textures) {
@@ -155,10 +155,10 @@ void Application::drawUI() {
 		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
 			_irradianceProbes.createPipeline();
-			_irradianceProbes.update(_scene, _graphicsQueue);
+			_irradianceProbes.update(_scene, _computeQueue);
 		}
 		if(ImGui::Button("Update Probes")) {
-			_irradianceProbes.update(_scene, _graphicsQueue);
+			_irradianceProbes.update(_scene, _computeQueue);
 		}
 		float scale = 3.0f;
 		ImGui::Text("Probes Color");
@@ -197,7 +197,7 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
-	if(ImGui::Begin("Scenes", nullptr, ImGuiWindowFlags_NoBackground /* FIXME: Doesn't work. */)) {
+	if(ImGui::Begin("Scenes")) {
 		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
@@ -239,7 +239,6 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
-	ImGui::SetNextWindowBgAlpha(0.35f); // FIXME: Doesn't work.
 	if(ImGui::Begin("Rendering Settings")) {
 		ImGui::Checkbox("Use time of day", &_deriveLightPositionFromTime);
 		if(!_deriveLightPositionFromTime)
@@ -294,6 +293,24 @@ void Application::drawUI() {
 			if(uniformNeedsUpdate)
 				_irradianceProbes.updateUniforms();
 			ImGui::TreePop();
+		}
+	}
+	ImGui::End();
+
+	if(ImGui::Begin("Device")) {
+		const auto& properties = _physicalDevice.getProperties();
+		const auto& queueFamilies = _physicalDevice.getQueueFamilies();
+		ImGui::Text(properties.deviceName);
+		ImGui::Text("Queues (%d):", queueFamilies.size());
+		for(const auto& queueFamily : queueFamilies) {
+			std::string desc = std::to_string(queueFamily.queueCount);
+			if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+				desc += " Graphics";
+			if(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+				desc += " Compute";
+			if(queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+				desc += " Transfer";
+			ImGui::Text(desc.c_str());
 		}
 	}
 	ImGui::End();

@@ -104,7 +104,10 @@ class Application {
 	Device					 _device;
 	VkSurfaceKHR			 _surface;
 	VkQueue					 _graphicsQueue;
+	VkQueue					 _computeQueue;
+	VkQueue					 _transfertQueue;
 	VkQueue					 _presentQueue;
+	CommandPool				 _computeCommandPool;
 
 	Texture _blankTexture;
 
@@ -115,7 +118,7 @@ class Application {
 	std::vector<ImageView> _swapChainImageViews;
 	VkFormat			   _depthFormat;
 
-	CommandPool _tempCommandPool;
+	CommandPool _transfertCommandPool;
 
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
@@ -370,7 +373,25 @@ class Application {
 
 	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
 		CommandBuffers buffers;
-		buffers.allocate(_device, _tempCommandPool, 1);
+		buffers.allocate(_device, _transfertCommandPool, 1);
+		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+		function(buffers[0]);
+
+		buffers[0].end();
+		VkSubmitInfo submitInfo{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.commandBufferCount = 1,
+			.pCommandBuffers = buffers.getBuffersHandles().data(),
+		};
+		VK_CHECK(vkQueueSubmit(_transfertQueue, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK(vkQueueWaitIdle(_transfertQueue));
+		buffers.free();
+	}
+
+	void immediateSubmitGraphics(std::function<void(VkCommandBuffer cmd)>&& function) {
+		CommandBuffers buffers;
+		buffers.allocate(_device, _commandPool, 1);
 		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		function(buffers[0]);
@@ -383,6 +404,24 @@ class Application {
 		};
 		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
 		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
+		buffers.free();
+	}
+
+	void immediateSubmitCompute(std::function<void(VkCommandBuffer cmd)>&& function) {
+		CommandBuffers buffers;
+		buffers.allocate(_device, _computeCommandPool, 1);
+		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+		function(buffers[0]);
+
+		buffers[0].end();
+		VkSubmitInfo submitInfo{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.commandBufferCount = 1,
+			.pCommandBuffers = buffers.getBuffersHandles().data(),
+		};
+		VK_CHECK(vkQueueSubmit(_computeQueue, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK(vkQueueWaitIdle(_computeQueue));
 		buffers.free();
 	}
 
@@ -412,7 +451,7 @@ class Application {
 			}
 
 			if(_irradianceProbeAutoUpdate)
-				_irradianceProbes.update(_scene, _graphicsQueue);
+				_irradianceProbes.update(_scene, _computeQueue);
 
 			if(_outdatedCommandBuffers) {
 				std::vector<VkFence> fencesHandles;

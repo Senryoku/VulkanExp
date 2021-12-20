@@ -5,31 +5,27 @@
 
 class CommandPool : public HandleWrapper<VkCommandPool> {
   public:
-    void create(VkDevice device, uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0) {
-        VkCommandPoolCreateInfo poolInfo{
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags = flags,
-            .queueFamilyIndex = queueFamilyIndex,
-        };
+	void create(VkDevice device, uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0) {
+		VkCommandPoolCreateInfo poolInfo{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			.flags = flags,
+			.queueFamilyIndex = queueFamilyIndex,
+		};
 
-        if(vkCreateCommandPool(device, &poolInfo, nullptr, &_handle) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create command pool!");
-        }
+		VK_CHECK(vkCreateCommandPool(device, &poolInfo, nullptr, &_handle));
 
-        _device = device;
-    }
+		_device = device;
+	}
 
-    void destroy() {
-        if(isValid()) {
-            vkDestroyCommandPool(_device, _handle, nullptr);
-            _handle = VK_NULL_HANDLE;
-        }
-    }
+	void destroy() {
+		if(isValid()) {
+			vkDestroyCommandPool(_device, _handle, nullptr);
+			_handle = VK_NULL_HANDLE;
+		}
+	}
 
-    ~CommandPool() {
-        destroy();
-    }
+	~CommandPool() { destroy(); }
 
   private:
-    VkDevice _device;
+	VkDevice _device;
 };

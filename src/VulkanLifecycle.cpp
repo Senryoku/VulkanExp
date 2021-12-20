@@ -15,17 +15,72 @@ void Application::initVulkan() {
 	_physicalDevice = pickPhysicalDevice();
 	if(!_physicalDevice.isValid())
 		throw std::runtime_error("Failed to find a suitable GPU!");
-	_device = Device{_surface, _physicalDevice, _requiredDeviceExtensions};
+
+	PhysicalDevice::QueueFamilyIndex graphicsFamily = _physicalDevice.getGraphicsQueueFamilyIndex();
+	PhysicalDevice::QueueFamilyIndex computeFamily = _physicalDevice.getComputeQueueFamilyIndex();
+	PhysicalDevice::QueueFamilyIndex transfertFamily = _physicalDevice.getTransfertQueueFamilyIndex();
+	PhysicalDevice::QueueFamilyIndex presentFamily = _physicalDevice.getPresentQueueFamilyIndex(_surface);
+
+	float								 queuePriority = 1.0f;
+	std::vector<VkDeviceQueueCreateInfo> queues;
+	uint32_t							 queuesFromGraphicsFamily = 1;
+	if(computeFamily != graphicsFamily)
+		++queuesFromGraphicsFamily;
+	if(transfertFamily != graphicsFamily)
+		++queuesFromGraphicsFamily;
+	queues.push_back({
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.queueFamilyIndex = graphicsFamily,
+		.queueCount = queuesFromGraphicsFamily,
+		.pQueuePriorities = &queuePriority,
+	});
+	if(computeFamily != graphicsFamily)
+		queues.push_back({
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = computeFamily,
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority,
+		});
+	if(transfertFamily != graphicsFamily)
+		queues.push_back({
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = transfertFamily,
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority,
+		});
+	if(presentFamily != graphicsFamily)
+		queues.push_back({
+			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+			.queueFamilyIndex = presentFamily,
+			.queueCount = 1,
+			.pQueuePriorities = &queuePriority,
+		});
+
+	_device = Device{_surface, _physicalDevice, queues, _requiredDeviceExtensions};
 	loadExtensions(_device);
-	auto queueIndices = _physicalDevice.getQueues(_surface);
-	auto graphicsFamily = queueIndices.graphicsFamily.value();
 	vkGetDeviceQueue(_device, graphicsFamily, 0, &_graphicsQueue);
-	vkGetDeviceQueue(_device, queueIndices.presentFamily.value(), 0, &_presentQueue);
+	// If we don't have a dedicaded transfert, try to still use a one disctint from our graphics queue
+	if(transfertFamily == graphicsFamily) {
+		if(_physicalDevice.getQueueFamilies()[graphicsFamily].queueCount > 1)
+			vkGetDeviceQueue(_device, transfertFamily, 1, &_transfertQueue);
+		else
+			vkGetDeviceQueue(_device, transfertFamily, 0, &_transfertQueue);
+	} else
+		vkGetDeviceQueue(_device, transfertFamily, 0, &_transfertQueue);
+	if(computeFamily == graphicsFamily) {
+		if(_physicalDevice.getQueueFamilies()[graphicsFamily].queueCount > 1)
+			vkGetDeviceQueue(_device, computeFamily, 1, &_computeQueue);
+		else
+			vkGetDeviceQueue(_device, computeFamily, 0, &_computeQueue);
+	} else
+		vkGetDeviceQueue(_device, computeFamily, 0, &_computeQueue);
+	vkGetDeviceQueue(_device, presentFamily, 0, &_presentQueue);
 
 	createSwapChain();
 	_commandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-	_tempCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+	_transfertCommandPool.create(_device, transfertFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+	_computeCommandPool.create(_device, computeFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 
 	// Prepare a staging buffer for all the following copies.
 	// Compute the maximum memory we'll need.
@@ -70,15 +125,15 @@ void Application::initVulkan() {
 		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes())
 			for(auto& sm : m.SubMeshes)
-				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-		uploadTextures(_device, _graphicsQueue, _tempCommandPool, stagingBuffer);
+				sm.upload(_device, stagingBuffer, stagingMemory, _transfertCommandPool, _transfertQueue);
+		uploadTextures(_device, _graphicsQueue, _commandPool, stagingBuffer);
 	}
 
 	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 						  materialGpu.size() * sizeof(Material::GPUData));
 	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	stagingMemory.fill(materialGpu.data(), materialGpu.size());
-	MaterialBuffer.copyFromStagingBuffer(_tempCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _graphicsQueue);
+	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _transfertQueue);
 
 	{
 		for(auto& m : _probeMesh.getMeshes())
@@ -87,7 +142,7 @@ void Application::initVulkan() {
 		_probeMesh.allocateMeshes(_device);
 		for(auto& m : _probeMesh.getMeshes())
 			for(auto& sm : m.SubMeshes)
-				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
+				sm.upload(_device, stagingBuffer, stagingMemory, _transfertCommandPool, _transfertQueue);
 	}
 
 	// Load a blank image
@@ -103,7 +158,7 @@ void Application::initVulkan() {
 									   Images[blankPath].image.getMipLevels());
 
 	auto bounds = _scene.computeBounds();
-	_irradianceProbes.init(_device, graphicsFamily, bounds.min, bounds.max);
+	_irradianceProbes.init(_device, transfertFamily, computeFamily, bounds.min, bounds.max);
 
 	createAccelerationStructure();
 
@@ -196,7 +251,8 @@ void Application::cleanupVulkan() {
 
 	cleanupUI();
 	_commandPool.destroy();
-	_tempCommandPool.destroy();
+	_transfertCommandPool.destroy();
+	_computeCommandPool.destroy();
 	_scene.free();
 	_probeMesh.free();
 	MaterialBuffer.destroy();

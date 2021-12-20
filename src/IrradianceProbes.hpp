@@ -11,7 +11,7 @@
 
 class IrradianceProbes {
   public:
-	void init(const Device& device, uint32_t familyQueueIndex, glm::vec3 min, glm::vec3 max);
+	void init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max);
 	void createPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
