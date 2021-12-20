@@ -8,6 +8,7 @@
 
 #include <ShaderBindingTable.hpp>
 #include <glTF.hpp>
+#include <vulkan/Query.hpp>
 
 class IrradianceProbes {
   public:
@@ -40,6 +41,8 @@ class IrradianceProbes {
 	};
 	GridInfo GridParameters;
 
+	const std::vector<float>& getComputeTimes() const { return _computeTimes; }
+
   private:
 	const Device* _device;
 
@@ -66,4 +69,7 @@ class IrradianceProbes {
 	ImageView _workColorView;
 	Image	  _workDepth;
 	ImageView _workDepthView;
+
+	QueryPool		   _queryPool;
+	std::vector<float> _computeTimes;
 };

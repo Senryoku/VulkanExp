@@ -240,42 +240,48 @@ void Application::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Rendering Settings")) {
-		ImGui::Checkbox("Use time of day", &_deriveLightPositionFromTime);
-		if(!_deriveLightPositionFromTime)
-			ImGui::BeginDisabled();
-		ImGui::InputFloat("Day Cycle Speed", &_dayCycleSpeed, 0.0f, 100.f);
-		ImGui::InputInt("Day of the Year", &_dayOfTheYear, 0, 365);
-		ImGui::InputInt("Hour", &_hour, 0, 24);
-		ImGui::InputFloat("Minute", &_minute, 0.0f, 60.0f);
-		ImGui::InputFloat("Longitude", &_longitude, 0.0f, 90.f);
-		ImGui::InputFloat("Latitude", &_latitude, 0.0f, 90.0f);
-		ImGui::InputInt("Timezone", &_utctimezone, -12, 12);
-		if(!_deriveLightPositionFromTime)
-			ImGui::EndDisabled();
-		else
-			ImGui::BeginDisabled();
-		ImGui::InputFloat4("Light Direction", reinterpret_cast<float*>(&_light.direction));
-		if(_deriveLightPositionFromTime)
-			ImGui::EndDisabled();
-		ImGui::InputFloat4("Light Color", reinterpret_cast<float*>(&_light.color));
-		ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);
-		ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
-		ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);
-		float fov = _camera.getFoV();
-		if(ImGui::DragFloat("Camera FoV", &fov, 1.f, 30.f, 120.f))
-			_camera.setFoV(fov);
-		float fnear = _camera.getNear();
-		if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 30.f, 120.f))
-			_camera.setFoV(fnear);
-		float ffar = _camera.getFar();
-		if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 30.f, 120.f))
-			_camera.setFoV(ffar);
 		const char* values[4]{"VK_PRESENT_MODE_IMMEDIATE_KHR", "VK_PRESENT_MODE_MAILBOX_KHR", "VK_PRESENT_MODE_FIFO_KHR", "VK_PRESENT_MODE_FIFO_RELAXED_KHR"};
 		int			curr_choice = static_cast<int>(_preferedPresentMode);
 		if(ImGui::Combo("Present Mode", &curr_choice, values, 4)) {
 			_preferedPresentMode = static_cast<VkPresentModeKHR>(curr_choice);
 			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
+		}
+		if(ImGui::TreeNodeEx("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));
+			ImGui::DragFloat("Mouse Sensitivity", &_camera.sensitivity, 0.001f, 0.001f, 100.f);
+			ImGui::DragFloat("Camera Speed", &_camera.speed, 0.001f, 0.001f, 1000.f);
+			float fov = _camera.getFoV();
+			if(ImGui::DragFloat("Camera FoV", &fov, 1.f, 30.f, 120.f))
+				_camera.setFoV(fov);
+			float fnear = _camera.getNear();
+			if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 30.f, 120.f))
+				_camera.setFoV(fnear);
+			float ffar = _camera.getFar();
+			if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 30.f, 120.f))
+				_camera.setFoV(ffar);
+			ImGui::TreePop();
+		}
+		if(ImGui::TreeNodeEx("Light & Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Checkbox("Use time of day", &_deriveLightPositionFromTime);
+			if(!_deriveLightPositionFromTime)
+				ImGui::BeginDisabled();
+			ImGui::InputFloat("Day Cycle Speed", &_dayCycleSpeed, 0.0f, 100.f);
+			ImGui::InputInt("Day of the Year", &_dayOfTheYear, 0, 365);
+			ImGui::InputInt("Hour", &_hour, 0, 24);
+			ImGui::InputFloat("Minute", &_minute, 0.0f, 60.0f);
+			ImGui::InputFloat("Longitude", &_longitude, 0.0f, 90.f);
+			ImGui::InputFloat("Latitude", &_latitude, 0.0f, 90.0f);
+			ImGui::InputInt("Timezone", &_utctimezone, -12, 12);
+			if(!_deriveLightPositionFromTime)
+				ImGui::EndDisabled();
+			else
+				ImGui::BeginDisabled();
+			ImGui::InputFloat4("Light Direction", reinterpret_cast<float*>(&_light.direction));
+			if(_deriveLightPositionFromTime)
+				ImGui::EndDisabled();
+			ImGui::InputFloat4("Light Color", reinterpret_cast<float*>(&_light.color));
+			ImGui::TreePop();
 		}
 		if(ImGui::TreeNodeEx("Irradiance Probes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Auto. Update", &_irradianceProbeAutoUpdate);
@@ -297,20 +303,29 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
+	if(ImGui::Begin("Statistics")) {
+		ImGui::PlotLines("Frame Time", _frameTimes.data(), static_cast<int>(_frameTimes.size()));
+		ImGui::PlotLines("Irradiance Probes Update", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
+	}
+	ImGui::End();
+
 	if(ImGui::Begin("Device")) {
 		const auto& properties = _physicalDevice.getProperties();
 		const auto& queueFamilies = _physicalDevice.getQueueFamilies();
+		const auto& features = _physicalDevice.getFeatures();
 		ImGui::Text(properties.deviceName);
-		ImGui::Text("Queues (%d):", queueFamilies.size());
-		for(const auto& queueFamily : queueFamilies) {
-			std::string desc = std::to_string(queueFamily.queueCount);
-			if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-				desc += " Graphics";
-			if(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
-				desc += " Compute";
-			if(queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
-				desc += " Transfer";
-			ImGui::Text(desc.c_str());
+		if(ImGui::TreeNodeEx(fmt::format("Queues ({})", queueFamilies.size()).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			for(const auto& queueFamily : queueFamilies) {
+				std::string desc = std::to_string(queueFamily.queueCount);
+				if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+					desc += " Graphics";
+				if(queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)
+					desc += " Compute";
+				if(queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+					desc += " Transfer";
+				ImGui::Text(desc.c_str());
+			}
+			ImGui::TreePop();
 		}
 	}
 	ImGui::End();

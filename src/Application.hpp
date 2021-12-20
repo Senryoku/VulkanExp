@@ -108,6 +108,7 @@ class Application {
 	VkQueue					 _transfertQueue;
 	VkQueue					 _presentQueue;
 	CommandPool				 _computeCommandPool;
+	std::vector<float>		 _frameTimes;
 
 	Texture _blankTexture;
 
@@ -152,6 +153,7 @@ class Application {
 	std::vector<Semaphore>			 _imageAvailableSemaphore;
 	std::vector<Fence>				 _inFlightFences;
 	std::vector<VkFence>			 _imagesInFlight;
+	std::vector<QueryPool>			 _mainTimingQueryPools;
 
 	void createGBufferPipeline();
 	void createReflectionShadowPipeline();
@@ -436,6 +438,16 @@ class Application {
 			if(_dirtyShaders) {
 				compileShaders();
 				_dirtyShaders = false;
+			}
+
+			for(auto& pool : _mainTimingQueryPools) {
+				if(pool.newSampleFlag) {
+					auto results = pool.get();
+					if(results.size() >= 6 && results[0].available && results[5].available) {
+						_frameTimes.push_back(0.000001 * (results[5].result - results[0].result));
+						pool.newSampleFlag = false;
+					}
+				}
 			}
 
 			ImGui_ImplVulkan_NewFrame();

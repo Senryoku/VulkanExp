@@ -142,6 +142,11 @@ void Application::createSwapChain() {
 	_depthImage.create(_device, _swapChainExtent.width, _swapChainExtent.height, _depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	_depthImage.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_depthImageView.create(_device, _depthImage, _depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+	_mainTimingQueryPools.resize(_swapChainImages.size());
+	for(size_t i = 0; i < _swapChainImages.size(); i++) {
+		_mainTimingQueryPools[i].create(_device, VK_QUERY_TYPE_TIMESTAMP, 6);
+	}
 }
 
 void Application::initUniformBuffers() {
@@ -681,6 +686,8 @@ void Application::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& b = _commandBuffers.getBuffers()[i];
 		b.begin();
+		_mainTimingQueryPools[i].reset(b);
+		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
 
 		const std::vector<VkClearValue> clearValues{
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
@@ -690,6 +697,7 @@ void Application::recordCommandBuffers() {
 		};
 		{
 			b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
 			_gbufferPipeline.bind(b);
 
 			const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
@@ -711,6 +719,7 @@ void Application::recordCommandBuffers() {
 			};
 			visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 2);
 			b.endRenderPass();
 		}
 		/*
@@ -838,9 +847,11 @@ void Application::recordCommandBuffers() {
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
 			};
 			b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 3);
 			_gatherPipeline.bind(b);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 			vkCmdDraw(b, 3, 1, 0, 0);
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 4);
 			b.endRenderPass();
 		}
 
@@ -864,6 +875,7 @@ void Application::recordCommandBuffers() {
 			b.endRenderPass();
 		}
 
+		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 5);
 		b.end();
 	}
 }
@@ -886,6 +898,8 @@ void Application::recreateSwapChain() {
 }
 
 void Application::cleanupSwapChain() {
+	_mainTimingQueryPools.clear();
+
 	_rayTraceCommandBuffers.free();
 	_rayTracingPipeline.destroy();
 	_rayTracingDescriptorPool.destroy();

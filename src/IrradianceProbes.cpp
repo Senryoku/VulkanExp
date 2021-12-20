@@ -187,6 +187,8 @@ void IrradianceProbes::createPipeline() {
 	_pipeline.create(*_device, pipelineCreateInfo);
 
 	createShaderBindingTable();
+
+	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 2);
 }
 
 void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
@@ -226,6 +228,11 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 #endif
 
+	auto queryResults = _queryPool.get();
+	if(queryResults.size() > 1 && queryResults[0].available && queryResults[1].available) {
+		_computeTimes.push_back(0.000001 * (queryResults[1].result - queryResults[0].result));
+	}
+
 	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
 	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
 	glm::vec3 X, Y;
@@ -234,7 +241,8 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& cmdBuff = _commandBuffers.getBuffers()[i];
 		cmdBuff.begin();
-
+		_queryPool.reset(cmdBuff);
+		_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
 		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
 		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 		vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
@@ -280,8 +288,8 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 		vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 		Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
 		Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
-
-		VK_CHECK(vkEndCommandBuffer(cmdBuff));
+		_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
+		cmdBuff.end();
 	}
 
 	VkPipelineStageFlags stages[] = {VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR};
@@ -303,6 +311,8 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 }
 
 void IrradianceProbes::destroy() {
+	_queryPool.destroy();
+
 	_shaderBindingTable.destroy();
 	_fence.destroy();
 	_commandBuffers.free();

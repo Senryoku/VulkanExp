@@ -120,6 +120,8 @@ void Application::drawFrame() {
 
 	VK_CHECK(vkResetFences(_device, 1, &currentFence));
 	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence));
+	if(!_raytracingDebug)
+		_mainTimingQueryPools[imageIndex].newSampleFlag = true;
 
 	VkSwapchainKHR	 swapChains[] = {_swapChain};
 	VkPresentInfoKHR presentInfo{

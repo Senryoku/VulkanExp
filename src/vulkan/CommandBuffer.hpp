@@ -23,11 +23,7 @@ class CommandBuffer : public HandleWrapper<VkCommandBuffer> {
 		}
 	}
 
-	void end() const {
-		if(vkEndCommandBuffer(_handle) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to record command buffer!");
-		}
-	}
+	void end() const { VK_CHECK(vkEndCommandBuffer(_handle)); }
 
 	void beginRenderPass(const RenderPass& renderPass, const Framebuffer& framebuffer, VkExtent2D extent, std::vector<VkClearValue> clearValues) const {
 		VkRenderPassBeginInfo renderPassInfo{
