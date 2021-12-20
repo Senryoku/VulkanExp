@@ -12,6 +12,7 @@ class CommandBuffer;
 class Device : public HandleWrapper<VkDevice> {
   public:
 	Device() = default;
+	Device(const Device&) = delete;
 	Device(Device&& d) noexcept = default;
 	Device& operator=(Device&& d) noexcept = default;
 

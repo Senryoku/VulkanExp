@@ -31,6 +31,7 @@ void Application::run() {
 		//_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		//_scene.load("./data/models/Sponza/Sponza.gltf");
 		_scene.load("./data/models/SunTemple-glTF/suntemple.gltf");
+		//_scene.load("./data/models/postwar_city_-_exterior_scene/scene.gltf");
 		//_scene.load("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
 	_probeMesh.load("./data/models/sphere.gltf");

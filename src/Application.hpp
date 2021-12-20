@@ -347,11 +347,7 @@ class Application {
 		return score;
 	}
 
-	void createSurface() {
-		if(glfwCreateWindowSurface(_instance, _window, nullptr, &_surface) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create window surface!");
-		}
-	}
+	void createSurface() { VK_CHECK(glfwCreateWindowSurface(_instance, _window, nullptr, &_surface)); }
 
 	PhysicalDevice pickPhysicalDevice() const {
 		uint32_t deviceCount = 0;

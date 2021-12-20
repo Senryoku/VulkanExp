@@ -12,10 +12,9 @@ void Application::initVulkan() {
 	loadExtensions(_instance);
 	setupDebugMessenger();
 	createSurface();
-	auto physicalDevice = pickPhysicalDevice();
-	if(!physicalDevice.isValid())
+	_physicalDevice = pickPhysicalDevice();
+	if(!_physicalDevice.isValid())
 		throw std::runtime_error("Failed to find a suitable GPU!");
-	_physicalDevice = physicalDevice;
 	_device = Device{_surface, _physicalDevice, _requiredDeviceExtensions};
 	loadExtensions(_device);
 	auto queueIndices = _physicalDevice.getQueues(_surface);
@@ -27,46 +26,11 @@ void Application::initVulkan() {
 	_commandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_tempCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-	{
-		QuickTimer qt("Mesh Generation");
-		size_t	   buffSize = 0;
-		for(const auto& m : _scene.getMeshes())
-			for(const auto& sm : m.SubMeshes) {
-				if(sm.getVertexByteSize() > buffSize)
-					buffSize = sm.getVertexByteSize();
-			}
-		// Prepare staging memory
-		Buffer		 stagingBuffer;
-		DeviceMemory stagingMemory;
-		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, buffSize);
-		auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
-		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		for(auto& m : _scene.getMeshes()) {
-			for(auto& sm : m.SubMeshes)
-				sm.init(_device); // Pepare the final buffers
-		}
-		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
-		for(auto& m : _scene.getMeshes()) {
-			for(auto& sm : m.SubMeshes)
-				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-		}
-		uploadTextures(_device, graphicsFamily);
-	}
-	std::vector<Material::GPUData> materialGpu;
-	for(const auto& material : Materials) {
-		materialGpu.push_back(material.getGPUData());
-	}
-	Buffer		 stagingBuffer;
-	DeviceMemory stagingMemory;
-	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, materialGpu.size() * sizeof(Material::GPUData));
-	auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
-	stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-						  materialGpu.size() * sizeof(Material::GPUData));
-	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	stagingMemory.fill(materialGpu.data(), materialGpu.size());
-	MaterialBuffer.copyFromStagingBuffer(_tempCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _graphicsQueue);
 
+	// Prepare a staging buffer for all the following copies.
+	// Compute the maximum memory we'll need.
+	size_t stagingBufferSize = 0;
+	// Meshes
 	{
 		size_t buffSize = 0;
 		for(const auto& m : _scene.getMeshes())
@@ -74,20 +38,54 @@ void Application::initVulkan() {
 				if(sm.getVertexByteSize() > buffSize)
 					buffSize = sm.getVertexByteSize();
 			}
-		Buffer		 stagingBuffer;
-		DeviceMemory stagingMemory;
-		stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 2 * buffSize);
-		auto stagingBufferMemReq = stagingBuffer.getMemoryRequirements();
-		stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		for(auto& m : _probeMesh.getMeshes()) {
+		stagingBufferSize = std::max(stagingBufferSize, buffSize);
+	}
+	{
+		size_t buffSize = 0;
+		for(const auto& m : _scene.getMeshes())
+			for(const auto& sm : m.SubMeshes) {
+				if(sm.getVertexByteSize() > buffSize)
+					buffSize = sm.getVertexByteSize();
+			}
+		stagingBufferSize = std::max(stagingBufferSize, buffSize);
+	}
+	// Materials
+	std::vector<Material::GPUData> materialGpu;
+	for(const auto& material : Materials)
+		materialGpu.push_back(material.getGPUData());
+	stagingBufferSize = std::max(stagingBufferSize, materialGpu.size() * sizeof(Material::GPUData));
+
+	Buffer		 stagingBuffer;
+	DeviceMemory stagingMemory;
+	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, stagingBufferSize);
+	stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	{
+		QuickTimer qt("Mesh Generation");
+		for(auto& m : _scene.getMeshes())
 			for(auto& sm : m.SubMeshes)
-				sm.init(_device); // Pepare the final buffers
-		}
-		_probeMesh.allocateMeshes(_device);
-		for(auto& m : _probeMesh.getMeshes()) {
+				sm.init(_device);		// Pepare the final buffers
+		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
+		for(auto& m : _scene.getMeshes())
 			for(auto& sm : m.SubMeshes)
 				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-		}
+		uploadTextures(_device, graphicsFamily);
+	}
+
+	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+						  materialGpu.size() * sizeof(Material::GPUData));
+	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	stagingMemory.fill(materialGpu.data(), materialGpu.size());
+	MaterialBuffer.copyFromStagingBuffer(_tempCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _graphicsQueue);
+
+	{
+		for(auto& m : _probeMesh.getMeshes())
+			for(auto& sm : m.SubMeshes)
+				sm.init(_device); // Prepare the final buffers
+		_probeMesh.allocateMeshes(_device);
+		for(auto& m : _probeMesh.getMeshes())
+			for(auto& sm : m.SubMeshes)
+				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
 	}
 
 	// Load a blank image

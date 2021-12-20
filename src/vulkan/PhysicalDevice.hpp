@@ -9,17 +9,17 @@
 class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
   public:
 	PhysicalDevice() = default;
-	explicit PhysicalDevice(VkPhysicalDevice handle) : HandleWrapper(handle) {}
+	explicit PhysicalDevice(VkPhysicalDevice handle) : HandleWrapper(handle) { init(); }
 
-	VkPhysicalDeviceRayTracingPropertiesNV getRaytracingPipelineProperties() const {
-		VkPhysicalDeviceRayTracingPropertiesNV r = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
-		VkPhysicalDeviceProperties2			   deviceProperties{
-					   .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-					   .pNext = &r,
-		   };
-		vkGetPhysicalDeviceProperties2(_handle, &deviceProperties);
-		return r;
-	};
+	void init(VkPhysicalDevice handle) {
+		_handle = handle;
+		init();
+	}
+
+	void init();
+
+	const VkPhysicalDeviceProperties2&			  getProperties() const { return _deviceProperties; };
+	const VkPhysicalDeviceRayTracingPropertiesNV& getRaytracingPipelineProperties() const { return _rayTracingProperties; };
 
 	struct QueueFamilyIndices {
 		QueueFamilyIndices(VkSurfaceKHR surface, VkPhysicalDevice device) {
@@ -75,17 +75,15 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	SwapChainSupportDetails getSwapChainSupport(const VkSurfaceKHR& surface) const { return SwapChainSupportDetails(surface, _handle); }
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(_handle, &memProperties);
-		for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-			if((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+		for(uint32_t i = 0; i < _memoryProperties.memoryTypeCount; i++) {
+			if((typeFilter & (1 << i)) && (_memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
 				return i;
 			}
 		}
 
 		// Fallback
-		for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-			if((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties)) {
+		for(uint32_t i = 0; i < _memoryProperties.memoryTypeCount; i++) {
+			if((typeFilter & (1 << i)) && (_memoryProperties.memoryTypes[i].propertyFlags & properties)) {
 				return i;
 			}
 		}
@@ -94,4 +92,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	}
 
   private:
+	VkPhysicalDeviceProperties2			   _deviceProperties;
+	VkPhysicalDeviceMemoryProperties	   _memoryProperties;
+	VkPhysicalDeviceRayTracingPropertiesNV _rayTracingProperties;
 };

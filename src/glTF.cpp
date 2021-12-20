@@ -164,9 +164,18 @@ void glTF::load(std::filesystem::path path) {
 			}
 			// TODO: Compute tangents if not present in file.
 
-			const auto& texCoordAccessor = object["accessors"][p["attributes"]["TEXCOORD_0"].as<int>()];
-			const auto& texCoordBufferView = object["bufferViews"][texCoordAccessor["bufferView"].as<int>()];
-			const auto& texCoordBuffer = buffers[texCoordBufferView["buffer"].as<int>()];
+			const char* texCoordBufferData = nullptr;
+			size_t		texCoordCursor = 0;
+			size_t		texCoordStride = 0;
+			if(p["attributes"].contains("TEXCOORD_0")) {
+				const auto& texCoordAccessor = object["accessors"][p["attributes"]["TEXCOORD_0"].as<int>()];
+				const auto& texCoordBufferView = object["bufferViews"][texCoordAccessor["bufferView"].as<int>()];
+				const auto& texCoordBuffer = buffers[texCoordBufferView["buffer"].as<int>()];
+				texCoordBufferData = texCoordBuffer.data();
+				texCoordCursor = texCoordAccessor("byteOffset", 0) + texCoordBufferView("byteOffset", 0);
+				const int defaultStride = 2 * sizeof(float);
+				texCoordStride = texCoordBufferView("byteStride", defaultStride);
+			}
 
 			if(positionAccessor["type"].asString() == "VEC3") {
 				assert(static_cast<ComponentType>(positionAccessor["componentType"].as<int>()) == ComponentType::Float); // TODO
@@ -176,9 +185,6 @@ void glTF::load(std::filesystem::path path) {
 
 				size_t normalCursor = normalAccessor("byteOffset", 0) + normalBufferView("byteOffset", 0);
 				size_t normalStride = normalBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
-
-				size_t texCoordCursor = texCoordAccessor("byteOffset", 0) + texCoordBufferView("byteOffset", 0);
-				size_t texCoordStride = texCoordBufferView("byteStride", static_cast<int>(2 * sizeof(float)));
 
 				assert(positionAccessor["count"].as<int>() == normalAccessor["count"].as<int>());
 				for(size_t i = 0; i < positionAccessor["count"].as<int>(); ++i) {
@@ -196,8 +202,11 @@ void glTF::load(std::filesystem::path path) {
 					} else
 						v.tangent = glm::vec4(1.0);
 
-					v.texCoord = *reinterpret_cast<const glm::vec2*>(texCoordBuffer.data() + texCoordCursor);
-					texCoordCursor += texCoordStride;
+					if(texCoordBufferData) {
+						v.texCoord = *reinterpret_cast<const glm::vec2*>(texCoordBufferData + texCoordCursor);
+						texCoordCursor += texCoordStride;
+					}
+
 					submesh.getVertices().push_back(v);
 				}
 			} else {

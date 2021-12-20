@@ -10,6 +10,9 @@
  - Scene
  - - Import model(s) INTO a scene;
  - - Save
+ - - Select Nodes
+ - - - Edit Material
+ - - - Disable Rendering (Update BLAS/TLAS and re-record Command Buffers)
  - Use a sRGB render target
  - - Contrast is really bad right now (irradiance only start being visible when the direct lights are blinding)
  - - ImGui doesn't work well with sRGB render target, not sure how to fix it (just convert all the colors of the default style? =/)
