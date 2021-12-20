@@ -1,6 +1,7 @@
 #include "Application.hpp"
 
 #include <ImGuiExtensions.hpp>
+#include <implot/implot.h>
 
 struct TextureRef {
 	const Texture& const texture;
@@ -21,6 +22,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
+	ImPlot::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
@@ -304,8 +306,16 @@ void Application::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Statistics")) {
-		ImGui::PlotLines("Frame Time", _frameTimes.data(), static_cast<int>(_frameTimes.size()));
-		ImGui::PlotLines("Irradiance Probes Update", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
+		if(ImPlot::BeginPlot("Frame")) {
+			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			ImPlot::PlotLine("Frame Time (ms)", _frameTimes.data(), static_cast<int>(_frameTimes.size()));
+			ImPlot::EndPlot();
+		}
+		if(ImPlot::BeginPlot("Irradiance Probes")) {
+			ImPlot::SetupAxes("Frame Number", "Update Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			ImPlot::PlotLine("Update Time (ms)", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
+			ImPlot::EndPlot();
+		}
 	}
 	ImGui::End();
 
@@ -335,6 +345,7 @@ void Application::cleanupUI() {
 	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
+	ImPlot::DestroyContext();
 	ImGui::DestroyContext();
 
 	_imguiCommandPool.destroy();
