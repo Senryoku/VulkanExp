@@ -31,10 +31,11 @@ void DeviceMemory::allocate(VkDevice device, uint32_t memoryTypeIndex, size_t si
 	allocate(device, allocInfo);
 }
 
-void DeviceMemory::allocate(const Device& device, const Buffer& buffer, uint32_t memoryTypeIndex, VkMemoryAllocateFlags flags) {
+void DeviceMemory::allocate(const Device& device, Buffer& buffer, uint32_t memoryTypeIndex, VkMemoryAllocateFlags flags) {
 	const auto memReq = buffer.getMemoryRequirements();
 	allocate(device, device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, memoryTypeIndex), memReq.size, flags);
 	vkBindBufferMemory(device, buffer, _handle, 0);
+	buffer.setMemory(*this);
 }
 
 void DeviceMemory::free() {

@@ -30,6 +30,6 @@ inline std::unordered_map<size_t, Sampler>		 Samplers;
 inline Buffer									 MaterialBuffer;
 inline DeviceMemory								 MaterialMemory;
 
-void	 uploadTextures(const Device& device, uint32_t queueFamilyIndex);
+void	 uploadTextures(const Device& device, VkQueue queue, const CommandPool& commandPool, const Buffer& stagingBuffer);
 Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
 					float maxLod);

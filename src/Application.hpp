@@ -296,9 +296,7 @@ class Application {
 	void setupDebugMessenger() {
 		if(!_enableValidationLayers)
 			return;
-		if(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to set up debug messenger!");
-		}
+		VK_CHECK(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger));
 	}
 
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device) const {
@@ -317,22 +315,17 @@ class Application {
 		return requiredExtensions.empty();
 	}
 
-	unsigned int rateDevice(PhysicalDevice device) const {
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-		VkPhysicalDeviceFeatures deviceFeatures;
-		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+	unsigned int rateDevice(const PhysicalDevice& device) const {
+		VkPhysicalDeviceProperties deviceProperties = device.getProperties();
 
 		// Required Capabilities
-
 		PhysicalDevice::QueueFamilyIndices indices = device.getQueues(_surface);
 		if(!indices.graphicsFamily.has_value())
 			return 0;
 		if(!checkDeviceExtensionSupport(device))
 			return 0;
 		// FIXME: This should be made optional
-		if(!deviceFeatures.samplerAnisotropy)
+		if(!device.getFeatures().samplerAnisotropy)
 			return 0;
 
 		auto swapChainSupport = device.getSwapChainSupport(_surface);
@@ -352,9 +345,8 @@ class Application {
 	PhysicalDevice pickPhysicalDevice() const {
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr);
-		if(deviceCount == 0) {
+		if(deviceCount == 0)
 			throw std::runtime_error("Failed to find GPUs with Vulkan support!");
-		}
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
 
@@ -377,10 +369,8 @@ class Application {
 	VkExtent2D		   chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
-		CommandPool tempCommandPool;
-		tempCommandPool.create(_device, _physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 		CommandBuffers buffers;
-		buffers.allocate(_device, tempCommandPool, 1);
+		buffers.allocate(_device, _tempCommandPool, 1);
 		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		function(buffers[0]);
@@ -394,7 +384,6 @@ class Application {
 		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
 		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
 		buffers.free();
-		tempCommandPool.destroy();
 	}
 
 	void initWindow();

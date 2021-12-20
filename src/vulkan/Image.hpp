@@ -22,6 +22,8 @@ class Image : public HandleWrapper<VkImage> {
 	// Allocate Device Memory dedicated to this image (see member _memory)
 	void allocate(VkMemoryPropertyFlags);
 
+	// Records copy commands to commandBuffer using stagingBuffer as an intermediary step
+	void upload(VkCommandBuffer commandBuffer, const Buffer& stagingBuffer, const STBImage& image, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
 	void upload(const STBImage& image, uint32_t queueIndex, VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
 
 	VkMemoryRequirements getMemoryRequirements() const;

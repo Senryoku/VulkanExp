@@ -3,6 +3,7 @@
 #include <QuickTimer.hpp>
 #include <ThreadPool.hpp>
 #include <array>
+#include <vulkan/CommandBuffer.hpp>
 
 VkFilter glTFToVkFilter(int e) {
 	switch(e) {
@@ -40,7 +41,7 @@ VkSamplerAddressMode glTFtoVkSamplerAddressMode(int e) {
 	return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 }
 
-void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
+void uploadTextures(const Device& device, VkQueue queue, const CommandPool& commandPool, const Buffer& stagingBuffer) {
 	std::unordered_map<std::string, STBImage> images;
 	std::mutex								  imagesMutex;
 	std::vector<std::future<void>>			  wait;
@@ -60,6 +61,7 @@ void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 			f.wait();
 	}
 	QuickTimer qt("Upload textures to device");
+
 	for(auto& tex : Textures) {
 		auto  path = tex.source.lexically_normal().string();
 		auto& texR = tex;
@@ -67,7 +69,19 @@ void uploadTextures(const Device& device, uint32_t queueFamilyIndex) {
 		if(!Images.contains(path)) {
 			Images.try_emplace(path);
 			Images[path].image.setDevice(device);
-			Images[path].image.upload(images[path], queueFamilyIndex, texR.format);
+			// FIXME: Create a proper utility in Device?
+			CommandBuffers buffers;
+			buffers.allocate(device, commandPool, 1);
+			buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+			Images[path].image.upload(buffers[0], stagingBuffer, images[path], texR.format);
+			buffers[0].end();
+			VkSubmitInfo submitInfo{
+				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+				.commandBufferCount = 1,
+				.pCommandBuffers = buffers.getBuffersHandles().data(),
+			};
+			VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+			VK_CHECK(vkQueueWaitIdle(queue));
 			Images[path].imageView.create(device, Images[path].image, texR.format);
 		}
 		texR.gpuImage = &Images[path];

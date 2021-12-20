@@ -54,6 +54,8 @@ void Application::initVulkan() {
 	for(const auto& material : Materials)
 		materialGpu.push_back(material.getGPUData());
 	stagingBufferSize = std::max(stagingBufferSize, materialGpu.size() * sizeof(Material::GPUData));
+	// Textures, they're not loaded yet, we could, but we'll just take an upper bound for now
+	stagingBufferSize = std::max(stagingBufferSize, static_cast<size_t>(4 * 8 * 4096 * 4096)); // FIXME
 
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
@@ -69,7 +71,7 @@ void Application::initVulkan() {
 		for(auto& m : _scene.getMeshes())
 			for(auto& sm : m.SubMeshes)
 				sm.upload(_device, stagingBuffer, stagingMemory, _tempCommandPool, _graphicsQueue);
-		uploadTextures(_device, graphicsFamily);
+		uploadTextures(_device, _graphicsQueue, _tempCommandPool, stagingBuffer);
 	}
 
 	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,

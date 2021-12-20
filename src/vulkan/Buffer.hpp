@@ -6,6 +6,8 @@
 #include "HandleWrapper.hpp"
 #include <Logger.hpp>
 
+class DeviceMemory;
+
 class Buffer : public HandleWrapper<VkBuffer> {
   public:
 	Buffer() = default;
@@ -23,9 +25,7 @@ class Buffer : public HandleWrapper<VkBuffer> {
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
 
-		if(vkCreateBuffer(device, &bufferInfo, nullptr, &_handle) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create vertex buffer!");
-		}
+		VK_CHECK(vkCreateBuffer(device, &bufferInfo, nullptr, &_handle));
 
 		_device = device;
 	}
@@ -52,6 +52,11 @@ class Buffer : public HandleWrapper<VkBuffer> {
 	uint64_t getDeviceAddress() const;
 	void	 copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
 
+	void				setMemory(const DeviceMemory& memory, uint32_t offset = 0);
+	const DeviceMemory& getMemory() const;
+
   private:
-	VkDevice _device = VK_NULL_HANDLE;
+	VkDevice			_device = VK_NULL_HANDLE;
+	const DeviceMemory* _deviceMemory = nullptr;
+	uint32_t			_offsetInMemory = 0;
 };

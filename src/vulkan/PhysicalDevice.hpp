@@ -18,19 +18,16 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 
 	void init();
 
-	const VkPhysicalDeviceProperties2&			  getProperties() const { return _deviceProperties; };
+	const VkPhysicalDeviceFeatures&				  getFeatures() const { return _features; }
+	const VkPhysicalDeviceProperties&			  getProperties() const { return _properties; };
 	const VkPhysicalDeviceRayTracingPropertiesNV& getRaytracingPipelineProperties() const { return _rayTracingProperties; };
+	const std::vector<VkQueueFamilyProperties>	  getQueueFamilies() const { return _queueFamilies; }
 
 	struct QueueFamilyIndices {
-		QueueFamilyIndices(VkSurfaceKHR surface, VkPhysicalDevice device) {
-			uint32_t queueFamilyCount = 0;
-			vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-			std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-			vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+		QueueFamilyIndices(VkSurfaceKHR surface, const PhysicalDevice& device) {
 			int i = 0;
 
-			for(const auto& queueFamily : queueFamilies) {
+			for(const auto& queueFamily : device.getQueueFamilies()) {
 				if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 					graphicsFamily = i;
 
@@ -71,7 +68,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 		std::vector<VkPresentModeKHR>	presentModes;
 	};
 
-	QueueFamilyIndices		getQueues(const VkSurfaceKHR& surface) const { return QueueFamilyIndices(surface, _handle); }
+	QueueFamilyIndices		getQueues(const VkSurfaceKHR& surface) const { return QueueFamilyIndices(surface, *this); }
 	SwapChainSupportDetails getSwapChainSupport(const VkSurfaceKHR& surface) const { return SwapChainSupportDetails(surface, _handle); }
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
@@ -92,7 +89,10 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	}
 
   private:
-	VkPhysicalDeviceProperties2			   _deviceProperties;
+	VkPhysicalDeviceFeatures			   _features;
+	VkPhysicalDeviceProperties			   _properties;
 	VkPhysicalDeviceMemoryProperties	   _memoryProperties;
 	VkPhysicalDeviceRayTracingPropertiesNV _rayTracingProperties;
+
+	std::vector<VkQueueFamilyProperties> _queueFamilies;
 };

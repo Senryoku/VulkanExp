@@ -55,18 +55,9 @@ void Image::allocate(VkMemoryPropertyFlags properties) {
 	}
 }
 
-void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat format) {
-	// Prepare staging buffer
-	Buffer		 stagingBuffer;
-	DeviceMemory stagingMemory;
-	stagingBuffer.create(getDevice(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image.byteSize());
-	auto memReq = stagingBuffer.getMemoryRequirements();
-	stagingMemory.allocate(getDevice(),
-						   getDevice().getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-						   memReq.size);
-	vkBindBufferMemory(getDevice(), stagingBuffer, stagingMemory, 0);
+void Image::upload(VkCommandBuffer commandBuffer, const Buffer& stagingBuffer, const STBImage& image, VkFormat format) {
 	// Copy image data to the staging buffer
-	stagingMemory.fill(image.getData(), image.byteSize());
+	stagingBuffer.getMemory().fill(image.getData(), image.byteSize());
 
 	create(getDevice(), static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()), format, VK_IMAGE_TILING_OPTIMAL,
 		   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, true);
@@ -76,39 +67,48 @@ void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat fo
 	vkGetPhysicalDeviceFormatProperties(getDevice().getPhysicalDevice(), format, &formatProperties);
 
 	// Copy to the actual device memory
-	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) {
-		transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-		VkBufferImageCopy region{
-			.bufferOffset = 0,
-			.bufferRowLength = 0,
-			.bufferImageHeight = 0,
-			.imageSubresource =
-				VkImageSubresourceLayers{
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.mipLevel = 0,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-			.imageOffset = VkOffset3D{0, 0, 0},
-			.imageExtent =
-				VkExtent3D{
-					.width = static_cast<unsigned int>(image.getWidth()),
-					.height = static_cast<unsigned int>(image.getHeight()),
-					.depth = 1,
-				},
-		};
-		vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	VkBufferImageCopy region{
+		.bufferOffset = 0,
+		.bufferRowLength = 0,
+		.bufferImageHeight = 0,
+		.imageSubresource =
+			VkImageSubresourceLayers{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		.imageOffset = VkOffset3D{0, 0, 0},
+		.imageExtent =
+			VkExtent3D{
+				.width = static_cast<unsigned int>(image.getWidth()),
+				.height = static_cast<unsigned int>(image.getHeight()),
+				.depth = 1,
+			},
+	};
+	vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-		if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-			warn("Texture image format does not support linear blitting.\n");
-			transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
-							 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-		} else {
-			// generateMipmaps takes care of the layout transition.
-			generateMipmaps(commandBuffer, static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()));
-		}
-	});
+	if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+		warn("Texture image format does not support linear blitting.\n");
+		transitionLayout(commandBuffer, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
+						 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	} else {
+		// generateMipmaps takes care of the layout transition.
+		generateMipmaps(commandBuffer, static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()));
+	}
+}
+
+void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat format) {
+	// Prepare staging buffer
+	Buffer		 stagingBuffer;
+	DeviceMemory stagingMemory;
+	stagingBuffer.create(getDevice(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image.byteSize());
+	stagingMemory.allocate(getDevice(), stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	// Copy to the actual device memory
+	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) { upload(commandBuffer, stagingBuffer, image, format); });
 }
 
 void Image::transitionLayout(VkCommandBuffer commandBuffer, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcMask,

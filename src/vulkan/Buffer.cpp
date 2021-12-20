@@ -4,6 +4,7 @@
 
 #include "CommandBuffer.hpp"
 #include "CommandPool.hpp"
+#include "DeviceMemory.hpp"
 
 void Buffer::copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const {
 	CommandBuffers stagingCommands;
@@ -35,4 +36,14 @@ uint64_t Buffer::getDeviceAddress() const {
 		.buffer = _handle,
 	};
 	return vkGetBufferDeviceAddressKHR(_device, &info);
+}
+
+void Buffer::setMemory(const DeviceMemory& memory, uint32_t offset) {
+	_deviceMemory = &memory;
+	_offsetInMemory = offset;
+}
+
+const DeviceMemory& Buffer::getMemory() const {
+	assert(_deviceMemory);
+	return *_deviceMemory;
 }
