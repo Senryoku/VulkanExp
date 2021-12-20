@@ -228,9 +228,12 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 #endif
 
-	auto queryResults = _queryPool.get();
-	if(queryResults.size() > 1 && queryResults[0].available && queryResults[1].available) {
-		_computeTimes.push_back(0.000001 * (queryResults[1].result - queryResults[0].result));
+	if(_queryPool.newSampleFlag) {
+		auto queryResults = _queryPool.get();
+		if(queryResults.size() > 1 && queryResults[0].available && queryResults[1].available) {
+			_computeTimes.add(0.000001 * (queryResults[1].result - queryResults[0].result));
+			_queryPool.newSampleFlag = false;
+		}
 	}
 
 	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
@@ -238,59 +241,58 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	glm::vec3 X, Y;
 	genBasis(Z, X, Y);
 	glm::mat3 orientation = glm::transpose(glm::mat3(X, Y, Z));
-	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
-		auto& cmdBuff = _commandBuffers.getBuffers()[i];
-		cmdBuff.begin();
-		_queryPool.reset(cmdBuff);
-		_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
-		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
-		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
-		vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
-		vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
-						  GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
 
-		// Copy the result to the image sampled in the main pipeline
-		VkImageCopy copy{
-			.srcSubresource =
-				{
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.mipLevel = 0,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-			.srcOffset = {0, 0, 0},
-			.dstSubresource =
-				{
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.mipLevel = 0,
-					.baseArrayLayer = 0,
-					.layerCount = 1,
-				},
-			.dstOffset = {0, 0, 0},
-			.extent = {GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2], 1},
-		};
-		VkImageSubresourceRange range{
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
-		};
-		Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
-		Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
-		vkCmdCopyImage(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
-		Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
-		Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
+	auto& cmdBuff = _commandBuffers.getBuffers()[0];
+	cmdBuff.begin();
+	_queryPool.reset(cmdBuff);
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
+	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
+	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
+	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
+	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
+					  GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
 
-		copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2], 1},
-		Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
-		Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
-		vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
-		Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
-		Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
-		_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
-		cmdBuff.end();
-	}
+	// Copy the result to the image sampled in the main pipeline
+	VkImageCopy copy{
+		.srcSubresource =
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		.srcOffset = {0, 0, 0},
+		.dstSubresource =
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1,
+			},
+		.dstOffset = {0, 0, 0},
+		.extent = {GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2], 1},
+	};
+	VkImageSubresourceRange range{
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1,
+	};
+	Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
+	Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
+	vkCmdCopyImage(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+	Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+	Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
+
+	copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2], 1},
+	Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
+	Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
+	vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+	Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+	Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
+	cmdBuff.end();
 
 	VkPipelineStageFlags stages[] = {VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR};
 
@@ -308,6 +310,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
+	_queryPool.newSampleFlag = true;
 }
 
 void IrradianceProbes::destroy() {

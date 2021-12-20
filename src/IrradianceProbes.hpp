@@ -6,6 +6,7 @@
 #include <Image.hpp>
 #include <Pipeline.hpp>
 
+#include <RollingBuffer.hpp>
 #include <ShaderBindingTable.hpp>
 #include <glTF.hpp>
 #include <vulkan/Query.hpp>
@@ -41,7 +42,7 @@ class IrradianceProbes {
 	};
 	GridInfo GridParameters;
 
-	const std::vector<float>& getComputeTimes() const { return _computeTimes; }
+	const RollingBuffer<float>& getComputeTimes() const { return _computeTimes; }
 
   private:
 	const Device* _device;
@@ -70,6 +71,6 @@ class IrradianceProbes {
 	Image	  _workDepth;
 	ImageView _workDepthView;
 
-	QueryPool		   _queryPool;
-	std::vector<float> _computeTimes;
+	QueryPool			 _queryPool;
+	RollingBuffer<float> _computeTimes;
 };

@@ -136,6 +136,13 @@ void Application::uiOnSwapChainReady() {
 		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 }
 
+template<class T>
+void plot(const RollingBuffer<T>& rb) {
+	auto data = rb.get();
+	ImPlot::PlotLine("Frame Time (ms)", data.first, static_cast<int>(data.firstCount));
+	ImPlot::PlotLine("Frame Time (ms)", data.second, static_cast<int>(data.secondCount), 1.0, data.firstCount);
+}
+
 void Application::drawUI() {
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
@@ -308,12 +315,13 @@ void Application::drawUI() {
 	if(ImGui::Begin("Statistics")) {
 		if(ImPlot::BeginPlot("Frame")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			ImPlot::PlotLine("Frame Time (ms)", _frameTimes.data(), static_cast<int>(_frameTimes.size()));
+			plot(_frameTimes);
 			ImPlot::EndPlot();
 		}
 		if(ImPlot::BeginPlot("Irradiance Probes")) {
 			ImPlot::SetupAxes("Frame Number", "Update Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			ImPlot::PlotLine("Update Time (ms)", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
+			// ImPlot::PlotLine("Update Time (ms)", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
+			plot(_irradianceProbes.getComputeTimes());
 			ImPlot::EndPlot();
 		}
 	}

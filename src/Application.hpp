@@ -39,6 +39,7 @@
 #include <IrradianceProbes.hpp>
 #include <Light.hpp>
 #include <QuickTimer.hpp>
+#include <RollingBuffer.hpp>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 #include <vulkan/PipelineCache.hpp>
@@ -108,7 +109,7 @@ class Application {
 	VkQueue					 _transfertQueue;
 	VkQueue					 _presentQueue;
 	CommandPool				 _computeCommandPool;
-	std::vector<float>		 _frameTimes;
+	RollingBuffer<float>	 _frameTimes;
 
 	Texture _blankTexture;
 
@@ -444,7 +445,7 @@ class Application {
 				if(pool.newSampleFlag) {
 					auto results = pool.get();
 					if(results.size() >= 6 && results[0].available && results[5].available) {
-						_frameTimes.push_back(0.000001 * (results[5].result - results[0].result));
+						_frameTimes.add(0.000001 * (results[5].result - results[0].result));
 						pool.newSampleFlag = false;
 					}
 				}
