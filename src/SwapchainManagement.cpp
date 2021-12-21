@@ -611,55 +611,6 @@ void Application::initSwapChain() {
 
 	_imagesInFlight.resize(_swapChainImages.size());
 
-	// Write descriptor sets for each material, for each image in the swap chain.
-	for(size_t i = 0; i < _swapChainImages.size(); i++) {
-		for(size_t m = 0; m < Materials.size(); m++) {
-			DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + m]);
-			dsw.add(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					{
-						.buffer = _cameraUniformBuffers[i],
-						.offset = 0,
-						.range = sizeof(CameraBuffer),
-					});
-			auto& albedo = Materials[m].albedoTexture != -1 ? Textures[Materials[m].albedoTexture] : _blankTexture;
-			dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					{
-						.sampler = *albedo.sampler,
-						.imageView = albedo.gpuImage->imageView,
-						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					});
-			// Use a blank texture if this mesh doesn't have a normal map
-			auto& normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : _blankTexture;
-			dsw.add(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					{
-						.sampler = *normals.sampler,
-						.imageView = normals.gpuImage->imageView,
-						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					});
-			dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					{
-						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											   VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-						.imageView = _irradianceProbes.getColorView(),
-						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					});
-			dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					{
-						.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											   VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-						.imageView = _irradianceProbes.getDepthView(),
-						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					});
-			dsw.add(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					{
-						.buffer = _irradianceProbes.getGridParametersBuffer(),
-						.offset = 0,
-						.range = VK_WHOLE_SIZE,
-					});
-			dsw.update(_device);
-		}
-	}
-
 	createImGuiRenderPass();
 
 	_presentFramebuffers.resize(_swapChainImageViews.size());

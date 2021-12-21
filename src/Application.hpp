@@ -157,6 +157,7 @@ class Application {
 	std::vector<QueryPool>			 _mainTimingQueryPools;
 
 	void createGBufferPipeline();
+	void writeGBufferDescriptorSets();
 	void createReflectionShadowPipeline();
 	void createGatherPipeline();
 
