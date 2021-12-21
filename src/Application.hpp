@@ -162,7 +162,7 @@ class Application {
 	void createGatherPipeline();
 
 	LightBuffer _light;
-	bool		_deriveLightPositionFromTime = true;
+	bool		_deriveLightPositionFromTime = false;
 	float		_dayCycleSpeed = 48.0;
 	int			_dayOfTheYear = 160;
 	int			_hour = 12;

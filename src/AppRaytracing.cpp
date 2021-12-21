@@ -6,14 +6,14 @@ void Application::createStorageImage() {
 	_rayTraceStorageImages.resize(_swapChainImages.size());
 	_rayTraceStorageImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		_rayTraceStorageImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+		_rayTraceStorageImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 										 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 		_rayTraceStorageImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		_rayTraceStorageImageViews[i].create(_device, VkImageViewCreateInfo{
 														  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 														  .image = _rayTraceStorageImages[i],
 														  .viewType = VK_IMAGE_VIEW_TYPE_2D,
-														  .format = VK_FORMAT_B8G8R8A8_UNORM,
+														  .format = VK_FORMAT_R16G16B16A16_SFLOAT,
 														  .subresourceRange =
 															  VkImageSubresourceRange{
 																  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -24,7 +24,7 @@ void Application::createStorageImage() {
 															  },
 													  });
 
-		_rayTraceStorageImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+		_rayTraceStorageImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 												   VK_IMAGE_LAYOUT_GENERAL);
 	}
 }
@@ -392,6 +392,8 @@ void Application::recordRayTracingCommands() {
 		// Prepare ray tracing output image as transfer source
 		Image::setLayout(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresource_range);
 
+		// vkCmdCopyImage doesn't seem to handle the transition to a sRGB target properly, also sRGB formats are not valid for a storage image usage - at least on my plateform.
+#if 0
 		VkImageCopy copy_region{
 			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
 			.srcOffset = {0, 0, 0},
@@ -400,7 +402,17 @@ void Application::recordRayTracingCommands() {
 			.extent = {_width, _height, 1},
 		};
 		vkCmdCopyImage(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
-
+#else
+		// vkCmdBlitImage does handle the transistion to sRGB (and also mismatching bit depth, for example if we want a 32bit buffer while our swapchain image is 16bits).
+		VkImageBlit blit{
+			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.srcOffsets = {{0, 0, 0}, {static_cast<int32_t>(_width), static_cast<int32_t>(_height), 1}},
+			.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.dstOffsets = {{0, 0, 0}, {static_cast<int32_t>(_width), static_cast<int32_t>(_height), 1}},
+		};
+		vkCmdBlitImage(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
+					   VK_FILTER_LINEAR);
+#endif
 		// Transition swap chain image back to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to prepare for UI rendering
 		Image::setLayout(cmdBuff, _swapChainImages[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, subresource_range);
 		// Transition ray tracing output image back to general layout

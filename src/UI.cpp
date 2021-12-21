@@ -27,6 +27,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	ImPlot::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	(void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_IsSRGB;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
 	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;	// Enable Docking

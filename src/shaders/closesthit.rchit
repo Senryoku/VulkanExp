@@ -158,8 +158,8 @@ void main()
 
 	vec3 color = vec3(0) + emissiveLight;
 
-	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth);  
-	color += indirectLight * texColor.rgb;
+	vec3 indirectLight = sampleProbes(position + 0.1 *normal, normal, grid, irradianceColor, irradianceDepth);  
+	color += indirectLight * texColor.rgb;	
 	
 	float tmax = 10000.0;
 	vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.

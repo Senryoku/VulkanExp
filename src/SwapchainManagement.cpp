@@ -18,8 +18,8 @@ VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<
 VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 	for(const auto& availableFormat : availableFormats) {
 		// FIXME: Imgui windows don't look right when VK_COLOR_SPACE_SRGB_NONLINEAR_KHR is used.
-		// if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-		if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
+		if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+			// if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT) {
 			return availableFormat;
 		}
 	}
@@ -627,7 +627,8 @@ void Application::initSwapChain() {
 	// Irradiances Probes & Debug
 	_irradianceProbes.createPipeline();
 	// FIXME: Should not be there, just WIP
-	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure, _lightUniformBuffers[0]); // FIXME: Should update the used light buffer with the frame
+	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure,
+										 _lightUniformBuffers[0]); // FIXME: Should update the used light buffer to match the one used on the current frame
 	initProbeDebug();
 
 	recordCommandBuffers();

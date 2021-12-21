@@ -94,7 +94,7 @@ void glTF::load(std::filesystem::path path) {
 		for(const auto& texture : object["textures"]) {
 			Textures.push_back(Texture{
 				.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_UNORM,											// FIXME: Revert to VK_FORMAT_R8G8B8A8_SRGB when we have a proper SRBG pipeline
+				.format = VK_FORMAT_R8G8B8A8_SRGB,
 				.samplerDescription = object["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
 			});
 		}

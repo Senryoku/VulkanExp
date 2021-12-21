@@ -21,7 +21,7 @@ const int colorRes = 8; // FIXME
 const int depthRes = 16; // FIXME
 
 void main() {
-    #if 0
+    #if 1
     vec2 localUV = (float(colorRes - 2) / colorRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
     vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
     vec3 c = textureLod(colorTex, uv, 0).xyz;
