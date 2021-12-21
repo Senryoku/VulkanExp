@@ -14,14 +14,14 @@ struct Bounds {
 
 	inline Bounds& operator+=(const Bounds& o) {
 		min = glm::min(min, o.min);
-		max = glm::max(min, o.max);
+		max = glm::max(max, o.max);
 		return *this;
 	}
 
 	inline Bounds operator+(const Bounds& o) {
 		return {
 			.min = glm::min(min, o.min),
-			.max = glm::max(min, o.max),
+			.max = glm::max(max, o.max),
 		};
 	}
 };
