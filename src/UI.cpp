@@ -8,15 +8,17 @@ struct TextureRef {
 	const ImTextureID	 imID;
 };
 
-std::vector<TextureRef> SceneUITextureIDs;
-ImTextureID				ProbesColor;
-ImTextureID				ProbesDepth;
+static std::vector<TextureRef> SceneUITextureIDs;
+static ImTextureID			   ProbesColor;
+static ImTextureID			   ProbesDepth;
 
 struct DebugTexture {
 	const std::string name;
 	const ImTextureID id;
 };
-std::vector<DebugTexture> DebugTextureIDs;
+static std::vector<DebugTexture> DebugTextureIDs;
+
+static glTF::Node* SelectedNode = nullptr;
 
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
@@ -209,21 +211,22 @@ void Application::drawUI() {
 	if(ImGui::Begin("Scenes")) {
 		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
-			if(ImGui::TreeNode((nodes[n].name + "##" + std::to_string(n)).c_str())) {
-				ImGui::Matrix("Transform", nodes[n].transform);
-				auto translation = glm::vec3(nodes[n].transform[3]);
-				if(ImGui::InputFloat3("Position", reinterpret_cast<float*>(&translation))) {
-					nodes[n].transform[3].x = translation.x;
-					nodes[n].transform[3].y = translation.y;
-					nodes[n].transform[3].z = translation.z;
-					// TODO: Update Uniform & Acceleration Structure
+			if(nodes[n].children.empty()) {
+				bool open = ImGui::TreeNodeEx((nodes[n].name + "##" + std::to_string(n)).c_str(), ImGuiTreeNodeFlags_Leaf);
+				if(ImGui::IsItemClicked())
+					SelectedNode = &nodes[n];
+				if(open)
+					ImGui::TreePop();
+			} else {
+				bool open = ImGui::TreeNodeEx((nodes[n].name + "##" + std::to_string(n)).c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
+				if(ImGui::IsItemClicked())
+					SelectedNode = &nodes[n];
+				if(open) {
+					for(const auto& c : nodes[n].children) {
+						displayNode(c);
+					}
+					ImGui::TreePop();
 				}
-				if(nodes[n].mesh != -1)
-					ImGui::Text("Mesh: %s", _scene.getMeshes()[nodes[n].mesh].name.c_str());
-				for(const auto& c : nodes[n].children) {
-					displayNode(c);
-				}
-				ImGui::TreePop();
 			}
 		};
 
@@ -244,6 +247,54 @@ void Application::drawUI() {
 				}
 			}
 			ImGui::TreePop();
+		}
+	}
+	ImGui::End();
+
+	if(ImGui::Begin("Node")) {
+		if(SelectedNode) {
+			if(ImGui::TreeNode("Transform Matrix")) {
+				ImGui::Matrix("Transform", SelectedNode->transform);
+				ImGui::TreePop();
+			}
+			auto translation = glm::vec3(SelectedNode->transform[3]);
+			if(ImGui::InputFloat3("Position", reinterpret_cast<float*>(&translation))) {
+				SelectedNode->transform[3].x = translation.x;
+				SelectedNode->transform[3].y = translation.y;
+				SelectedNode->transform[3].z = translation.z;
+				// TODO: Update Uniform & Acceleration Structure
+			}
+			if(SelectedNode->mesh != -1) {
+				auto&& mesh = _scene.getMeshes()[SelectedNode->mesh];
+				if(ImGui::TreeNodeEx(mesh.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
+						auto&& submesh = mesh.SubMeshes[i];
+						if(ImGui::TreeNodeEx((submesh.name + "##" + std::to_string(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+							auto&& mat = Materials[submesh.materialIndex];
+							if(ImGui::TreeNodeEx(mat.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+								if(mat.albedoTexture != -1) {
+									ImGui::Text("Albedo");
+									ImGui::Image(SceneUITextureIDs[mat.albedoTexture].imID, ImVec2(100, 100));
+								}
+								if(ImGui::InputFloat3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
+									// TODO: Update material uniform
+								}
+								if(ImGui::InputFloat("Metallic Factor", &mat.metallicFactor)) {
+									// TODO: Update material uniform
+								}
+								if(ImGui::InputFloat("Roughness Factor", &mat.roughnessFactor)) {
+									// TODO: Update material uniform
+								}
+								ImGui::TreePop();
+							}
+							ImGui::TreePop();
+						}
+					}
+					ImGui::TreePop();
+				}
+			}
+		} else {
+			ImGui::Text("No selected node.");
 		}
 	}
 	ImGui::End();

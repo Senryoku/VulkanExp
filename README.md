@@ -3,8 +3,7 @@
 ## Todos
 
 ### Bugs
- - Irradiance probes leave clear artifacts on the edge of each cell (also visible on test probe display). I was suspecting a problem with the UV calculation, but never successed in proving that, may be something else entirely.
- - Probably a lot.
+  - Probably a lot.
 
 ### Major Features
  - Scene
