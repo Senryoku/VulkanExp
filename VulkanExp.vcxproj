@@ -134,6 +134,7 @@
     <None Include="src\shaders\rayPayload.glsl" />
     <None Include="src\shaders\reflectionShadow.rgen" />
     <None Include="src\shaders\shadow.rmiss" />
+    <None Include="src\shaders\sky.glsl" />
     <None Include="src\shaders\Vertex.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

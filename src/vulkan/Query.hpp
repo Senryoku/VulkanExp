@@ -3,9 +3,9 @@
 #include <Device.hpp>
 #include <HandleWrapper.hpp>
 
-class Query : HandleWrapper<uint32_t> {};
+using Query = uint32_t;
 
-class QueryPool : HandleWrapper<VkQueryPool> {
+class QueryPool : public HandleWrapper<VkQueryPool> {
   public:
 	~QueryPool() { destroy(); }
 
@@ -15,6 +15,7 @@ class QueryPool : HandleWrapper<VkQueryPool> {
 	};
 
 	void create(const Device& device, VkQueryType type, uint32_t queryCount, VkQueryPipelineStatisticFlags statiscticFlags = 0) {
+		assert(!isValid());
 		VkQueryPoolCreateInfo info{
 			.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
 			.pNext = nullptr,

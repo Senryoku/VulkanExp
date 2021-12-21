@@ -124,6 +124,8 @@ void IrradianceProbes::updateUniforms() {
 void IrradianceProbes::createPipeline() {
 	if(_pipeline)
 		_pipeline.destroy();
+	if(_queryPool)
+		_queryPool.destroy();
 
 	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
