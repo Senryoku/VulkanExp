@@ -66,15 +66,15 @@ void main()
 		payload.color = vec4(0.0);
         
         vec2 polar = cartesianToPolar(direction);
-		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));//normalize(direction.xyz + vec3(0.1, 0, 0));
-		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));//normalize(direction.xyz + vec3(0, 0.1, 0));
+		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));
+		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
         if(payload.depth < 0) payload.depth = MaxDistance; //continue;
 
         for(int x = 0; x < results.length(); ++x)
             for(int y = 0; y < results[0].length(); ++y) {
-                // TODO: This could be pre-computed
+                // This could be pre-computed (Tried a naïve version: didn't gain much, but it's expected since it's so little compared to the ray tracing. Didn't feel like it was worth the obfuscation of a precomptuted table, at least for now.)
                 vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.colorRes));
                 float colorWeight = max(0.0, dot(texelDirection, direction));
                 results[x][y] += vec4(colorWeight * payload.color.rgb, colorWeight);

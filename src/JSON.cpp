@@ -55,7 +55,7 @@ JSON::object JSON::parseObject(std::ifstream& file) {
 			case '"': {
 				auto key = parseString(file);
 				expect(':', file);
-				o.emplace(key, parseValue(file));
+				o.emplace(std::move(key), parseValue(file));
 				break;
 			}
 			case ',':

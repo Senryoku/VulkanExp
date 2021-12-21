@@ -5,8 +5,8 @@ class RollingBuffer {
   public:
 	RollingBuffer(size_t max = 1024) { _buffer.resize(max); }
 
-	void add(const T& val) {
-		_buffer[_end] = val;
+	void add(T&& val) {
+		_buffer[_end] = std::forward<T>(val);
 		++_end;
 		if(_end >= _buffer.size()) {
 			_end = 0;
