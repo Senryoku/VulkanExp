@@ -169,11 +169,11 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
         vec3 directionToProbe = normalize(probePosition - position);
         vec3 biasedDirectionToProbe = probePosition - biasedPosition;
-        vec2 localColorUV = (float(grid.colorRes - 2) / grid.colorRes) * spherePointToOctohedralUV(normal) / uvScaling;
-        vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(-normalize(biasedDirectionToProbe)) / uvScaling;
+        vec2 localColorUV = (float(grid.colorRes - 2) / grid.colorRes) * spherePointToOctohedralUV(normal);
+        vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(-normalize(biasedDirectionToProbe));
 
-        vec2 colorUV = vec2(probeIndexToColorUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.colorRes + localColorUV;
-        vec2 depthUV = vec2(probeIndexToDepthUVOffset(probeCoords, grid) + ivec2(1, 1)) / uvScaling / grid.depthRes + localDepthUV;
+        vec2 colorUV = (vec2(probeIndexToColorUVOffset(probeCoords, grid) + ivec2(1, 1)) / grid.colorRes + localColorUV) / uvScaling;
+        vec2 depthUV = (vec2(probeIndexToDepthUVOffset(probeCoords, grid) + ivec2(1, 1)) / grid.depthRes + localDepthUV) / uvScaling;
         // Contribution of this probe, based on its distance from our sample point
         vec3 trilinear = mix(1.0 - alpha, alpha, vec3(offset));
         float weight = 1.0f;
