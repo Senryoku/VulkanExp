@@ -180,7 +180,9 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         
         // Smooth backface test
         float backfaceweight = max(0.0001, (dot(directionToProbe, normal) + 1.0) * 0.5);
-        weight *= backfaceweight * backfaceweight + 0.2; // This looks very wrong on flat surfaces aligned with the grid, with bright spots under the probes
+        weight *= backfaceweight * backfaceweight + 0.2; // This looks very wrong on flat surfaces aligned with the grid, with bright spots under the probes, and, more importantly, huge black spots when a probe is right behind a wall (I guess the visibily test is not enough to cull it in this case)
+        //weight *= max(0.0001, (dot(directionToProbe, normal))); // The simpler version works way better for walls
+        // But the real solution is probably to nudge the probes out of walls, or disable the problematic ones...
 
         float fallbackWeight = weight;
 
