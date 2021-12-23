@@ -12,7 +12,8 @@ struct ProbeGrid {
     uint raysPerProbe;
     uint colorRes;
     uint depthRes;
-    uint padding[2];
+    float shadowBias;
+    uint padding;
 };
 
 ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
@@ -143,10 +144,12 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 
 #define LINEAR_BLENDING
 
-vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
+vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
     vec3 gridCoords = (position - grid.extentMin) / gridCellSize;
+    vec3 biasVector = (0.2 * normal + 0.8 * toCamera) * 0.75 * min(min(gridCellSize.x, gridCellSize.y), gridCellSize.z) * grid.shadowBias;
+    vec3 biasedPosition = position + biasVector;
     ivec3 firstProbeIdx = ivec3(gridCoords);
     vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / gridCellSize, vec3(0), vec3(1));
     
@@ -165,7 +168,6 @@ vec3 sampleProbes(vec3 position, vec3 normal, ProbeGrid grid, sampler2D colorTex
         ivec3 probeCoords = firstProbeIdx + offset;
         vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
         vec3 directionToProbe = normalize(probePosition - position);
-        vec3 biasedPosition = (position + 0.2 * normal);
         vec3 biasedDirectionToProbe = probePosition - biasedPosition;
         vec2 localColorUV = (float(grid.colorRes - 2) / grid.colorRes) * spherePointToOctohedralUV(normal) / uvScaling;
         vec2 localDepthUV = (float(grid.depthRes - 2) / grid.depthRes) * spherePointToOctohedralUV(-normalize(biasedDirectionToProbe)) / uvScaling;

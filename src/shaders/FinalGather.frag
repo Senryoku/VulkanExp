@@ -59,6 +59,6 @@ void main() {
 	color.rgb += (F /*Missing BRDF parameters */) * pbrMetallicRoughness(normal, view, reflection.rgb, reflect(-view, normal), albedo, material.metallicFactor, material.roughnessFactor).rgb;
 	
 	// Indirect Light (Radiance from probes)
-	vec3 indirectLight = sampleProbes(position, normal, grid, irradianceColor, irradianceDepth).rgb;  
+	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;  
 	color.rgb += indirectLight * albedo.rgb;
 }

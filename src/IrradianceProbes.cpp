@@ -233,7 +233,7 @@ void genBasis(const glm::vec3& n, glm::vec3& b1, glm::vec3& b2) {
 }
 
 void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
-#if 0
+#if 1
 	// Decouple the updates from the framerate?
 	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.
 	auto result = vkGetFenceStatus(*_device, _fence);

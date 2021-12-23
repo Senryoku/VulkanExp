@@ -112,10 +112,11 @@ vec4 texDerivative(vec3 worldPosition, Vertex v0, Vertex v1, Vertex v2, vec3 ray
 
 void main()
 {
+	payload.depth = gl_HitTEXT;
 	// Stop early if we're hiting the back face of a triangle. We're most likely inside a wall, this will prevent some light leaks with irradiance probes.
 	if(gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT) {
+		payload.depth *= 0.80;
 		payload.color = vec4(0);
-		payload.depth = 0;
 		return;
 	}
 
@@ -158,7 +159,7 @@ void main()
 
 	vec3 color = vec3(0) + emissiveLight;
 
-	vec3 indirectLight = sampleProbes(position + 0.1 *normal, normal, grid, irradianceColor, irradianceDepth);  
+	vec3 indirectLight = sampleProbes(position, normal, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);  
 	color += indirectLight * texColor.rgb;	
 	
 	float tmax = 10000.0;
@@ -218,5 +219,4 @@ void main()
 	}
 
 	payload.color = vec4(color, texColor.a);
-	payload.depth = gl_HitTEXT;
 }

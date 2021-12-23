@@ -38,7 +38,8 @@ class IrradianceProbes {
 		unsigned int raysPerProbe = 16;
 		unsigned int colorRes = 8;
 		unsigned int depthRes = 16;
-		unsigned int padding[2];
+		float		 shadowBias = 0.3;
+		unsigned int padding;
 	};
 	GridInfo GridParameters;
 

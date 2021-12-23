@@ -28,7 +28,7 @@ void main() {
     vec3 tangentSpaceNormal = normalize(2.0 * texture(normalTexSampler, texCoord).rgb - 1.0);
     vec3 finalNormal = mat3(tangent.xyz, bitangent, normalize(normal)) * tangentSpaceNormal;
 
-    vec3 indirectLight = sampleProbes(position, normalize(normal), grid, probesColor, probesDepth);    
+    vec3 indirectLight = sampleProbes(position, normalize(normal), /*FIXME*/normalize(normal), grid, probesColor, probesDepth);    
 
     outColor = vec4(indirectLight * texColor.rgb + clamp(dot(lightDir, finalNormal), 0.2, 1.0) * texColor.rgb, 1.0);
 
