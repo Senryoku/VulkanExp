@@ -626,9 +626,7 @@ void Application::initSwapChain() {
 
 	// Irradiances Probes & Debug
 	_irradianceProbes.createPipeline();
-	// FIXME: Should not be there, just WIP
-	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure,
-										 _lightUniformBuffers[0]); // FIXME: Should update the used light buffer to match the one used on the current frame
+	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure, _lightUniformBuffers[0]);
 	initProbeDebug();
 
 	recordCommandBuffers();

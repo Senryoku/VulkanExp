@@ -52,12 +52,63 @@ void Application::run() {
 	cleanup();
 }
 
+void Application::mainLoop() {
+	while(!glfwWindowShouldClose(_window)) {
+		glfwPollEvents();
+
+		if(_dirtyShaders) {
+			compileShaders();
+			_dirtyShaders = false;
+		}
+
+		for(auto& pool : _mainTimingQueryPools) {
+			if(pool.newSampleFlag) {
+				auto results = pool.get();
+				if(results.size() >= 6 && results[0].available && results[5].available) {
+					_frameTimes.add(0.000001 * (results[5].result - results[0].result));
+					pool.newSampleFlag = false;
+				}
+			}
+		}
+
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+		ImGui::DockSpaceOverViewport(nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
+		drawUI();
+		ImGui::Render();
+		// Update and Render additional Platform Windows
+		if(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+		}
+
+		if(_irradianceProbeAutoUpdate) {
+			_irradianceProbes.setLightBuffer(_lightUniformBuffers[_lastImageIndex]);
+			_irradianceProbes.update(_scene, _computeQueue);
+		}
+
+		if(_outdatedCommandBuffers) {
+			std::vector<VkFence> fencesHandles;
+			fencesHandles.reserve(_inFlightFences.size());
+			for(const auto& fence : _inFlightFences)
+				fencesHandles.push_back(fence);
+			VK_CHECK(vkWaitForFences(_device, static_cast<uint32_t>(fencesHandles.size()), fencesHandles.data(), VK_TRUE, UINT64_MAX));
+			recordCommandBuffers();
+			_outdatedCommandBuffers = false;
+		}
+
+		drawFrame();
+	}
+}
+
 void Application::drawFrame() {
 	VkFence currentFence = _inFlightFences[_currentFrame];
 	VK_CHECK(vkWaitForFences(_device, 1, &currentFence, VK_TRUE, UINT64_MAX));
 
 	uint32_t imageIndex;
 	auto	 result = vkAcquireNextImageKHR(_device, _swapChain, UINT64_MAX, _imageAvailableSemaphore[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	_lastImageIndex = imageIndex;
 
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreateSwapChain();

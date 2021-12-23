@@ -44,8 +44,12 @@ class IrradianceProbes {
 
 	const RollingBuffer<float>& getComputeTimes() const { return _computeTimes; }
 
+	void setLightBuffer(const Buffer& lightBuffer);
+
   private:
-	const Device* _device;
+	const Device* _device = nullptr;
+	const Buffer* _lightBuffer = nullptr; // As it may change every frame (also used in main render and tied to the number of image in the swapchain), keep a reference to it to
+										  // write it right before updates
 
 	Fence				_fence;
 	Pipeline			_pipeline;
@@ -73,4 +77,6 @@ class IrradianceProbes {
 
 	QueryPool			 _queryPool;
 	RollingBuffer<float> _computeTimes;
+
+	void writeLightDescriptor();
 };

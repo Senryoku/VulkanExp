@@ -70,7 +70,8 @@ void main()
 		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
-        if(payload.depth < 0) payload.depth = MaxDistance; //continue;
+        float foundDepth = min(0.99f * payload.depth, MaxDistance);
+        if(foundDepth < 0) foundDepth = MaxDistance;
 
         for(int x = 0; x < results.length(); ++x)
             for(int y = 0; y < results[0].length(); ++y) {
@@ -83,7 +84,6 @@ void main()
             for(int y = 0; y < depthResults[0].length(); ++y) {
                 vec3 texelDirection = octDecode(normalizeLocalTexelCoord(ivec2(x, y), grid.depthRes));
                 float depthWeight = pow(max(0.0, dot(texelDirection, direction)), grid.depthSharpness);
-                float foundDepth = min(0.99f * payload.depth, MaxDistance);
                 depthResults[x][y] += vec3(depthWeight * foundDepth, depthWeight * foundDepth * foundDepth, depthWeight);
             }
     }

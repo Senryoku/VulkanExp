@@ -200,6 +200,21 @@ void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStruc
 	writer.update(*_device);
 }
 
+void IrradianceProbes::setLightBuffer(const Buffer& lightBuffer) {
+	_lightBuffer = &lightBuffer;
+}
+
+void IrradianceProbes::writeLightDescriptor() {
+	DescriptorSetWriter writer(_descriptorPool.getDescriptorSets()[0]);
+	writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			   {
+				   .buffer = *_lightBuffer,
+				   .offset = 0,
+				   .range = sizeof(LightBuffer),
+			   });
+	writer.update(*_device);
+}
+
 void IrradianceProbes::createShaderBindingTable() {
 	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _pipeline);
 }
@@ -229,6 +244,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 #else
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 #endif
+	writeLightDescriptor();
 
 	if(_queryPool.newSampleFlag) {
 		auto queryResults = _queryPool.get();
