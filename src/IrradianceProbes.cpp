@@ -326,11 +326,10 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
-	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX)); // TEST
 }
 
 void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
-#if 1
+#if 0
 	// Decouple the updates from the framerate?
 	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.
 	auto result = vkGetFenceStatus(*_device, _fence);

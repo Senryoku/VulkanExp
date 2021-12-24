@@ -203,13 +203,28 @@ void main()
 
 	// Direct lighting
 	isShadowed = true;
+	vec3 shadowBiasedPosition = position;
+	#if 0
+	// Shadow offset described in Ray Tracing Gems II (https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf)
+	// Sometimes helps (avoid small harsh shadows), but isn't very convincing overall.
+	vec3 tmpu = position - v0.pos;
+	vec3 tmpv = position - v1.pos;
+	vec3 tmpw = position - v2.pos;
+	float dotu = min(0.0, dot(tmpu, v0.normal));
+	float dotv = min(0.0, dot(tmpu, v1.normal));
+	float dotw = min(0.0, dot(tmpu, v2.normal));
+	tmpu -= dotu * v0.normal;
+	tmpv -= dotv * v1.normal;
+	tmpw -= dotw * v2.normal;
+	shadowBiasedPosition += barycentricCoords.x * tmpu + barycentricCoords.y * tmpv + barycentricCoords.z * tmpw;
+	#endif
 	traceRayEXT(topLevelAS,            // acceleration structure
 		gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
 		0xFF,                  // cullMask
 		0,                     // sbtRecordOffset
 		0,                     // sbtRecordStride
 		1,                     // missIndex
-		position,              // ray origin
+		shadowBiasedPosition,              // ray origin
 		0.1,                   // ray min range
 		DirectionalLight.direction.xyz,             // ray direction
 		tmax,                  // ray max range
