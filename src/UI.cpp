@@ -346,6 +346,9 @@ void Application::drawUI() {
 		}
 		if(ImGui::TreeNodeEx("Irradiance Probes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Auto. Update", &_irradianceProbeAutoUpdate);
+			if(ImGui::Button("Update State")) {
+				_irradianceProbes.initProbes(_computeQueue);
+			}
 			bool uniformNeedsUpdate = false;
 			uniformNeedsUpdate = ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin)) || uniformNeedsUpdate;
 			uniformNeedsUpdate = ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax)) || uniformNeedsUpdate;

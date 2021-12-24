@@ -21,9 +21,9 @@
 #extension GL_EXT_debug_printf : enable
 
 #include "common.glsl"
-#include "irradiance.glsl"
 #include "pbrMetallicRoughness.glsl"
 #include "Lights.glsl"
+#include "ProbeGrid.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0) uniform sampler2D textures[];
@@ -34,12 +34,14 @@ layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
 layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
 };
-layout(binding = 7, set = 0) uniform sampler2D irradianceColor;
-layout(binding = 8, set = 0) uniform sampler2D irradianceDepth;
-layout(binding = 9, set = 0) uniform UBOLight {
+layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
+layout(binding = 8, set = 0) uniform sampler2D irradianceColor;
+layout(binding = 9, set = 0) uniform sampler2D irradianceDepth;
+layout(binding = 10, set = 0) uniform UBOLight {
 	Light DirectionalLight;
 };
 
+#include "irradiance.glsl"
 #include "Vertex.glsl"
 #include "Material.glsl"
 #include "rayPayload.glsl"

@@ -14,6 +14,7 @@
 class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max);
+	void initProbes(VkQueue queue);
 	void createPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
@@ -25,23 +26,29 @@ class IrradianceProbes {
 	inline const ImageView& getColorView() const { return _colorView; }
 	inline const ImageView& getDepthView() const { return _depthView; }
 	inline const Buffer&	getGridParametersBuffer() const { return _gridInfoBuffer; }
+	inline const Buffer&	getProbeInfoBuffer() const { return _probeInfoBuffer; }
 
 	void destroy();
 
-	// This wii be passed to shaders as a UBO, alignment and order of members is important.
+	// This will be passed to shaders as a UBO, alignment and order of members is important.
 	struct GridInfo {
 		glm::vec3	 extentMin;
 		float		 depthSharpness = 12.0f; // Exponent for depth testing
 		glm::vec3	 extentMax;
 		float		 hysteresis = 0.98f; // Importance of previously cast rays
 		glm::ivec3	 resolution{32, 16, 32};
-		unsigned int raysPerProbe = 16;
+		unsigned int raysPerProbe = 128;
 		unsigned int colorRes = 8;
 		unsigned int depthRes = 16;
 		float		 shadowBias = 0.3;
 		unsigned int padding;
 	};
 	GridInfo GridParameters;
+
+	// This could also hold an offset later on.
+	struct ProbeInfo {
+		uint32_t state;
+	};
 
 	const RollingBuffer<float>& getComputeTimes() const { return _computeTimes; }
 
@@ -59,9 +66,13 @@ class IrradianceProbes {
 	DescriptorPool		_descriptorPool;
 	CommandPool			_commandPool;
 	CommandBuffers		_commandBuffers;
+	Pipeline			_pipelineProbeInit;
+	ShaderBindingTable	_probeInitShaderBindingTable;
 
 	Buffer			   _gridInfoBuffer;
 	DeviceMemory	   _gridInfoMemory;
+	Buffer			   _probeInfoBuffer;
+	DeviceMemory	   _probeInfoMemory;
 	ShaderBindingTable _shaderBindingTable;
 
 	// Exposed results

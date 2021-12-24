@@ -54,12 +54,12 @@ void Application::createReflectionShadowPipeline() {
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) //  9 Camera
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 10 GBUffer 0
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 11 GBuffer 1
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 12 GBuffer 2
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 13 Result (Reflections)
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // 14 Result (Direct Light)
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // 11 Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 12 GBUffer 0
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 13 GBuffer 1
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 14 GBuffer 2
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 15 Result (Reflections)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // 16 Result (Direct Light)
 
 	_reflectionShadowDescriptorSetLayout = dslBuilder.build(_device);
 	_reflectionShadowPipeline.getLayout().create(_device, {_reflectionShadowDescriptorSetLayout});
@@ -94,34 +94,34 @@ void Application::createReflectionShadowPipeline() {
 		auto writer =
 			baseSceneWriter(_device, _reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
-		writer.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
-		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 0],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 1],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _gbufferImageViews[3 * i + 2],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
 		// Result
-		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _reflectionImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
-		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(16, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _directLightImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,

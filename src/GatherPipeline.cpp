@@ -18,6 +18,7 @@ void Application::createGatherPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Direct Light
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)	  // Materials
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Grid Parameters
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Probe Info
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		  // Camera
@@ -182,21 +183,27 @@ void Application::createGatherPipeline() {
 					 .offset = 0,
 					 .range = sizeof(IrradianceProbes::GridInfo),
 				 })
-			.add(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				 {
+					 .buffer = _irradianceProbes.getProbeInfoBuffer(),
+					 .offset = 0,
+					 .range = VK_WHOLE_SIZE,
+				 })
+			.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					 .imageView = _irradianceProbes.getColorView(),
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
-			.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					 .imageView = _irradianceProbes.getDepthView(),
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
-			.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				 {
 					 .buffer = _cameraUniformBuffers[i],
 					 .offset = 0,

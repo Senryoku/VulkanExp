@@ -5,20 +5,20 @@
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
-layout(binding = 9, set = 0) uniform LightUBO {
+layout(binding = 10, set = 0) uniform LightUBO {
 	Light DirectionalLight;
 };
-layout(binding = 10, set = 0) uniform UniformBufferObject 
+layout(binding = 11, set = 0) uniform UniformBufferObject 
 {
     mat4 view;
     mat4 proj;
 } ubo;
-layout(binding = 11, set = 0, rgba32f) uniform image2D positionDepthTex;
-layout(binding = 12, set = 0, rgba32f) uniform image2D normalMaterialTex;
-layout(binding = 13, set = 0, rgba32f) uniform image2D albedoTex;
+layout(binding = 12, set = 0, rgba32f) uniform image2D positionDepthTex;
+layout(binding = 13, set = 0, rgba32f) uniform image2D normalMaterialTex;
+layout(binding = 14, set = 0, rgba32f) uniform image2D albedoTex;
 
-layout(binding = 14, set = 0, rgba32f) uniform image2D reflectionOut;
-layout(binding = 15, set = 0, rgba32f) uniform image2D directLightOut;
+layout(binding = 15, set = 0, rgba32f) uniform image2D reflectionOut;
+layout(binding = 16, set = 0, rgba32f) uniform image2D directLightOut;
 
 #include "Material.glsl"
 #include "rayPayload.glsl"

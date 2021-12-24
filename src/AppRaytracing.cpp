@@ -354,14 +354,14 @@ void Application::createRaytracingDescriptorSets() {
 		auto writer =
 			baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
-		writer.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
 					   .buffer = _cameraUniformBuffers[i],
 					   .offset = 0,
 					   .range = sizeof(CameraBuffer),
 				   });
 		// Result
-		writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _rayTraceStorageImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,

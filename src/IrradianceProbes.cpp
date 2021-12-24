@@ -86,6 +86,9 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 
 	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
 	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_probeInfoBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+							GridParameters.resolution[0] * GridParameters.resolution[1] * GridParameters.resolution[2] * sizeof(ProbeInfo));
+	_probeInfoMemory.allocate(device, _probeInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	updateUniforms();
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
@@ -124,69 +127,126 @@ void IrradianceProbes::updateUniforms() {
 void IrradianceProbes::createPipeline() {
 	if(_pipeline)
 		_pipeline.destroy();
+	if(_pipelineProbeInit)
+		_pipelineProbeInit.destroy();
 	if(_queryPool)
 		_queryPool.destroy();
 
-	std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+	// Init Pipeline
+	{
+		std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 
-	Shader raygenShader(*_device, "./shaders_spv/probes_raygen.rgen.spv");
-	shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
-	Shader raymissShader(*_device, "./shaders_spv/miss.rmiss.spv");
-	shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
-	Shader raymissShadowShader(*_device, "./shaders_spv/shadow.rmiss.spv");
-	shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
-	Shader closesthitShader(*_device, "./shaders_spv/closesthit.rchit.spv");
-	shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+		Shader raygenShader(*_device, "./shaders_spv/probesInit.rgen.spv");
+		shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+		Shader closesthitShader(*_device, "./shaders_spv/backfaceTest.rchit.spv");
+		shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 
-	// Ray generation group
-	shader_groups.push_back({
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = 0,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	});
+		// Ray generation group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 0,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
 
-	// Ray miss group
-	shader_groups.push_back({
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = 1,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	});
-	shader_groups.push_back({
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-		.generalShader = 2,
-		.closestHitShader = VK_SHADER_UNUSED_KHR,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	});
+		// Ray miss group
+		/* shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+		*/
+		// Ray closest hit group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = 1,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
 
-	// Ray closest hit group
-	shader_groups.push_back({
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-		.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-		.generalShader = VK_SHADER_UNUSED_KHR,
-		.closestHitShader = 3,
-		.anyHitShader = VK_SHADER_UNUSED_KHR,
-		.intersectionShader = VK_SHADER_UNUSED_KHR,
-	});
+		VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+			.stageCount = static_cast<uint32_t>(shader_stages.size()),
+			.pStages = shader_stages.data(),
+			.groupCount = static_cast<uint32_t>(shader_groups.size()),
+			.pGroups = shader_groups.data(),
+			.maxPipelineRayRecursionDepth = 2,
+			.layout = _pipelineLayout,
+		};
+		_pipelineProbeInit.create(*_device, pipelineCreateInfo);
+	}
 
-	VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo{
-		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-		.stageCount = static_cast<uint32_t>(shader_stages.size()),
-		.pStages = shader_stages.data(),
-		.groupCount = static_cast<uint32_t>(shader_groups.size()),
-		.pGroups = shader_groups.data(),
-		.maxPipelineRayRecursionDepth = 2,
-		.layout = _pipelineLayout,
-	};
-	_pipeline.create(*_device, pipelineCreateInfo);
+	// Update Pipeline
+	{
+		std::vector<VkPipelineShaderStageCreateInfo>	  shader_stages;
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+
+		Shader raygenShader(*_device, "./shaders_spv/probes_raygen.rgen.spv");
+		shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+		Shader raymissShader(*_device, "./shaders_spv/miss.rmiss.spv");
+		shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
+		Shader raymissShadowShader(*_device, "./shaders_spv/shadow.rmiss.spv");
+		shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
+		Shader closesthitShader(*_device, "./shaders_spv/closesthit.rchit.spv");
+		shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+
+		// Ray generation group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 0,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+
+		// Ray miss group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 1,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 2,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+
+		// Ray closest hit group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+			.generalShader = VK_SHADER_UNUSED_KHR,
+			.closestHitShader = 3,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
+
+		VkRayTracingPipelineCreateInfoKHR pipelineCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+			.stageCount = static_cast<uint32_t>(shader_stages.size()),
+			.pStages = shader_stages.data(),
+			.groupCount = static_cast<uint32_t>(shader_groups.size()),
+			.pGroups = shader_groups.data(),
+			.maxPipelineRayRecursionDepth = 2,
+			.layout = _pipelineLayout,
+		};
+		_pipeline.create(*_device, pipelineCreateInfo);
+	}
 
 	createShaderBindingTable();
 
@@ -195,8 +255,8 @@ void IrradianceProbes::createPipeline() {
 
 void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
 	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, tlas, *this, lightBuffer);
-	writer.add(10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workColorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
-	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
+	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workColorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
+	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.update(*_device);
 }
 
@@ -206,7 +266,7 @@ void IrradianceProbes::setLightBuffer(const Buffer& lightBuffer) {
 
 void IrradianceProbes::writeLightDescriptor() {
 	DescriptorSetWriter writer(_descriptorPool.getDescriptorSets()[0]);
-	writer.add(9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+	writer.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			   {
 				   .buffer = *_lightBuffer,
 				   .offset = 0,
@@ -217,6 +277,7 @@ void IrradianceProbes::writeLightDescriptor() {
 
 void IrradianceProbes::createShaderBindingTable() {
 	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _pipeline);
+	_probeInitShaderBindingTable.create(*_device, {1, 0, 1, 0}, _pipelineProbeInit);
 }
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -230,6 +291,42 @@ void genBasis(const glm::vec3& n, glm::vec3& b1, glm::vec3& b2) {
 	b1 -= n * glm::dot(b1, n);
 	b1 = glm::normalize(b1);
 	b2 = glm::cross(n, b1);
+}
+
+void IrradianceProbes::initProbes(VkQueue queue) {
+	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
+	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
+	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
+	glm::vec3 X, Y;
+	genBasis(Z, X, Y);
+	glm::mat3 orientation = glm::transpose(glm::mat3(X, Y, Z));
+
+	auto& cmdBuff = _commandBuffers.getBuffers()[0];
+	cmdBuff.begin();
+	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineProbeInit);
+	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
+	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
+	vkCmdTraceRaysKHR(cmdBuff, &_probeInitShaderBindingTable.raygenEntry, &_probeInitShaderBindingTable.missEntry, &_probeInitShaderBindingTable.anyhitEntry,
+					  &_probeInitShaderBindingTable.callableEntry, GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
+	cmdBuff.end();
+
+	VkPipelineStageFlags stages[] = {VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR};
+
+	// We'll probably need some sort of synchronization.
+	VkSubmitInfo submitInfo{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 0,
+		.pWaitSemaphores = nullptr,
+		.pWaitDstStageMask = stages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &_commandBuffers.getBuffersHandles()[0],
+		.signalSemaphoreCount = 0,
+		.pSignalSemaphores = nullptr,
+	};
+
+	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
+	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX)); // TEST
 }
 
 void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
@@ -335,15 +432,19 @@ void IrradianceProbes::destroy() {
 	_queryPool.destroy();
 
 	_shaderBindingTable.destroy();
+	_probeInitShaderBindingTable.destroy();
 	_fence.destroy();
 	_commandBuffers.free();
 	_commandPool.destroy();
 	_gridInfoMemory.free();
 	_gridInfoBuffer.destroy();
+	_probeInfoBuffer.destroy();
+	_probeInfoMemory.free();
 	_descriptorPool.destroy();
 	_descriptorSetLayout.destroy();
 	_pipeline.destroy();
 	_pipelineLayout.destroy();
+	_pipelineProbeInit.destroy();
 
 	_workDepthView.destroy();
 	_workDepth.destroy();

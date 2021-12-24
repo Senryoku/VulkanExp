@@ -2,22 +2,14 @@
 #define IRRADIANCE_GLSL
 
 #include "common.glsl"
-
-struct ProbeGrid {
-    vec3 extentMin;
-    float depthSharpness;
-    vec3 extentMax;
-    float hysteresis;
-    ivec3 resolution;
-    uint raysPerProbe;
-    uint colorRes;
-    uint depthRes;
-    float shadowBias;
-    uint padding;
-};
+#include "ProbeGrid.glsl"
 
 ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
-    return  ivec3(index % grid.resolution.x, (index / grid.resolution.x) % grid.resolution.y, (index / (grid.resolution.x * grid.resolution.y)) % grid.resolution.z);
+    return ivec3(index % grid.resolution.x, (index / grid.resolution.x) % grid.resolution.y, (index / (grid.resolution.x * grid.resolution.y)) % grid.resolution.z);
+}
+
+uint probeLinearIndex(ivec3 index, ProbeGrid grid) {
+    return index.x +  grid.resolution.x * index.y + grid.resolution.x * grid.resolution.y * index.z;
 }
 
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
@@ -164,8 +156,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
     
     for(int i = 0; i < 8; ++i) {
         ivec3 offset = ivec3(i, i >> 1, i >> 2) & ivec3(1); //ivec3(i % 2,  (i / 2) % 2, (i / 4) % 2);
-        if(any(greaterThan(offset, grid.resolution - 1))) continue; 
         ivec3 probeCoords = firstProbeIdx + offset;
+        if(any(greaterThan(offset, grid.resolution - 1)) || Probes[probeLinearIndex(probeCoords, grid)] == 0) continue; // Skip off-grid or disabled probes
         vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
         vec3 directionToProbe = normalize(probePosition - position);
         vec3 biasedDirectionToProbe = probePosition - biasedPosition;
@@ -218,6 +210,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         fallbackColor += fallbackWeight * color;
         totalFallbackWeight += fallbackWeight;
     }
+    if(totalWeight == 0) return vec3(0);
+
     #ifdef LINEAR_BLENDING
     finalColor *= 1.0 / totalWeight;
     fallbackColor *= 1.0 / totalFallbackWeight;

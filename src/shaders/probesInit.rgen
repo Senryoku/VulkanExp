@@ -1,0 +1,43 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+#include "ProbeGrid.glsl"
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 6, set = 0, std140) uniform Block {
+    ProbeGrid grid;
+};
+layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
+layout(binding = 10, set = 0, r11f_g11f_b10f) uniform image2D color;
+layout(binding = 11, set = 0, rg16f) uniform image2D depth;
+
+layout(push_constant) uniform Push {
+    mat3 randomOrientation;
+} push;
+
+#include "irradiance.glsl"
+
+layout(location = 0) rayPayloadEXT bool isBackface;
+
+const float tmin = 0.001f;
+const float tmax = 10000.0f;
+
+void main() 
+{
+	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
+
+    uint backfaceHits = 0;
+	for(int i = 0; i < grid.raysPerProbe; ++i) {
+		vec3 direction = push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe);
+
+        isBackface = false;
+		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+        if(isBackface) ++backfaceHits;
+    }
+    
+    if(backfaceHits > 0.5 * grid.raysPerProbe) {
+        Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 0; // OFF
+    } else {
+        Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 1; // ON
+    }
+}

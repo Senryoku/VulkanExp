@@ -1,36 +1,22 @@
-/* Copyright (c) 2019-2020, Sascha Willems
- *
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 the "License";
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
-#include "irradiance.glsl"
+#include "ProbeGrid.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 6, set = 0, std140) uniform Block {
     ProbeGrid grid;
 };
-layout(binding = 10, set = 0, r11f_g11f_b10f) uniform image2D color;
-layout(binding = 11, set = 0, rg16f) uniform image2D depth;
+
+layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
+layout(binding = 11, set = 0, r11f_g11f_b10f) uniform image2D color;
+layout(binding = 12, set = 0, rg16f) uniform image2D depth;
 
 layout(push_constant) uniform Push {
     mat3 randomOrientation;
 } push;
 
+#include "irradiance.glsl"
 #include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
@@ -42,11 +28,15 @@ float MaxDistance = length(gridCellSize); // Fixme
 
 void main() 
 {
+    ivec3 index = ivec3(gl_LaunchIDEXT.xyz);
+    // Skip OFF probes
+    if(Probes[probeLinearIndex(index, grid)] == 0) return;
+    
     payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
 
-	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
-    ivec2 probeUVOffset = probeIndexToColorUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
-    ivec2 probeDepthUVOffset = probeIndexToDepthUVOffset(ivec3(gl_LaunchIDEXT.xyz), grid);
+	vec4 origin = vec4(probeIndexToWorldPosition(index, grid), 1);
+    ivec2 probeUVOffset = probeIndexToColorUVOffset(index, grid);
+    ivec2 probeDepthUVOffset = probeIndexToDepthUVOffset(index, grid);
 
     vec4 results[8 - 2][8 - 2]; // results[grid.colorRes - 2][grid.colorRes - 2] Should we declare them as constant, or just oversize the arrays?
     for(int i = 0; i < results.length(); ++i)

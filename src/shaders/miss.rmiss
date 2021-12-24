@@ -4,7 +4,7 @@
 
 #include "common.glsl"
 #include "Lights.glsl"
-layout(binding = 9, set = 0) uniform UBOLight {
+layout(binding = 10, set = 0) uniform UBOLight {
 	Light DirectionalLight;
 };
 

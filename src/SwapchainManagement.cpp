@@ -200,8 +200,10 @@ void Application::initProbeDebug() {
 	builder
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)								   // Camera
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Grid Parameters
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)								   // Probes Info
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)					   // Probes Color
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);					   // Probes Depth
+
 	_probeDebugDescriptorSetLayouts.push_back(builder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> probeLayouts;
@@ -402,14 +404,20 @@ void Application::initProbeDebug() {
 					.offset = 0,
 					.range = sizeof(IrradianceProbes::GridInfo),
 				});
-		dsw.add(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				{
+					.buffer = _irradianceProbes.getProbeInfoBuffer(),
+					.offset = 0,
+					.range = VK_WHOLE_SIZE,
+				});
+		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 										   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
 					.imageView = _irradianceProbes.getColorView(),
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
-		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 										   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
@@ -627,6 +635,7 @@ void Application::initSwapChain() {
 	// Irradiances Probes & Debug
 	_irradianceProbes.createPipeline();
 	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure, _lightUniformBuffers[0]);
+	_irradianceProbes.initProbes(_computeQueue);
 	initProbeDebug();
 
 	recordCommandBuffers();

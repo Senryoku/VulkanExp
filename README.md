@@ -23,10 +23,10 @@
  - - Glossy Term: Correctly sample a BRDF; Generate screen reflections mip maps and pick the correct one based on material (and depth?)
  - GI. Irradiance Probes for Indirect lightning.
  - - With visibility term: https://www.gdcvault.com/play/1026182/
- - - Add a customizable bias as a uniform
  - - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
- - Performance Metrics (GPU)
- - Some sort of AO
+ - - Manage probe states: Inative (in walls (will never change state or cast ray and be skipped during sampling), too far away), Asleep (Slow rate of change, will still cast rays from time to time to see if it should change state, I'll have to find a way to stagger these updates), Awake (Updated each frame)
+ - - Automatic hysteris: Should start with a lower hysteris to converge faster over the first few frames. High rate of change should also decrease it (starting by using the probe state for example)
+ - Some sort of (small scale) AO
  
 ### Improvements 
 - Many

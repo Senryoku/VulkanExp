@@ -299,5 +299,8 @@
     <None Include="src\shaders\reflectionShadow.rgen" />
     <None Include="src\shaders\Lights.glsl" />
     <None Include="src\shaders\sky.glsl" />
+    <None Include="src\shaders\probesInit.rgen" />
+    <None Include="src\shaders\ProbeGrid.glsl" />
+    <None Include="src\shaders\backfaceTest.rchit" />
   </ItemGroup>
 </Project>

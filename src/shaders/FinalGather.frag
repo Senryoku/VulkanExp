@@ -1,6 +1,6 @@
 #version 460
 
-#include "irradiance.glsl"
+#include "ProbeGrid.glsl"
 
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputPositionDepth;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMaterial;
@@ -11,14 +11,16 @@ layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
 layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
 };
-layout(binding = 7, set = 0) uniform sampler2D irradianceColor;
-layout(binding = 8, set = 0) uniform sampler2D irradianceDepth;
-layout(binding = 9, set = 0) uniform UniformBufferObject 
+layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
+layout(binding = 8, set = 0) uniform sampler2D irradianceColor;
+layout(binding = 9, set = 0) uniform sampler2D irradianceDepth;
+layout(binding = 10, set = 0) uniform UniformBufferObject 
 {
     mat4 view;
     mat4 proj;
 } ubo;
 
+#include "irradiance.glsl"
 #include "Material.glsl"
 
 layout(location = 0) in vec2 fragPosition;

@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-#include "irradiance.glsl"
+#include "ProbeGrid.glsl"
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
@@ -10,6 +10,9 @@ layout(binding = 0) uniform UniformBufferObject {
 layout(binding = 1) uniform UBOBlock {
     ProbeGrid grid;
 };
+layout(binding = 2, set = 0) buffer ProbesBlock { uint Probes[]; };
+
+#include "irradiance.glsl"
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -25,6 +28,7 @@ layout(location = 4) out vec2 texCoord;
 layout(location = 5) out ivec2 probeUVOffset;
 layout(location = 6) out ivec2 probeDepthUVOffset;
 layout(location = 7) out vec2 uvScaling;
+layout(location = 8) out uint state;
 
 vec3 gridCellSize = abs((grid.extentMax - grid.extentMin) / grid.resolution);
 float ProbeSize = 0.2 * min(gridCellSize.x, min(gridCellSize.y, gridCellSize.z));
@@ -40,4 +44,5 @@ void main() {
     tangent = inTangent;
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
+    state = Probes[gl_InstanceIndex];
 }
