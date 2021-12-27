@@ -35,12 +35,13 @@ float max3 (vec3 v) {
 
 void main() {
     ivec3 index = ivec3(gl_LaunchIDEXT.xyz);
+    index.y = int(push.updateIndex % grid.resolution.y);
     uint linearIndex = probeLinearIndex(index, grid);
     // Skip OFF probes
     if(Probes[linearIndex] == 0) return;
     // Reduced refresh rate
     if(Probes[linearIndex] > 1) { // Actually shoot rays only every 'Probes[linearIndex]' updates, staggered by x coordinate of the probe
-        if(!((push.updateIndex + gl_LaunchIDEXT.x) % Probes[linearIndex] == 0)) return;
+        if(!(((push.updateIndex / grid.resolution.y) + gl_LaunchIDEXT.x) % Probes[linearIndex] == 0)) return;
     }
     
     payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
