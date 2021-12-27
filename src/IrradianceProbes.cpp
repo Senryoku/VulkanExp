@@ -289,6 +289,7 @@ void genBasis(const glm::vec3& n, glm::vec3& b1, glm::vec3& b2) {
 }
 
 void IrradianceProbes::initProbes(VkQueue queue) {
+	GridParameters.hysteresis = 0.0f;
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 	// Get a random orientation to start the sampling spiral from. Generate a orthonormal basis from a random unit vector.
 	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
@@ -358,6 +359,14 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 		   .orientation = glm::transpose(glm::mat3(X, Y, Z)),
 		   .launchIndex = ++launchIndex,
 	   };
+	if(launchIndex % (GridParameters.resolution[1] / GridParameters.layerPerUpdate) == 0)
+		if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
+			updateUniforms();
+			GridParameters.hysteresis += 0.1 * (TargetHysteresis - GridParameters.hysteresis);
+		} else if(GridParameters.hysteresis != TargetHysteresis) {
+			GridParameters.hysteresis = TargetHysteresis;
+			updateUniforms();
+		}
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
 	cmdBuff.begin();

@@ -30,12 +30,14 @@ class IrradianceProbes {
 
 	void destroy();
 
+	float TargetHysteresis = 0.98f;
+
 	// This will be passed to shaders as a UBO, alignment and order of members is important.
 	struct GridInfo {
 		glm::vec3	 extentMin;
 		float		 depthSharpness = 12.0f; // Exponent for depth testing
 		glm::vec3	 extentMax;
-		float		 hysteresis = 0.98f; // Importance of previously cast rays
+		float		 hysteresis = 0.0f; // Importance of previously cast rays, starts low to accelerate probes convergence, will converge towards TargetHysteresis
 		glm::ivec3	 resolution{32, 16, 32};
 		unsigned int raysPerProbe = 128;
 		unsigned int colorRes = 8;
