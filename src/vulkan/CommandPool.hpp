@@ -17,6 +17,8 @@ class CommandPool : public HandleWrapper<VkCommandPool> {
 		_device = device;
 	}
 
+	void reset(VkCommandPoolResetFlags flags = VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT) { vkResetCommandPool(_device, _handle, flags); }
+
 	void destroy() {
 		if(isValid()) {
 			vkDestroyCommandPool(_device, _handle, nullptr);

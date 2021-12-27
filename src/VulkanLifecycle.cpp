@@ -180,6 +180,18 @@ void Application::initVulkan() {
 	uiOnSwapChainReady();
 }
 
+void Application::uploadMaterials() {
+	std::vector<Material::GPUData> materialGpu;
+	for(const auto& material : Materials)
+		materialGpu.push_back(material.getGPUData());
+	Buffer		 stagingBuffer;
+	DeviceMemory stagingMemory;
+	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, materialGpu.size() * sizeof(Material::GPUData));
+	stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	stagingMemory.fill(materialGpu.data(), materialGpu.size());
+	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _transfertQueue);
+}
+
 void Application::createInstance() {
 	VkApplicationInfo appInfo{
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,

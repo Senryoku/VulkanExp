@@ -254,6 +254,7 @@ void Application::drawUI() {
 
 	if(ImGui::Begin("Node")) {
 		if(SelectedNode) {
+			bool dirtyMaterials = false;
 			if(ImGui::TreeNode("Transform Matrix")) {
 				ImGui::Matrix("Transform", SelectedNode->transform);
 				ImGui::TreePop();
@@ -278,13 +279,13 @@ void Application::drawUI() {
 									ImGui::Image(SceneUITextureIDs[mat.albedoTexture].imID, ImVec2(100, 100));
 								}
 								if(ImGui::InputFloat3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
-									// TODO: Update material uniform
+									dirtyMaterials = true;
 								}
 								if(ImGui::InputFloat("Metallic Factor", &mat.metallicFactor)) {
-									// TODO: Update material uniform
+									dirtyMaterials = true;
 								}
 								if(ImGui::InputFloat("Roughness Factor", &mat.roughnessFactor)) {
-									// TODO: Update material uniform
+									dirtyMaterials = true;
 								}
 								ImGui::TreePop();
 							}
@@ -293,6 +294,10 @@ void Application::drawUI() {
 					}
 					ImGui::TreePop();
 				}
+			}
+			if(dirtyMaterials) {
+				vkDeviceWaitIdle(_device); // Overkill
+				uploadMaterials();		   // TODO: Optimize by updating only the relevant slice
 			}
 		} else {
 			ImGui::Text("No selected node.");

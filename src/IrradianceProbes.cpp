@@ -152,16 +152,6 @@ void IrradianceProbes::createPipeline() {
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		});
 
-		// Ray miss group
-		/* shader_groups.push_back({
-			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = VK_SHADER_UNUSED_KHR,
-			.anyHitShader = VK_SHADER_UNUSED_KHR,
-			.intersectionShader = VK_SHADER_UNUSED_KHR,
-		});
-		*/
 		// Ray closest hit group
 		shader_groups.push_back({
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,

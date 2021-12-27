@@ -52,6 +52,9 @@ void Application::createAccelerationStructure() {
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
 	std::vector<size_t>									   scratchBufferSizes;
 	size_t												   scratchBufferSize = 0;
+	std::vector<uint32_t>								   blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
+	blasOffsets.reserve(submeshesCount);
+	size_t totalBLASSize = 0;
 
 	const auto&												meshes = _scene.getMeshes();
 	const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
@@ -66,7 +69,6 @@ void Application::createAccelerationStructure() {
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
 				submeshesIndices.push_back(n.mesh + i);
 				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
-				VkAccelerationStructureKHR blas;
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 					.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
@@ -105,16 +107,19 @@ void Application::createAccelerationStructure() {
 
 				_blasBuffers.emplace_back();
 				auto& blasBuffer = _blasBuffers.back();
-				_blasMemories.emplace_back();
-				auto& blasMemory = _blasMemories.back();
 				blasBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, accelerationStructureBuildSizesInfo.accelerationStructureSize);
-				blasMemory.allocate(_device, blasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+				uint32_t alignedSize = std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0) * 256;
+				blasOffsets.push_back(alignedSize);
+				totalBLASSize += alignedSize;
 
 				// Create the acceleration structure
+				VkAccelerationStructureKHR			 blas;
 				VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 					.pNext = VK_NULL_HANDLE,
 					.buffer = blasBuffer,
+					.offset = 0,
 					.size = accelerationStructureBuildSizesInfo.accelerationStructureSize,
 					.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 				};
@@ -139,29 +144,39 @@ void Application::createAccelerationStructure() {
 			}
 		}
 	};
-	visitNode(_scene.getRoot(), glm::mat4(1.0f));
 	{
-		{
-			QuickTimer	 qt("BLAS building");
-			Buffer		 scratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
-			DeviceMemory scratchMemory;
-			scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
-			scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
-			size_t offset = 0;
-			for(size_t i = 0; i < buildInfos.size(); ++i) {
-				buildInfos[i].scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress() + offset};
-				offset += scratchBufferSizes[i];
-				assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
-			}
-			for(auto& rangeInfo : rangeInfos)
-				pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
+		QuickTimer qt("BLAS building");
+		// Collect all submeshes and query the memory requirements
+		visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
-			// Build all the bottom acceleration structure on the device via a one-time command buffer submission
-			immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
-				// Build all BLAS in a single call. Note: This might cause sync. issues if buffers are shared (We made sure the scratchBuffer is not.)
-				vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
-			});
+		_blasMemories.emplace_back();
+		auto&	   blasMemory = _blasMemories.back();
+		const auto memReq = _blasBuffers[0].getMemoryRequirements();
+		blasMemory.allocate(_device, _device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalBLASSize);
+		size_t runningOffset = 0;
+		for(size_t i = 0; i < _blasBuffers.size(); ++i) {
+			vkBindBufferMemory(_device, _blasBuffers[i], _blasMemories[0], runningOffset);
+			runningOffset += blasOffsets[i];
 		}
+
+		Buffer		 scratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
+		DeviceMemory scratchMemory;
+		scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
+		scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+		size_t offset = 0;
+		for(size_t i = 0; i < buildInfos.size(); ++i) {
+			buildInfos[i].scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress() + offset};
+			offset += scratchBufferSizes[i];
+			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
+		}
+		for(auto& rangeInfo : rangeInfos)
+			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
+
+		// Build all the bottom acceleration structure on the device via a one-time command buffer submission
+		immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
+			// Build all BLAS in a single call. Note: This might cause sync. issues if buffers are shared (We made sure the scratchBuffer is not.)
+			vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
+		});
 	}
 
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
