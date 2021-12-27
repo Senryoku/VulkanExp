@@ -11,7 +11,7 @@ struct ProbeGrid {
     uint colorRes;
     uint depthRes;
     float shadowBias;
-    uint padding;
+    uint layerPerUpdate;
 };
 
 #endif

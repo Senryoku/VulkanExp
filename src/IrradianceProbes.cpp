@@ -367,10 +367,10 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(PushConstant), &pc);
 	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
-					  GridParameters.resolution.x, 1, GridParameters.resolution.z);
+					  GridParameters.resolution.x, GridParameters.layerPerUpdate, GridParameters.resolution.z);
 
 	// Copy the result to the image sampled in the main pipeline
-	int32_t		xOffset = (pc.launchIndex % GridParameters.resolution[1]) * GridParameters.colorRes * GridParameters.resolution[0];
+	int32_t		xOffset = GridParameters.layerPerUpdate * (pc.launchIndex % (GridParameters.resolution[1] / GridParameters.layerPerUpdate)) * GridParameters.resolution[0];
 	VkImageCopy copy{
 		.srcSubresource =
 			{
@@ -379,7 +379,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 				.baseArrayLayer = 0,
 				.layerCount = 1,
 			},
-		.srcOffset = {xOffset, 0, 0},
+		.srcOffset = {static_cast<int32_t>(GridParameters.colorRes) * xOffset, 0, 0},
 		.dstSubresource =
 			{
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -387,8 +387,8 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 				.baseArrayLayer = 0,
 				.layerCount = 1,
 			},
-		.dstOffset = {xOffset, 0, 0},
-		.extent = {GridParameters.colorRes * GridParameters.resolution[0] * 1, GridParameters.colorRes * GridParameters.resolution[2], 1},
+		.dstOffset = {static_cast<int32_t>(GridParameters.colorRes) * xOffset, 0, 0},
+		.extent = {GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.layerPerUpdate, GridParameters.colorRes * GridParameters.resolution[2], 1},
 	};
 	VkImageSubresourceRange range{
 		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -403,9 +403,9 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	Image::setLayout(cmdBuff, _color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _workColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
 
-	copy.srcOffset.x = (pc.launchIndex % GridParameters.resolution[1]) * GridParameters.depthRes * GridParameters.resolution[0];
-	copy.dstOffset.x = (pc.launchIndex % GridParameters.resolution[1]) * GridParameters.depthRes * GridParameters.resolution[0];
-	copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * 1, GridParameters.depthRes * GridParameters.resolution[2], 1},
+	copy.srcOffset.x = GridParameters.depthRes * xOffset;
+	copy.dstOffset.x = GridParameters.depthRes * xOffset;
+	copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.layerPerUpdate, GridParameters.depthRes * GridParameters.resolution[2], 1},
 	Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
 	vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);

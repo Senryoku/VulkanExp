@@ -365,6 +365,13 @@ void Application::drawUI() {
 				_irradianceProbes.GridParameters.raysPerProbe = rays;
 				uniformNeedsUpdate = true;
 			}
+			int layerPerUpdate = _irradianceProbes.GridParameters.layerPerUpdate;
+			if(ImGui::SliderInt("Layer Per Update", &layerPerUpdate, 1, _irradianceProbes.GridParameters.resolution.y)) {
+				while(_irradianceProbes.GridParameters.resolution.y % layerPerUpdate != 0)
+					--layerPerUpdate;
+				_irradianceProbes.GridParameters.layerPerUpdate = layerPerUpdate;
+				uniformNeedsUpdate = true;
+			}
 
 			if(uniformNeedsUpdate)
 				_irradianceProbes.updateUniforms();
