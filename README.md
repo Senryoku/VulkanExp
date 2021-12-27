@@ -12,21 +12,17 @@
  - - Select Nodes
  - - - Edit Material
  - - - Disable Rendering (Update BLAS/TLAS and re-record Command Buffers)
- - Use a sRGB render target
- - - Contrast is really bad right now (irradiance only start being visible when the direct lights are blinding)
- - - ImGui doesn't work well with sRGB render target, not sure how to fix it (just convert all the colors of the default style? =/)
  - Sun Direction in UBO
  - - Fix time of day scale/math
  - - Use the actual sun intensity/size for the direct lights? (it is way too high for our renderer rn)
- - - Display it in the main render path
  - Better lightning model < !
  - - Glossy Term: Correctly sample a BRDF; Generate screen reflections mip maps and pick the correct one based on material (and depth?)
  - GI. Irradiance Probes for Indirect lightning.
  - - With visibility term: https://www.gdcvault.com/play/1026182/
  - - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
- - - Manage probe states: Inative (in walls (will never change state or cast ray and be skipped during sampling), too far away), Asleep (Slow rate of change, will still cast rays from time to time to see if it should change state, I'll have to find a way to stagger these updates), Awake (Updated each frame)
- - - Automatic hysteris: Should start with a lower hysteris to converge faster over the first few frames. High rate of change should also decrease it (starting by using the probe state for example)
+ - - More refined probes state (rn they're "Off", "On" or "Refresh each N frames" (reduced refresh rate))
  - - Light leaks. Especially visible in the sun temple.
+ - Synchronisation. "Works on my machine", probably nowhere else because it seems I really struggle with understanding how synchronisation works in vulkan (But I'm pretty good at crashing the sync. validation layers)
  - Some sort of (small scale) AO
  
 ### Improvements 
