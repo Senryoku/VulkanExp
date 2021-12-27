@@ -27,7 +27,7 @@ vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resol
 
 float MaxDistance = length(gridCellSize); // Fixme
 
-uint MaxRefreshPeriod = 32; // In 'update attempt'
+uint MaxRefreshPeriod = 4; // In 'update attempt'
 
 float max3 (vec3 v) {
   return max (max (v.x, v.y), v.z);
@@ -113,9 +113,9 @@ void main() {
 
     // Reduce query frequency if changes are small
     difference /= changedTexels;
-    if(difference < 0.1) 
+    if(difference < 0.01) 
         Probes[linearIndex] = min(Probes[linearIndex] * 2, MaxRefreshPeriod);
-    else if(difference > 0.2)
+    else if(difference > 0.015)
         Probes[linearIndex] = max(1, Probes[linearIndex] / 2);
         
     for(int i = 0; i < grid.depthRes - 2; ++i)

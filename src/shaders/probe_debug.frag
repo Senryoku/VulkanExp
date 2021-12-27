@@ -42,6 +42,6 @@ void main() {
     else if(state == 1)
         outColor = vec4(1.0);
     else 
-        outColor = vec4(0.0, 1.0 - state / 32.0, state / 32.0, 1.0);
+        outColor = vec4(0.0, 1.0 - state / 4.0, state / 4.0, 1.0);
     #endif
 }
