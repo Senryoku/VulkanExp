@@ -39,6 +39,10 @@ class SubMesh {
 	SubMesh(const SubMesh&) = delete;
 	SubMesh(SubMesh&&) noexcept = default;
 
+	std::string name;
+	size_t		materialIndex = 0;
+	Material*	material = nullptr; // FIXME: Probably only use the index?
+
 	void init(const Device& device) {
 		const auto indexDataSize = getIndexByteSize();
 		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -80,10 +84,6 @@ class SubMesh {
 	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
 	void computeVertexNormals();
-
-	std::string name;
-	size_t		materialIndex = 0;
-	Material*	material = nullptr; // FIXME: Probably only use the index?
 
   private:
 	Buffer _vertexBuffer;

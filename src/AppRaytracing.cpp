@@ -54,7 +54,9 @@ void Application::createAccelerationStructure() {
 	size_t												   scratchBufferSize = 0;
 	std::vector<uint32_t>								   blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
 	blasOffsets.reserve(submeshesCount);
-	size_t totalBLASSize = 0;
+	size_t												  totalBLASSize = 0;
+	std::vector<VkAccelerationStructureBuildSizesInfoKHR> buildSizesInfo;
+	buildSizesInfo.reserve(submeshesCount);
 
 	const auto&												meshes = _scene.getMeshes();
 	const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
@@ -69,6 +71,12 @@ void Application::createAccelerationStructure() {
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
 				submeshesIndices.push_back(n.mesh + i);
 				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
+				/*
+				 * Right now there's a one-to-one relation between submeshes and geometries.
+				 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
+				 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
+				 * This should be doable using the RayGeometryIndexKHR built-in.
+				 */
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 					.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
@@ -94,6 +102,8 @@ void Application::createAccelerationStructure() {
 					.pNext = VK_NULL_HANDLE,
 					.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
 					.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+					.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+					.srcAccelerationStructure = VK_NULL_HANDLE,
 					.geometryCount = 1,
 					.pGeometries = &geometries.back(),
 					.ppGeometries = nullptr,
@@ -104,33 +114,12 @@ void Application::createAccelerationStructure() {
 				VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 				vkGetAccelerationStructureBuildSizesKHR(_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
 														&accelerationStructureBuildSizesInfo);
-
-				_blasBuffers.emplace_back();
-				auto& blasBuffer = _blasBuffers.back();
-				blasBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, accelerationStructureBuildSizesInfo.accelerationStructureSize);
+				buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
 
 				uint32_t alignedSize = std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0) * 256;
 				blasOffsets.push_back(alignedSize);
 				totalBLASSize += alignedSize;
 
-				// Create the acceleration structure
-				VkAccelerationStructureKHR			 blas;
-				VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-					.pNext = VK_NULL_HANDLE,
-					.buffer = blasBuffer,
-					.offset = 0,
-					.size = accelerationStructureBuildSizesInfo.accelerationStructureSize,
-					.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-				};
-				VK_CHECK(vkCreateAccelerationStructureKHR(_device, &accelerationStructureCreateInfo, nullptr, &blas));
-				_bottomLevelAccelerationStructures.push_back(blas);
-
-				// Complete the build infos.
-				accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-				accelerationBuildGeometryInfo.srcAccelerationStructure = VK_NULL_HANDLE;
-				accelerationBuildGeometryInfo.dstAccelerationStructure = blas;
-				scratchBufferSizes.push_back(accelerationStructureBuildSizesInfo.buildScratchSize);
 				scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
 
 				buildInfos.push_back(accelerationBuildGeometryInfo);
@@ -149,13 +138,24 @@ void Application::createAccelerationStructure() {
 		// Collect all submeshes and query the memory requirements
 		visitNode(_scene.getRoot(), glm::mat4(1.0f));
 
-		_blasMemories.emplace_back();
-		auto&	   blasMemory = _blasMemories.back();
-		const auto memReq = _blasBuffers[0].getMemoryRequirements();
-		blasMemory.allocate(_device, _device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalBLASSize);
+		_staticBLASBuffer.create(_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
+		_staticBLASMemory.allocate(_device, _staticBLASBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		size_t runningOffset = 0;
-		for(size_t i = 0; i < _blasBuffers.size(); ++i) {
-			vkBindBufferMemory(_device, _blasBuffers[i], _blasMemories[0], runningOffset);
+		for(size_t i = 0; i < buildInfos.size(); ++i) {
+			// Create the acceleration structure
+			VkAccelerationStructureKHR			 blas;
+			VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+				.pNext = VK_NULL_HANDLE,
+				.buffer = _staticBLASBuffer,
+				.offset = runningOffset,
+				.size = buildSizesInfo[i].accelerationStructureSize,
+				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+			};
+			VK_CHECK(vkCreateAccelerationStructureKHR(_device, &accelerationStructureCreateInfo, nullptr, &blas));
+			_bottomLevelAccelerationStructures.push_back(blas);
+
+			buildInfos[i].dstAccelerationStructure = blas;
 			runningOffset += blasOffsets[i];
 		}
 
@@ -163,10 +163,11 @@ void Application::createAccelerationStructure() {
 		DeviceMemory scratchMemory;
 		scratchBuffer.create(_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
 		scratchMemory.allocate(_device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
-		size_t offset = 0;
+		size_t	   offset = 0;
+		const auto scratchBufferAddr = scratchBuffer.getDeviceAddress();
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
-			buildInfos[i].scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress() + offset};
-			offset += scratchBufferSizes[i];
+			buildInfos[i].scratchData = {.deviceAddress = scratchBufferAddr + offset};
+			offset += buildSizesInfo[i].buildScratchSize;
 			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
 		}
 		for(auto& rangeInfo : rangeInfos)

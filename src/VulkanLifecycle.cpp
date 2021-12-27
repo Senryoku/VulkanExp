@@ -230,12 +230,8 @@ void Application::cleanupVulkan() {
 	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
 	for(const auto& blas : _bottomLevelAccelerationStructures)
 		vkDestroyAccelerationStructureKHR(_device, blas, nullptr);
-	for(auto& blasBuff : _blasBuffers)
-		blasBuff.destroy();
-	_blasBuffers.clear();
-	for(auto& blasMem : _blasMemories)
-		blasMem.free();
-	_blasMemories.clear();
+	_staticBLASBuffer.destroy();
+	_staticBLASMemory.free();
 	_bottomLevelAccelerationStructures.clear();
 	_tlasBuffer.destroy();
 	_tlasMemory.free();

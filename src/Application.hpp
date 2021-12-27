@@ -202,8 +202,8 @@ class Application {
 	std::vector<Image>						_rayTraceStorageImages;
 	std::vector<ImageView>					_rayTraceStorageImageViews;
 	CommandBuffers							_rayTraceCommandBuffers;
-	std::vector<Buffer>						_blasBuffers;
-	std::vector<DeviceMemory>				_blasMemories;
+	Buffer									_staticBLASBuffer;
+	DeviceMemory							_staticBLASMemory;
 	Buffer									_tlasBuffer;
 	DeviceMemory							_tlasMemory;
 	VkAccelerationStructureKHR				_topLevelAccelerationStructure;
