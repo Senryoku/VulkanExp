@@ -1,6 +1,6 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
-
+#extension GL_EXT_debug_printf : enable
 #include "ProbeGrid.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
@@ -13,7 +13,8 @@ layout(binding = 11, set = 0, r11f_g11f_b10f) uniform image2D color;
 layout(binding = 12, set = 0, rg16f) uniform image2D depth;
 
 layout(push_constant) uniform Push {
-    mat3 randomOrientation;
+    mat4 randomOrientation;
+    uint updateIndex;
 } push;
 
 #include "irradiance.glsl"
@@ -26,11 +27,21 @@ vec3 gridCellSize = vec3(gridSpan.x / grid.resolution.x, gridSpan.y / grid.resol
 
 float MaxDistance = length(gridCellSize); // Fixme
 
-void main() 
-{
+uint MaxRefreshPeriod = 32; // In 'update attempt'
+
+float max3 (vec3 v) {
+  return max (max (v.x, v.y), v.z);
+}
+
+void main() {
     ivec3 index = ivec3(gl_LaunchIDEXT.xyz);
+    uint linearIndex = probeLinearIndex(index, grid);
     // Skip OFF probes
-    if(Probes[probeLinearIndex(index, grid)] == 0) return;
+    if(Probes[linearIndex] == 0) return;
+    // Reduced refresh rate
+    if(Probes[linearIndex] > 1) { // Actually shoot rays only every 'Probes[linearIndex]' updates, staggered by x coordinate of the probe
+        if(!((push.updateIndex + gl_LaunchIDEXT.x) % Probes[linearIndex] == 0)) return;
+    }
     
     payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
 
@@ -48,7 +59,7 @@ void main()
             depthResults[i][j] = vec3(0);
 
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
-		vec3 direction = push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe);
+		vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(i, grid.raysPerProbe);
 
 		const float tmin = 0.1;
 		const float tmax = 10000.0;
@@ -79,17 +90,28 @@ void main()
     }
 
     const float epsilon = 1e-3;
+
+    float difference = 0;
+    uint changedTexels = 0;
     
     for(int i = 0; i < grid.colorRes - 2; ++i)
         for(int j = 0; j < grid.colorRes - 2; ++j)
         if(results[i][j].w > epsilon) {
+            ++changedTexels;
             results[i][j].xyz /= results[i][j].w;
-            vec3 prev = imageLoad(color, probeUVOffset + ivec2(1, 1) + ivec2(i, j)).xyz; // Simulating alpha blending
-            results[i][j].xyz = grid.hysteresis * prev + (1.0f - grid.hysteresis) * results[i][j].xyz;
-            imageStore(color, probeUVOffset
-                + ivec2(1, 1) // Skip Border
-                + ivec2(i, j), vec4(results[i][j].xyz, 1.0));
+            ivec2 uv = probeUVOffset + ivec2(1, 1) + ivec2(i, j); // Start of this probe + Border Skip + Local Texel
+            vec3 prev = imageLoad(color, uv).xyz;
+            difference += max3(abs(results[i][j].xyz - prev));
+            results[i][j].xyz = grid.hysteresis * prev + (1.0f - grid.hysteresis) * results[i][j].xyz; // Simulating alpha blending
+            imageStore(color, uv, vec4(results[i][j].xyz, 1.0));
         }
+
+    // Reduce query frequency if changes are small
+    difference /= changedTexels;
+    if(difference < 0.1) 
+        Probes[linearIndex] = min(Probes[linearIndex] * 2, MaxRefreshPeriod);
+    else if(difference > 0.2)
+        Probes[linearIndex] = max(1, Probes[linearIndex] / 2);
         
     for(int i = 0; i < grid.depthRes - 2; ++i)
         for(int j = 0; j < grid.depthRes - 2; ++j) 

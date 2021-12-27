@@ -12,14 +12,15 @@ layout(binding = 10, set = 0, r11f_g11f_b10f) uniform image2D color;
 layout(binding = 11, set = 0, rg16f) uniform image2D depth;
 
 layout(push_constant) uniform Push {
-    mat3 randomOrientation;
+    mat4 randomOrientation;
+    uint updateIndex;
 } push;
 
 #include "irradiance.glsl"
 
 layout(location = 0) rayPayloadEXT bool isBackface;
 
-const float tmin = 0.001f;
+const float tmin = 0.01f;
 const float tmax = 10000.0f;
 
 void main() 
@@ -28,7 +29,7 @@ void main()
 
     uint backfaceHits = 0;
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
-		vec3 direction = push.randomOrientation * sphericalFibonacci(i, grid.raysPerProbe);
+		vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(i, grid.raysPerProbe);
 
         isBackface = false;
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);

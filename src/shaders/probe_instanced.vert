@@ -29,6 +29,7 @@ layout(location = 5) out ivec2 probeUVOffset;
 layout(location = 6) out ivec2 probeDepthUVOffset;
 layout(location = 7) out vec2 uvScaling;
 layout(location = 8) out uint state;
+layout(location = 9) out float gridCellLength;
 
 vec3 gridCellSize = abs((grid.extentMax - grid.extentMin) / grid.resolution);
 float ProbeSize = 0.2 * min(gridCellSize.x, min(gridCellSize.y, gridCellSize.z));
@@ -45,4 +46,5 @@ void main() {
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
     state = Probes[gl_InstanceIndex];
+    gridCellLength = length(gridCellSize);
 }

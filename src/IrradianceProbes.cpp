@@ -3,6 +3,11 @@
 #include <Raytracing.hpp>
 #include <Shader.hpp>
 
+struct PushConstant {
+	glm::mat4 orientation;
+	uint32_t  launchIndex;
+};
+
 void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max) {
 	_device = &device;
 	GridParameters.extentMin = min;
@@ -102,7 +107,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 							   // Push Constants
 							   .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 							   .offset = 0,
-							   .size = sizeof(glm::mat3),
+							   .size = sizeof(PushConstant),
 						   }});
 
 	_descriptorPool.create(device, 1,
@@ -289,13 +294,17 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
 	glm::vec3 X, Y;
 	genBasis(Z, X, Y);
-	glm::mat3 orientation = glm::transpose(glm::mat3(X, Y, Z));
+	static uint32_t launchIndex = 0;
+	PushConstant	pc{
+		   .orientation = glm::transpose(glm::mat3(X, Y, Z)),
+		   .launchIndex = 0,
+	   };
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
 	cmdBuff.begin();
 	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineProbeInit);
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
-	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
+	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(PushConstant), &pc);
 	vkCmdTraceRaysKHR(cmdBuff, &_probeInitShaderBindingTable.raygenEntry, &_probeInitShaderBindingTable.missEntry, &_probeInitShaderBindingTable.anyhitEntry,
 					  &_probeInitShaderBindingTable.callableEntry, GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
 	cmdBuff.end();
@@ -344,7 +353,11 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	glm::vec3 Z = glm::sphericalRand(1.0f); // (not randomly seeded)
 	glm::vec3 X, Y;
 	genBasis(Z, X, Y);
-	glm::mat3 orientation = glm::transpose(glm::mat3(X, Y, Z));
+	static uint32_t launchIndex = 0;
+	PushConstant	pc{
+		   .orientation = glm::transpose(glm::mat3(X, Y, Z)),
+		   .launchIndex = ++launchIndex,
+	   };
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
 	cmdBuff.begin();
@@ -352,7 +365,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
 	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
-	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(glm::mat3), &orientation);
+	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(PushConstant), &pc);
 	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
 					  GridParameters.resolution.x, GridParameters.resolution.y, GridParameters.resolution.z);
 

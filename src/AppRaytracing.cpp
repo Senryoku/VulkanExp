@@ -75,7 +75,7 @@ void Application::createAccelerationStructure() {
 				 * Right now there's a one-to-one relation between submeshes and geometries.
 				 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
 				 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
-				 * This should be doable using the RayGeometryIndexKHR built-in.
+				 * This should be doable using the gl_GeometryIndexEXT built-in.
 				 */
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,

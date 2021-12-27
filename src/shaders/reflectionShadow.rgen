@@ -100,6 +100,7 @@ void main()
 					tmax,                  // ray max range
 					1                      // payload (location = 1)
 		);
+		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
 		if(!isShadowed) {
 			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
 			color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, material.metallicFactor, material.roughnessFactor).rgb;
