@@ -102,8 +102,12 @@ void main() {
             results[i][j].xyz /= results[i][j].w;
             ivec2 uv = probeUVOffset + ivec2(1, 1) + ivec2(i, j); // Start of this probe + Border Skip + Local Texel
             vec3 prev = imageLoad(color, uv).xyz;
-            difference += max3(abs(results[i][j].xyz - prev));
-            results[i][j].xyz = grid.hysteresis * prev + (1.0f - grid.hysteresis) * results[i][j].xyz; // Simulating alpha blending
+            float texelDifference = max3(abs(results[i][j].xyz - prev));
+            difference += texelDifference;
+            float texelHysteresis = grid.hysteresis;
+            if(texelDifference > 0.80)      texelHysteresis = 0;
+            else if(texelDifference > 0.25) texelHysteresis = max(0, texelHysteresis - 0.15);
+            results[i][j].xyz = mix(results[i][j].xyz, prev, texelHysteresis);
             imageStore(color, uv, vec4(results[i][j].xyz, 1.0));
         }
 
@@ -119,7 +123,7 @@ void main() {
             if(depthResults[i][j].z > epsilon) {
                 depthResults[i][j].xy /= depthResults[i][j].z;
                 vec2 prev = imageLoad(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j)).xy;
-                depthResults[i][j].xy = grid.hysteresis * prev + (1.0f - grid.hysteresis) * depthResults[i][j].xy; 
+                depthResults[i][j].xy = mix(depthResults[i][j].xy, prev, grid.hysteresis); 
 	            imageStore(depth, probeDepthUVOffset + ivec2(1, 1) + ivec2(i, j), vec4(depthResults[i][j].xy, 0.0, 0.0));
             }
 
