@@ -37,7 +37,7 @@ void main() {
 	vec3 position = positionDepth.xyz;
 	vec4 normalMaterial = subpassLoad(inputNormalMaterial);
 	vec3 normal = normalMaterial.xyz;
-	uint materialIndex = floatBitsToUint(normalMaterial.z);
+	uint materialIndex = floatBitsToUint(normalMaterial.w);
 	Material material = unpackMaterial(Materials[materialIndex]);
 	vec4 albedo = subpassLoad(inputAlbedo);
 	vec4 reflection = subpassLoad(inputReflection); // TODO: Select LOD from roughness + depth

@@ -23,7 +23,7 @@ Foreach($shader in $shaders)
 	If(-not $exists -or $d -gt $d2 -or $libsdate -gt $d2)
 	{
 		Write-Output "Compiling $filename to $dstfolder\$filename.spv"
-		glslc.exe -O --target-env=vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
+		glslc.exe -O -g --target-env=vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
 	} Else {
 		#Write-Output "Skiping $filename ($d < $d2)"
 	}
