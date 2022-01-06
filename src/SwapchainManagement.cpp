@@ -567,12 +567,14 @@ void Application::initSwapChain() {
 				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			})
 			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-						{// Output
-						 {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+						{
+							// Output
+							{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+						},
 						{
 							// Inputs (GBuffer)
 							{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
@@ -584,14 +586,24 @@ void Application::initSwapChain() {
 						{},
 						// Depth
 						{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL}, {})
-			// Dependencies (FIXME!)
+			// Dependencies (FIXME! I have no idea what I'm doing)
 			.add({
+				// Input Deps (?)
 				.srcSubpass = VK_SUBPASS_EXTERNAL,
 				.dstSubpass = 0,
 				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+			})
+			.add({
+				// Output Deps (?)
+				.srcSubpass = VK_SUBPASS_EXTERNAL,
+				.dstSubpass = 0,
+				.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 			});
 		_gatherRenderPass = rpb.build(_device);
 
