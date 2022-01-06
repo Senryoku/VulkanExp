@@ -65,7 +65,7 @@ void Application::mainLoop() {
 			if(pool.newSampleFlag) {
 				auto results = pool.get();
 				if(results.size() >= 6 && results[0].available && results[5].available) {
-					_frameTimes.add(0.000001 * (results[5].result - results[0].result));
+					_frameTimes.add(0.000001f * (results[5].result - results[0].result));
 					pool.newSampleFlag = false;
 				}
 			}

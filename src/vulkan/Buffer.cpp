@@ -29,7 +29,7 @@ void Buffer::copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buff
 	stagingCommands.free();
 }
 
-uint64_t Buffer::getDeviceAddress() const {
+VkDeviceAddress Buffer::getDeviceAddress() const {
 	assert(isValid());
 	VkBufferDeviceAddressInfoKHR info{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,

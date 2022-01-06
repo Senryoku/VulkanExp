@@ -116,7 +116,7 @@ void Application::createAccelerationStructure() {
 														&accelerationStructureBuildSizesInfo);
 				buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
 
-				uint32_t alignedSize = std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0) * 256;
+				uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
 				blasOffsets.push_back(alignedSize);
 				totalBLASSize += alignedSize;
 
@@ -232,7 +232,7 @@ void Application::createAccelerationStructure() {
 		.pGeometries = &TLASGeometry,
 	};
 
-	const uint32_t							 TBLAPrimitiveCount = _accStructInstances.size();
+	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
 	VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 	vkGetAccelerationStructureBuildSizesKHR(_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
 
@@ -356,7 +356,7 @@ void Application::createRaytracingDescriptorSets() {
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		layoutsToAllocate.push_back(_rayTracingDescriptorSetLayout);
-	_rayTracingDescriptorPool.create(_device, layoutsToAllocate.size(),
+	_rayTracingDescriptorPool.create(_device, static_cast<uint32_t>(layoutsToAllocate.size()),
 									 std::array<VkDescriptorPoolSize, 5>{
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},

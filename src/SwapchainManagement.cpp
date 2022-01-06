@@ -183,7 +183,7 @@ void Application::initUniformBuffers() {
 		}
 	}
 
-	for(size_t i = 0; i < _swapChainImages.size(); i++)
+	for(uint32_t i = 0; i < _swapChainImages.size(); i++)
 		updateUniformBuffer(i);
 }
 
@@ -386,9 +386,9 @@ void Application::initProbeDebug() {
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		descriptorSetsLayoutsToAllocate.push_back(_probeDebugDescriptorSetLayouts[0]);
 	DescriptorPoolBuilder poolBuilder;
-	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * _swapChainImages.size());
-	poolBuilder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * _swapChainImages.size());
-	_probeDebugDescriptorPool = poolBuilder.build(_device, _swapChainImages.size());
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * static_cast<uint32_t>(_swapChainImages.size()));
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * static_cast<uint32_t>(_swapChainImages.size()));
+	_probeDebugDescriptorPool = poolBuilder.build(_device, static_cast<uint32_t>(_swapChainImages.size()));
 	_probeDebugDescriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		DescriptorSetWriter dsw(_probeDebugDescriptorPool.getDescriptorSets()[i]);
@@ -840,7 +840,7 @@ void Application::recordCommandBuffers() {
 			VkDeviceSize offsets[1] = {0};
 			vkCmdBindVertexBuffers(b, 0, 1, &m.getVertexBuffer().getHandle(), offsets);
 			vkCmdBindIndexBuffer(b, m.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(b, m.getIndices().size(),
+			vkCmdDrawIndexed(b, static_cast<uint32_t>(m.getIndices().size()),
 							 _irradianceProbes.GridParameters.resolution.x * _irradianceProbes.GridParameters.resolution.y * _irradianceProbes.GridParameters.resolution.z, 0, 0,
 							 0);
 			b.endRenderPass();

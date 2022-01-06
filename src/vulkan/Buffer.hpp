@@ -49,8 +49,8 @@ class Buffer : public HandleWrapper<VkBuffer> {
 		return memRequirements;
 	}
 
-	uint64_t getDeviceAddress() const;
-	void	 copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
+	VkDeviceAddress getDeviceAddress() const;
+	void			copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
 
 	void				setMemory(const DeviceMemory& memory, uint32_t offset = 0);
 	const DeviceMemory& getMemory() const;

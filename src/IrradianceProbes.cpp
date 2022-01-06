@@ -345,7 +345,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	if(_queryPool.newSampleFlag) {
 		auto queryResults = _queryPool.get();
 		if(queryResults.size() > 1 && queryResults[0].available && queryResults[1].available) {
-			_computeTimes.add(0.000001 * (queryResults[1].result - queryResults[0].result));
+			_computeTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
 			_queryPool.newSampleFlag = false;
 		}
 	}
@@ -362,7 +362,7 @@ void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
 	if(launchIndex % (GridParameters.resolution[1] / GridParameters.layerPerUpdate) == 0)
 		if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
 			updateUniforms();
-			GridParameters.hysteresis += 0.1 * (TargetHysteresis - GridParameters.hysteresis);
+			GridParameters.hysteresis += 0.1f * (TargetHysteresis - GridParameters.hysteresis);
 		} else if(GridParameters.hysteresis != TargetHysteresis) {
 			GridParameters.hysteresis = TargetHysteresis;
 			updateUniforms();

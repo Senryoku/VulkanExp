@@ -90,7 +90,7 @@ void uploadTextures(const Device& device, VkQueue queue, const CommandPool& comm
 		auto mipMapMode = glTFToVkSamplerMipmapMode(texR.samplerDescription["minFilter"].as<int>(9729));
 		auto wrapS = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapS"].as<int>(10497));
 		auto wrapT = glTFtoVkSamplerAddressMode(texR.samplerDescription["wrapT"].as<int>(10497));
-		texR.sampler = getSampler(device, magFilter, minFilter, mipMapMode, wrapS, wrapT, Images[path].image.getMipLevels());
+		texR.sampler = getSampler(device, magFilter, minFilter, mipMapMode, wrapS, wrapT, static_cast<float>(Images[path].image.getMipLevels()));
 	}
 }
 

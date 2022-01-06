@@ -144,10 +144,10 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	}
 
   private:
-	VkPhysicalDeviceFeatures			   _features;
-	VkPhysicalDeviceProperties			   _properties;
-	VkPhysicalDeviceMemoryProperties	   _memoryProperties;
-	VkPhysicalDeviceRayTracingPropertiesNV _rayTracingProperties;
+	VkPhysicalDeviceFeatures			   _features{};
+	VkPhysicalDeviceProperties			   _properties{};
+	VkPhysicalDeviceMemoryProperties	   _memoryProperties{};
+	VkPhysicalDeviceRayTracingPropertiesNV _rayTracingProperties{};
 
 	std::vector<VkQueueFamilyProperties> _queueFamilies;
 };

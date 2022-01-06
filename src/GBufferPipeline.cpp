@@ -20,7 +20,7 @@ void Application::createGBufferPipeline() {
 	for(const auto& layout : _gbufferDescriptorSetLayouts)
 		layouts.push_back(layout);
 
-	uint32_t			  descriptorSetsCount = _swapChainImages.size() * Materials.size();
+	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size() * Materials.size());
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * descriptorSetsCount).add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * descriptorSetsCount);
 	_gbufferDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);
@@ -127,7 +127,7 @@ void Application::createGBufferPipeline() {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
 		.logicOpEnable = VK_FALSE,
 		.logicOp = VK_LOGIC_OP_COPY, // Optional
-		.attachmentCount = colorBlendAttachmentStates.size(),
+		.attachmentCount = static_cast<uint32_t>(colorBlendAttachmentStates.size()),
 		.pAttachments = colorBlendAttachmentStates.data(),
 		.blendConstants = {0.0f, 0.0f, 0.0f, 0.0f} // Optional
 	};

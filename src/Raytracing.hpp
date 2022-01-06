@@ -6,7 +6,7 @@
 #include <glTF.hpp>
 
 inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
-	uint32_t				   texturesCount = Textures.size();
+	uint32_t				   texturesCount = static_cast<uint32_t>(Textures.size());
 	DescriptorSetLayoutBuilder dslBuilder;
 	// Slot for binding top level acceleration structures to the ray generation shader
 	dslBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)

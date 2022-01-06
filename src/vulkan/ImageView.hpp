@@ -58,5 +58,5 @@ class ImageView : public HandleWrapper<VkImageView> {
 	~ImageView() { destroy(); }
 
   private:
-	VkDevice _device;
+	VkDevice _device = VK_NULL_HANDLE;
 };

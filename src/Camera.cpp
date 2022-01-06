@@ -46,10 +46,10 @@ void Camera::look(glm::vec2 v) {
 		_moveMouvement.y = 89;
 	else if(_moveMouvement.y < -89)
 		_moveMouvement.y = -89;
-	double r_temp = std::cos(_moveMouvement.y * pi / 180.);
-	_direction.x += r_temp * std::cos(_moveMouvement.x * pi / 180.);
-	_direction.y += std::sin(_moveMouvement.y * pi / 180.);
-	_direction.z += r_temp * std::sin(_moveMouvement.x * pi / 180.);
+	double r_temp = std::cos(_moveMouvement.y * pi / 180.f);
+	_direction.x += r_temp * std::cos(_moveMouvement.x * pi / 180.f);
+	_direction.y += std::sin(_moveMouvement.y * pi / 180.f);
+	_direction.z += r_temp * std::sin(_moveMouvement.x * pi / 180.f);
 
 	_direction = glm::normalize(_direction);
 	_cross = glm::normalize(glm::cross(_direction, _up));

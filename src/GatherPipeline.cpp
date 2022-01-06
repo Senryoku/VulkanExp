@@ -24,7 +24,7 @@ void Application::createGatherPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		  // Camera
 	_gatherDescriptorSetLayout = builder.build(_device);
 
-	uint32_t			  descriptorSetsCount = _swapChainImages.size();
+	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size());
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 3 * descriptorSetsCount);
 	_gatherDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);

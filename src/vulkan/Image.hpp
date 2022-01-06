@@ -47,7 +47,7 @@ class Image : public HandleWrapper<VkImage> {
 						  VkPipelineStageFlags srcMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
   private:
-	const Device* _device;
+	const Device* _device = nullptr;
 
 	DeviceMemory _memory; // May be unused, depending on the way the image is initialized
 	uint32_t	 _mipLevels = 1;

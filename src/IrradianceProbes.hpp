@@ -42,7 +42,7 @@ class IrradianceProbes {
 		unsigned int raysPerProbe = 128;
 		unsigned int colorRes = 8;
 		unsigned int depthRes = 16;
-		float		 shadowBias = 0.3;
+		float		 shadowBias = 0.3f;
 		unsigned int layerPerUpdate = 2; // Should be a divisor of resolution.y
 	};
 	GridInfo GridParameters;
