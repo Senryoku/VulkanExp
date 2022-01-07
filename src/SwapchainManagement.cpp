@@ -110,6 +110,7 @@ void Application::createSwapChain() {
 	_gbufferImageViews.resize(3 * _swapChainImages.size());
 	_reflectionImages.resize(_swapChainImages.size());
 	_reflectionImageViews.resize(_swapChainImages.size());
+	_reflectionMipmapImageViews.resize(_swapChainImages.size());
 	_directLightImages.resize(_swapChainImages.size());
 	_directLightImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
@@ -122,13 +123,32 @@ void Application::createSwapChain() {
 			_gbufferImages[3 * i + j].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 													   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
+
 		_reflectionImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-									VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+									VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+										VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+									true);
 		_reflectionImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		_reflectionImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		// View into the first mipmap only for framebuffer usage
+		_reflectionImageViews[i].create(
+			_device,
+			{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			 .image = _reflectionImages[i],
+			 .viewType = VK_IMAGE_VIEW_TYPE_2D,
+			 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			 .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY, .g = VK_COMPONENT_SWIZZLE_IDENTITY, .b = VK_COMPONENT_SWIZZLE_IDENTITY, .a = VK_COMPONENT_SWIZZLE_IDENTITY},
+			 .subresourceRange = {
+				 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				 .baseMipLevel = 0,
+				 .levelCount = 1,
+				 .baseArrayLayer = 0,
+				 .layerCount = 1,
+			 }});
+		_reflectionMipmapImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
 		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 		_directLightImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 									 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		_directLightImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -551,16 +571,6 @@ void Application::initSwapChain() {
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			})
-			.add({
 				.format = _swapChainImageFormat,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -573,15 +583,14 @@ void Application::initSwapChain() {
 			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
 						{
 							// Output
-							{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+							{4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 						},
 						{
 							// Inputs (GBuffer)
 							{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 							{1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 							{2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-							{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Reflections
-							{4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Direct Light
+							{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Direct Light
 						},
 						{},
 						// Depth
@@ -614,7 +623,6 @@ void Application::initSwapChain() {
 											  _gbufferImageViews[3 * i + 0],
 											  _gbufferImageViews[3 * i + 1],
 											  _gbufferImageViews[3 * i + 2],
-											  _reflectionImageViews[i],
 											  _directLightImageViews[i],
 											  _swapChainImageViews[i],
 										  },
@@ -794,16 +802,14 @@ void Application::recordCommandBuffers() {
 		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
 
-		// TODO: Generate reflection mipmaps
+		// Generate reflection mipmaps
+		// FIXME: This is not a proper filtering. At all.
+		// We're merely scaling down the original image while we should resample it and filter it using an increasing roughness. This approximation still breaks down at objects
+		// boundaries (or in fact any surface/normal discontinuities) but seems widely used anyway, I guess the result is convincing (If I understood correctly, ofc). An easier and
+		// more accurate alternative (but obviously more expensive) would be to actualy fire multiple rays for each pixels in the previous stage. This may make this stage obsolete
+		// and steer us back to using an input attachment.
+		_reflectionImages[i].generateMipmaps(b, _width, _height, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED);
 
-		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1, // FIXME: Update when we actually compute those
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						 VkImageSubresourceRange{
 							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -919,6 +925,7 @@ void Application::cleanupSwapChain() {
 	_gbufferImageViews.clear();
 	_reflectionImages.clear();
 	_reflectionImageViews.clear();
+	_reflectionMipmapImageViews.clear();
 	_directLightImages.clear();
 	_directLightImageViews.clear();
 	_depthImageView.destroy();

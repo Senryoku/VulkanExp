@@ -5,8 +5,8 @@
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputPositionDepth;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMetalness;
 layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inputAlbedoRoughness;
-layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputReflection;
-layout (input_attachment_index = 4, set = 0, binding = 4) uniform subpassInput inputDirectLight;
+layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputDirectLight;
+layout (binding = 5, set = 0) uniform sampler2D inputReflection;
 layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
 };
@@ -39,14 +39,16 @@ void main() {
 	vec4 albedoReflection = subpassLoad(inputAlbedoRoughness);
 	vec4 albedo = vec4(albedoReflection.rgb, 1.0);
 	float roughness = albedoReflection.a;
-	vec4 reflection = subpassLoad(inputReflection); // TODO: Select LOD from roughness + depth
+	// FIXME: The 4.0 factor is 100% arbitrary
+	vec4 reflection = textureLod(inputReflection, fragPosition, roughness * 4.0); 
 
 	// Direct Light
 	color.rgb += subpassLoad(inputDirectLight).rgb;
 
 	// Specular (???)
 	vec3 view = normalize(position - origin);
-	color.rgb += reflectionAttenuation(normal, -view, reflection.rgb, -reflect(-view, normal), albedo, metalness, roughness).rgb;
+	// FIXME: The (1.0 - roughness) is completely arbitrary. Figure out the proper attenuation once we also have a proper filtering.
+	color.rgb += (1.0 - roughness) * albedo.rgb * reflection.rgb;
 	
 	// Indirect Light (Radiance from probes)
 	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;  

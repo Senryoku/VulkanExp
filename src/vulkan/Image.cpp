@@ -177,7 +177,8 @@ void Image::generateMipmaps(uint32_t queueFamilyIndex, int32_t width, int32_t he
 	getDevice().submit(queueFamilyIndex, [&](const CommandBuffer& commandBuffer) { generateMipmaps(commandBuffer, width, height); });
 }
 
-void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_t height) {
+void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_t height, VkImageLayout initialLayout, VkImageLayout finalLayout,
+							VkImageLayout mipmapsInitialLayout) {
 	VkImageMemoryBarrier barrier{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -191,9 +192,22 @@ void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_
 				.layerCount = 1,
 			},
 	};
+
+	// Set all mipmaps layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL if it's not already the case
+	if(mipmapsInitialLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+		for(uint32_t i = 1; i < _mipLevels; i++) {
+			barrier.subresourceRange.baseMipLevel = i;
+			barrier.oldLayout = mipmapsInitialLayout;
+			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		}
+
 	for(uint32_t i = 1; i < _mipLevels; i++) {
 		barrier.subresourceRange.baseMipLevel = i - 1;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.oldLayout = i == 1 ? initialLayout : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -221,9 +235,9 @@ void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_
 
 		vkCmdBlitImage(commandBuffer, _handle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
 
-		// Set this mip level layout as VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL as we're done writing to it.
+		// Set this mip level layout as finalLayout as we're done writing to it.
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.newLayout = finalLayout;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
@@ -237,7 +251,7 @@ void Image::generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_
 
 	barrier.subresourceRange.baseMipLevel = _mipLevels - 1;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.newLayout = finalLayout;
 	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 

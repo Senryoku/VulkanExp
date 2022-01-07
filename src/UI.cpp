@@ -298,6 +298,8 @@ void Application::drawUI() {
 			if(dirtyMaterials) {
 				vkDeviceWaitIdle(_device); // Overkill
 				uploadMaterials();		   // TODO: Optimize by updating only the relevant slice
+				recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part of a
+										// uniform buffer (like the model matrix?)
 			}
 		} else {
 			ImGui::Text("No selected node.");

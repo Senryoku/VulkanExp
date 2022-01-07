@@ -144,6 +144,7 @@ class Application {
 	Pipeline						 _gbufferPipeline;
 	std::vector<Image>				 _reflectionImages;
 	std::vector<ImageView>			 _reflectionImageViews;
+	std::vector<ImageView>			 _reflectionMipmapImageViews;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
 	DescriptorPool					 _reflectionShadowDescriptorPool;
