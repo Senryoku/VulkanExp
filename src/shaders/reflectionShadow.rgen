@@ -4,7 +4,6 @@
 #include "Lights.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
 layout(binding = 10, set = 0) uniform LightUBO {
 	Light DirectionalLight;
 };
@@ -14,13 +13,12 @@ layout(binding = 11, set = 0) uniform UniformBufferObject
     mat4 proj;
 } ubo;
 layout(binding = 12, set = 0, rgba32f) uniform image2D positionDepthTex;
-layout(binding = 13, set = 0, rgba32f) uniform image2D normalMaterialTex;
-layout(binding = 14, set = 0, rgba32f) uniform image2D albedoTex;
+layout(binding = 13, set = 0, rgba32f) uniform image2D normalMetalnessTex;
+layout(binding = 14, set = 0, rgba32f) uniform image2D albedoRoughnessTex;
 
 layout(binding = 15, set = 0, rgba32f) uniform image2D reflectionOut;
 layout(binding = 16, set = 0, rgba32f) uniform image2D directLightOut;
 
-#include "Material.glsl"
 #include "rayPayload.glsl"
 #include "pbrMetallicRoughness.glsl"
 
@@ -47,14 +45,16 @@ void main()
 	vec4 origin = inverse(ubo.view) * vec4(0, 0, 0, 1);
 	
 	vec4 positionDepth = imageLoad(positionDepthTex, ivec2(gl_LaunchIDEXT.xy));
-	vec4 normalMaterial = imageLoad(normalMaterialTex, ivec2(gl_LaunchIDEXT.xy));
-	vec4 albedo = imageLoad(albedoTex, ivec2(gl_LaunchIDEXT.xy));
+	vec4 normalMetalness = imageLoad(normalMetalnessTex, ivec2(gl_LaunchIDEXT.xy));
+	vec4 albedoRoughness = imageLoad(albedoRoughnessTex, ivec2(gl_LaunchIDEXT.xy));
+
 
 	vec3 position = positionDepth.xyz;
 	float depth = positionDepth.w;
-	vec3 normal = normalMaterial.xyz;
-	uint materialIndex = floatBitsToUint(normalMaterial.w);
-	Material material = unpackMaterial(materialIndex);
+	vec3 normal = normalMetalness.xyz;
+	float metalness = normalMetalness.w;
+	vec3 albedo = albedoRoughness.rgb;
+	float roughness = albedoRoughness.a;
 
 	vec3 toOrigin = normalize(origin.xyz - position);
 
@@ -103,7 +103,7 @@ void main()
 		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
 		if(!isShadowed) {
 			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-			color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, material.metallicFactor, material.roughnessFactor).rgb;
+			color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, vec4(albedo, 1.0), metalness, roughness).rgb;
 		}
 		imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
 	}

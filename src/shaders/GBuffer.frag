@@ -9,11 +9,12 @@ layout(location = 1) in vec3 normal;
 layout(location = 2) in vec4 tangent;
 layout(location = 3) in vec3 bitangent;
 layout(location = 4) in vec2 texCoord;
-layout(location = 5) in flat uint material;
+layout(location = 5) in float metalnessFactor;
+layout(location = 6) in float roughnessFactor;
 
 layout(location = 0) out vec4 outPositionDepth;
-layout(location = 1) out vec4 outNormalMaterial;
-layout(location = 2) out vec4 outAlbedo; // Could pack something else here?
+layout(location = 1) out vec4 outNormalMetalness;
+layout(location = 2) out vec4 outAlbedoRoughness;
 
 vec3 lightDir = normalize(vec3(-1, 6, 1));
 
@@ -25,6 +26,6 @@ void main() {
     vec3 finalNormal = normalize(mat3(normalize(tangent.xyz), normalize(bitangent), normalize(normal)) * tangentSpaceNormal);
 
     outPositionDepth = positionDepth;
-    outNormalMaterial = vec4(finalNormal, uintBitsToFloat(material));
-    outAlbedo = texColor;
+    outNormalMetalness = vec4(finalNormal, metalnessFactor);
+    outAlbedoRoughness = vec4(texColor.rgb, roughnessFactor);
 }

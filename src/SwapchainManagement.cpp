@@ -653,11 +653,6 @@ void Application::initSwapChain() {
 	recordCommandBuffers();
 }
 
-struct PushConstant {
-	glm::mat4 transform;
-	uint32_t  material;
-};
-
 void Application::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& b = _commandBuffers.getBuffers()[i];
@@ -679,12 +674,13 @@ void Application::recordCommandBuffers() {
 			const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
 				transform = transform * n.transform;
 				if(n.mesh != -1) {
-					PushConstant pc{transform, 0};
+					GBufferPushConstant pc{transform, 0, 0};
 					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-						pc.material = submesh.materialIndex;
+						pc.metalness = submesh.material->metallicFactor;
+						pc.roughness = submesh.material->roughnessFactor;
 						vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
 												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
-						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstant), &pc);
+						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GBufferPushConstant), &pc);
 						b.bind<1>({submesh.getVertexBuffer()});
 						vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 						vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);

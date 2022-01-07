@@ -49,6 +49,12 @@ struct CameraBuffer {
 	glm::mat4 proj;
 };
 
+struct GBufferPushConstant {
+	glm::mat4 transform;
+	float	  metalness;
+	float	  roughness;
+};
+
 static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
 											 VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");

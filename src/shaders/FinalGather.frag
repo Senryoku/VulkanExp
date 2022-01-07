@@ -3,11 +3,10 @@
 #include "ProbeGrid.glsl"
 
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputPositionDepth;
-layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMaterial;
-layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inputAlbedo;
+layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMetalness;
+layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inputAlbedoRoughness;
 layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputReflection;
 layout (input_attachment_index = 4, set = 0, binding = 4) uniform subpassInput inputDirectLight;
-layout(binding = 5, set = 0) buffer MaterialsBlock { uint Materials[]; };
 layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
 };
@@ -21,7 +20,6 @@ layout(binding = 10, set = 0) uniform UniformBufferObject
 } ubo;
 
 #include "irradiance.glsl"
-#include "Material.glsl"
 
 layout(location = 0) in vec2 fragPosition;
 
@@ -35,11 +33,12 @@ void main() {
 	vec3 origin = (inverse(ubo.view) * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	vec4 positionDepth = subpassLoad(inputPositionDepth);
 	vec3 position = positionDepth.xyz;
-	vec4 normalMaterial = subpassLoad(inputNormalMaterial);
-	vec3 normal = normalMaterial.xyz;
-	uint materialIndex = floatBitsToUint(normalMaterial.w);
-	Material material = unpackMaterial(Materials[materialIndex]);
-	vec4 albedo = subpassLoad(inputAlbedo);
+	vec4 normalMetalness = subpassLoad(inputNormalMetalness);
+	vec3 normal = normalize(normalMetalness.xyz);
+	float metalness = normalMetalness.w;
+	vec4 albedoReflection = subpassLoad(inputAlbedoRoughness);
+	vec4 albedo = vec4(albedoReflection.rgb, 1.0);
+	float roughness = albedoReflection.a;
 	vec4 reflection = subpassLoad(inputReflection); // TODO: Select LOD from roughness + depth
 
 	// Direct Light
@@ -47,7 +46,7 @@ void main() {
 
 	// Specular (???)
 	vec3 view = normalize(position - origin);
-	//color.rgb += pbrMetallicRoughness(normal, -view, reflection.rgb, -reflect(-view, normal), albedo, material.metallicFactor, material.roughnessFactor).rgb;
+	color.rgb += reflectionAttenuation(normal, -view, reflection.rgb, -reflect(-view, normal), albedo, metalness, roughness).rgb;
 	
 	// Indirect Light (Radiance from probes)
 	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;  

@@ -143,7 +143,7 @@ void Application::createGBufferPipeline() {
 	std::vector<VkPushConstantRange> pushConstants{{
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
 		.offset = 0,
-		.size = sizeof(glm::mat4) + sizeof(unsigned int),
+		.size = sizeof(GBufferPushConstant),
 	}};
 
 	_gbufferPipeline.getLayout().create(_device, layouts, pushConstants);

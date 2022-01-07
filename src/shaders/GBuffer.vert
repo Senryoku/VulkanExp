@@ -9,7 +9,8 @@ layout(binding = 0) uniform UniformBufferObject {
 layout(push_constant) uniform constants
 {
 	mat4 model;
-    uint material;
+    float metalnessFactor;
+    float roughnessFactor;
 } PushConstants;
 
 layout(location = 0) in vec3 inPosition;
@@ -23,7 +24,8 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 layout(location = 3) out vec3 bitangent;
 layout(location = 4) out vec2 texCoord;
-layout(location = 5) out flat uint material;
+layout(location = 5) out float metalnessFactor;
+layout(location = 6) out float roughnessFactor;
 
 void main() {
     gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
@@ -32,5 +34,6 @@ void main() {
     tangent = vec4(mat3(PushConstants.model) * inTangent.xyz, inTangent.w);
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
-    material = PushConstants.material;
+    metalnessFactor = PushConstants.metalnessFactor;
+    roughnessFactor = PushConstants.roughnessFactor;
 }
