@@ -62,7 +62,7 @@ void main() {
 	for(int i = 0; i < grid.raysPerProbe; ++i) {
 		vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(i, grid.raysPerProbe);
 
-		const float tmin = 0.1;
+		const float tmin = 0.01;
 		const float tmax = 10000.0;
 
 		payload.color = vec4(0.0);
@@ -70,7 +70,7 @@ void main() {
         vec2 polar = cartesianToPolar(direction);
 		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));
 		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
-		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
         float foundDepth = min(0.99f * payload.depth, MaxDistance);
         if(foundDepth < 0) foundDepth = MaxDistance;

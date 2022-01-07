@@ -157,7 +157,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
     for(int i = 0; i < 8; ++i) {
         ivec3 offset = ivec3(i, i >> 1, i >> 2) & ivec3(1); //ivec3(i % 2,  (i / 2) % 2, (i / 4) % 2);
         ivec3 probeCoords = firstProbeIdx + offset;
-        if(any(greaterThan(offset, grid.resolution - 1)) || Probes[probeLinearIndex(probeCoords, grid)] == 0) continue; // Skip off-grid or disabled probes
+        if(any(greaterThan(probeCoords, grid.resolution - 1)) || Probes[probeLinearIndex(probeCoords, grid)] == 0) continue; // Skip off-grid or disabled probes
         vec3 probePosition = probeIndexToWorldPosition(probeCoords, grid);
         vec3 directionToProbe = normalize(probePosition - position);
         vec3 biasedDirectionToProbe = probePosition - biasedPosition;

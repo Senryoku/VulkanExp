@@ -141,7 +141,7 @@ void main()
 	vec3 normal = normalize(vec3(tangentSpaceNormal * gl_WorldToObjectEXT)); // To world space
 		
 	vec4 grad = texDerivative(position, v0, v1, v2, payload.raydx, payload.raydy); 
-	vec4 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw);
+	vec4 texColor = m.albedoTexture != -1 ? textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw) : vec4(1.0);
 	
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	if(m.normalTexture != -1) {
@@ -183,7 +183,7 @@ void main()
 				0.1,                   // ray min range
 				reflectDir,            // ray direction
 				tmax,                  // ray max range
-				0                      
+				0                      // payload location 0
 		);
 		--payload.recursionDepth;
 		specularLight = payload.color.rgb;
