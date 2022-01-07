@@ -154,7 +154,7 @@ void main()
 		normal = normalize(mat3(tangent, bitangent, normal) * mappedNormal);
 	}
 	
-	vec3 emissiveLight = vec3(0);
+	vec3 emissiveLight = m.emissiveFactor;
 	if(m.emissiveTexture != -1) {
 		emissiveLight = m.emissiveFactor * textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
 	}
