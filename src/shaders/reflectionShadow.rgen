@@ -29,7 +29,7 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 	return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
 }
 
-const float tmin = 0.001;
+const float tmin = 0.1;
 const float tmax = 100000.0;
 
 vec2 getRayDirection(uvec2 coords) {
@@ -47,7 +47,6 @@ void main()
 	vec4 positionDepth = imageLoad(positionDepthTex, ivec2(gl_LaunchIDEXT.xy));
 	vec4 normalMetalness = imageLoad(normalMetalnessTex, ivec2(gl_LaunchIDEXT.xy));
 	vec4 albedoRoughness = imageLoad(albedoRoughnessTex, ivec2(gl_LaunchIDEXT.xy));
-
 
 	vec3 position = positionDepth.xyz;
 	float depth = positionDepth.w;
@@ -74,8 +73,8 @@ void main()
 
 	// Reflection
 	vec3 direction = reflect(-toOrigin, normal);
-	payload.raydx = rotateAxis(direction, normal, 0.1);
-	payload.raydy = rotateAxis(cross(normal, direction), normal, 0.1);
+	payload.raydx = rotateAxis(direction, normal, 0.001);
+	payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
 	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
 	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
 	

@@ -165,6 +165,7 @@ void main()
 	color += indirectLight * texColor.rgb;	
 	
 	float tmax = 10000.0;
+	/*
 	vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.
 	vec3 reflectDir = reflect(normalize(position - gl_WorldRayOriginEXT), normal);
 	if(payload.recursionDepth == 0) {
@@ -188,18 +189,9 @@ void main()
 		--payload.recursionDepth;
 		specularLight = payload.color.rgb;
 	}
-	vec3 view = normalize(-gl_WorldRayDirectionEXT);
-	vec3 halfVector = normal; // normalize(light + (-view)), but here light = reflect(-view, normal)
-	float VdotH = clamp(dot(view, halfVector), 0.0, 1.0);
-	vec3 f0 = vec3(0.04);
-	vec3 diffuseColor = texColor.rgb * (1.0 - f0);
-	diffuseColor *= (1.0 - m.metallicFactor);
-	vec3 specularColor = mix(f0, diffuseColor, m.metallicFactor);
-	float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
-	vec3 specularEnvironmentR0 = specularColor.rgb;	float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
-	vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
-	vec3 F = specularReflection(specularEnvironmentR0, specularEnvironmentR90, VdotH);
-	color += (F /*Missing BRDF parameters */) * pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+	// ??
+	color += reflectionAttenuation(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+	*/
 
 	// Direct lighting
 	isShadowed = true;

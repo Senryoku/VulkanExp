@@ -33,6 +33,10 @@ float max3 (vec3 v) {
   return max (max (v.x, v.y), v.z);
 }
 
+vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
+	return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
+}
+
 void main() {
     ivec3 index = ivec3(gl_LaunchIDEXT.xyz);
     index.y += int(grid.layerPerUpdate * (push.updateIndex % (grid.resolution.y / grid.layerPerUpdate)));
@@ -66,10 +70,8 @@ void main() {
 		const float tmax = 10000.0;
 
 		payload.color = vec4(0.0);
-        
-        vec2 polar = cartesianToPolar(direction);
-		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));
-		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
+	    payload.raydx = rotateAxis(direction, normalize(cross(direction, vec3(1, 0, 0))), 0.001);
+	    payload.raydy = rotateAxis(direction, normalize(cross(direction, vec3(0, 1, 0))), 0.001);
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
         float foundDepth = min(0.99f * payload.depth, MaxDistance);
