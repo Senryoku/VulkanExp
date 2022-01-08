@@ -129,51 +129,29 @@ void Application::drawFrame() {
 
 	VkSemaphore			 waitSemaphores[] = {_imageAvailableSemaphore[_currentFrame]};
 	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	VkSemaphore			 signalSemaphores[] = {_renderFinishedSemaphore[_currentFrame]};
+	VkSemaphore			 signalSemaphores[] = {_renderFinishedSemaphore[_currentFrame]}; // Synchronize render and presentation
 
 	auto commandBuffer = _raytracingDebug ? _rayTraceCommandBuffers.getBuffers()[imageIndex].getHandle() : _commandBuffers.getBuffers()[imageIndex].getHandle();
+	recordUICommandBuffer(imageIndex);
 
-	// Re-record Dear IMGUI command buffer for this frame.
-	auto					 imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
-	VkCommandBufferBeginInfo info{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	};
-	VK_CHECK(vkBeginCommandBuffer(imguiCmdBuff, &info));
-	std::array<VkClearValue, 1> clearValues{
-		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
-	};
-	VkRenderPassBeginInfo rpinfo{
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = _imguiRenderPass,
-		.framebuffer = _presentFramebuffers[imageIndex],
-		.renderArea = {.extent = _swapChainExtent},
-		.clearValueCount = 1,
-		.pClearValues = clearValues.data(),
-	};
-	vkCmdBeginRenderPass(imguiCmdBuff, &rpinfo, VK_SUBPASS_CONTENTS_INLINE);
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguiCmdBuff);
-	vkCmdEndRenderPass(imguiCmdBuff);
-	VK_CHECK(vkEndCommandBuffer(imguiCmdBuff));
-
-	VkCommandBuffer cmdbuff[2]{commandBuffer, imguiCmdBuff};
-
-	VkSubmitInfo submitInfo{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = waitSemaphores,
-		.pWaitDstStageMask = waitStages,
-		.commandBufferCount = 2,
-		.pCommandBuffers = cmdbuff,
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = signalSemaphores,
-	};
-
+	// Submit both command buffers
+	VkCommandBuffer cmdbuff[2]{commandBuffer, _imguiCommandBuffers.getBuffers()[imageIndex].getHandle()};
+	VkSubmitInfo	submitInfo{
+		   .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		   .waitSemaphoreCount = 1,
+		   .pWaitSemaphores = waitSemaphores,
+		   .pWaitDstStageMask = waitStages,
+		   .commandBufferCount = 2,
+		   .pCommandBuffers = cmdbuff,
+		   .signalSemaphoreCount = 1,
+		   .pSignalSemaphores = signalSemaphores,
+	   };
 	VK_CHECK(vkResetFences(_device, 1, &currentFence));
 	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence));
 	if(!_raytracingDebug)
 		_mainTimingQueryPools[imageIndex].newSampleFlag = true;
 
+	// Present the new frame
 	VkSwapchainKHR	 swapChains[] = {_swapChain};
 	VkPresentInfoKHR presentInfo{
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,

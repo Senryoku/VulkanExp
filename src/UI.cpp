@@ -146,6 +146,31 @@ void plot(const RollingBuffer<T>& rb) {
 	ImPlot::PlotLine("Frame Time (ms)", data.second, static_cast<int>(data.secondCount), 1.0, data.firstCount);
 }
 
+// Re-record Dear IMGUI command buffer for this frame.
+void Application::recordUICommandBuffer(size_t imageIndex) {
+	auto					 imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
+	VkCommandBufferBeginInfo info{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
+	VK_CHECK(vkBeginCommandBuffer(imguiCmdBuff, &info));
+	std::array<VkClearValue, 1> clearValues{
+		VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
+	};
+	VkRenderPassBeginInfo rpinfo{
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = _imguiRenderPass,
+		.framebuffer = _presentFramebuffers[imageIndex],
+		.renderArea = {.extent = _swapChainExtent},
+		.clearValueCount = 1,
+		.pClearValues = clearValues.data(),
+	};
+	vkCmdBeginRenderPass(imguiCmdBuff, &rpinfo, VK_SUBPASS_CONTENTS_INLINE);
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguiCmdBuff);
+	vkCmdEndRenderPass(imguiCmdBuff);
+	VK_CHECK(vkEndCommandBuffer(imguiCmdBuff));
+}
+
 void Application::drawUI() {
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
@@ -278,13 +303,13 @@ void Application::drawUI() {
 									ImGui::Text("Albedo");
 									ImGui::Image(SceneUITextureIDs[mat.albedoTexture].imID, ImVec2(100, 100));
 								}
-								if(ImGui::InputFloat3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
+								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
 									dirtyMaterials = true;
 								}
-								if(ImGui::InputFloat("Metallic Factor", &mat.metallicFactor)) {
+								if(ImGui::SliderFloat("Metallic Factor", &mat.metallicFactor, 0.0f, 1.0f)) {
 									dirtyMaterials = true;
 								}
-								if(ImGui::InputFloat("Roughness Factor", &mat.roughnessFactor)) {
+								if(ImGui::SliderFloat("Roughness Factor", &mat.roughnessFactor, 0.0f, 1.0f)) {
 									dirtyMaterials = true;
 								}
 								ImGui::TreePop();

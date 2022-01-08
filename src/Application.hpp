@@ -253,6 +253,7 @@ class Application {
 	void cleanupSwapChain();
 	void createImGuiRenderPass();
 	void uiOnSwapChainReady();
+	void recordUICommandBuffer(size_t index);
 	void uploadMaterials();
 
 	void compileShaders() {
