@@ -39,7 +39,7 @@ void main() {
 	vec4 albedoReflection = subpassLoad(inputAlbedoRoughness);
 	vec4 albedo = vec4(albedoReflection.rgb, 1.0);
 	float roughness = albedoReflection.a;
-	// FIXME: The 4.0 factor is 100% arbitrary
+	// FIXME: The 4.0 factor is 100% arbitrary; This looks horrible without a proper filtering. We'll probably get rid of the mipmaps.
 	vec4 reflection = textureLod(inputReflection, fragPosition, roughness * 4.0); 
 
 	// Direct Light
@@ -48,7 +48,7 @@ void main() {
 	// Specular (???)
 	vec3 view = normalize(position - origin);
 	// FIXME: The (1.0 - roughness) is completely arbitrary. Figure out the proper attenuation once we also have a proper filtering.
-	color.rgb += (1.0 - roughness) * albedo.rgb * reflection.rgb;
+	color.rgb += (1.0 - roughness) * (1.0 - roughness) * albedo.rgb * reflection.rgb;
 	
 	// Indirect Light (Radiance from probes)
 	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;  

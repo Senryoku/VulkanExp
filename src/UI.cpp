@@ -172,6 +172,9 @@ void Application::recordUICommandBuffer(size_t imageIndex) {
 }
 
 void Application::drawUI() {
+	size_t	   treeUniqueIdx = 0;
+	const auto makeUnique = [&](const std::string& name) { return (name + "##" + std::to_string(++treeUniqueIdx)); };
+
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
 			if(ImGui::MenuItem("Load Scene")) {}
@@ -237,27 +240,19 @@ void Application::drawUI() {
 	if(ImGui::Begin("Scenes")) {
 		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
-			if(nodes[n].children.empty()) {
-				bool open = ImGui::TreeNodeEx((nodes[n].name + "##" + std::to_string(n)).c_str(), ImGuiTreeNodeFlags_Leaf);
-				if(ImGui::IsItemClicked())
-					SelectedNode = &nodes[n];
-				if(open)
-					ImGui::TreePop();
-			} else {
-				bool open = ImGui::TreeNodeEx((nodes[n].name + "##" + std::to_string(n)).c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
-				if(ImGui::IsItemClicked())
-					SelectedNode = &nodes[n];
-				if(open) {
-					for(const auto& c : nodes[n].children) {
-						displayNode(c);
-					}
-					ImGui::TreePop();
+			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
+			if(ImGui::IsItemClicked())
+				SelectedNode = &nodes[n];
+			if(open) {
+				for(const auto& c : nodes[n].children) {
+					displayNode(c);
 				}
+				ImGui::TreePop();
 			}
 		};
 
 		for(const auto& s : _scene.getScenes()) {
-			if(ImGui::TreeNode(s.name.c_str())) {
+			if(ImGui::TreeNode(makeUnique(s.name).c_str())) {
 				for(const auto& n : s.nodes) {
 					displayNode(n);
 				}
@@ -293,15 +288,24 @@ void Application::drawUI() {
 			}
 			if(SelectedNode->mesh != -1) {
 				auto&& mesh = _scene.getMeshes()[SelectedNode->mesh];
-				if(ImGui::TreeNodeEx(mesh.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
 						auto&& submesh = mesh.SubMeshes[i];
-						if(ImGui::TreeNodeEx((submesh.name + "##" + std::to_string(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 							auto&& mat = Materials[submesh.materialIndex];
-							if(ImGui::TreeNodeEx(mat.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+							if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+								++treeUniqueIdx;
 								if(mat.albedoTexture != -1) {
-									ImGui::Text("Albedo");
+									ImGui::Text("Albedo Texture");
 									ImGui::Image(SceneUITextureIDs[mat.albedoTexture].imID, ImVec2(100, 100));
+								}
+								if(mat.metallicRoughnessTexture != -1) {
+									ImGui::Text("Metallic Roughness Texture");
+									ImGui::Image(SceneUITextureIDs[mat.metallicRoughnessTexture].imID, ImVec2(100, 100));
+								}
+								if(mat.emissiveTexture != -1) {
+									ImGui::Text("Emissive Texture");
+									ImGui::Image(SceneUITextureIDs[mat.emissiveTexture].imID, ImVec2(100, 100));
 								}
 								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
 									dirtyMaterials = true;

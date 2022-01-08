@@ -13,7 +13,9 @@ void Application::createGBufferPipeline() {
 	builder
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)			   // Camera
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Albedo
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // Normal
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Normal
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Metal Roughness
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // Emissive
 	_gbufferDescriptorSetLayouts.push_back(builder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> layouts;
@@ -22,7 +24,7 @@ void Application::createGBufferPipeline() {
 
 	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size() * Materials.size());
 	DescriptorPoolBuilder poolBuilder;
-	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * descriptorSetsCount).add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * descriptorSetsCount).add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 * descriptorSetsCount);
 	_gbufferDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
@@ -195,6 +197,20 @@ void Application::writeGBufferDescriptorSets() {
 					{
 						.sampler = *normals.sampler,
 						.imageView = normals.gpuImage->imageView,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					});
+			auto& metallicRoughness = Materials[m].metallicRoughnessTexture != -1 ? Textures[Materials[m].metallicRoughnessTexture] : _blankTexture;
+			dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					{
+						.sampler = *metallicRoughness.sampler,
+						.imageView = metallicRoughness.gpuImage->imageView,
+						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					});
+			auto& emissive = Materials[m].emissiveTexture != -1 ? Textures[Materials[m].emissiveTexture] : _blankTexture;
+			dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+					{
+						.sampler = *emissive.sampler,
+						.imageView = emissive.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
 			dsw.update(_device);

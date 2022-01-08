@@ -52,11 +52,18 @@ class Scene {
 		size_t		  material;
 	};
 
+	// FIXME: Loading multiple glTF successivly is completly broken
+	enum class LoadOperation
+	{
+		AllScenes,
+		AppendToCurrentScene
+	};
+
 	Scene() = default;
-	Scene(std::filesystem::path path);
+	Scene(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
 	~Scene();
 
-	void loadglTF(std::filesystem::path path);
+	void loadglTF(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
 
 	inline std::vector<Mesh>&			getMeshes() { return _meshes; }
 	inline std::vector<SubScene>&		getScenes() { return _scenes; }
