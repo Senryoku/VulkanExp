@@ -7,7 +7,7 @@
 // TODO: Move this :)
 inline std::vector<Material> Materials;
 
-class glTF {
+class Scene {
   public:
 	enum class RenderingMode
 	{
@@ -34,7 +34,7 @@ class glTF {
 
 	class Attributes {};
 
-	struct Scene {
+	struct SubScene {
 		std::string			  name;
 		std::vector<uint32_t> nodes; // Indices in _nodes
 	};
@@ -52,18 +52,18 @@ class glTF {
 		size_t		  material;
 	};
 
-	glTF() = default;
-	glTF(std::filesystem::path path);
-	~glTF();
+	Scene() = default;
+	Scene(std::filesystem::path path);
+	~Scene();
 
-	void load(std::filesystem::path path);
+	void loadglTF(std::filesystem::path path);
 
-	inline std::vector<Mesh>&		 getMeshes() { return _meshes; }
-	inline std::vector<Scene>&		 getScenes() { return _scenes; }
-	inline std::vector<Node>&		 getNodes() { return _nodes; }
-	inline const std::vector<Mesh>&	 getMeshes() const { return _meshes; }
-	inline const std::vector<Scene>& getScenes() const { return _scenes; }
-	inline const std::vector<Node>&	 getNodes() const { return _nodes; }
+	inline std::vector<Mesh>&			getMeshes() { return _meshes; }
+	inline std::vector<SubScene>&		getScenes() { return _scenes; }
+	inline std::vector<Node>&			getNodes() { return _nodes; }
+	inline const std::vector<Mesh>&		getMeshes() const { return _meshes; }
+	inline const std::vector<SubScene>& getScenes() const { return _scenes; }
+	inline const std::vector<Node>&		getNodes() const { return _nodes; }
 
 	// Returns a dummy node with stands for the current scene (since it can have multiple children).
 	inline const Node& getRoot() const { return _root; }
@@ -113,11 +113,11 @@ class glTF {
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:
-	uint32_t		   _defaultScene = 0;
-	Node			   _root;
-	std::vector<Mesh>  _meshes;
-	std::vector<Scene> _scenes;
-	std::vector<Node>  _nodes;
+	uint32_t			  _defaultScene = 0;
+	Node				  _root;
+	std::vector<Mesh>	  _meshes;
+	std::vector<SubScene> _scenes;
+	std::vector<Node>	  _nodes;
 
 	Bounds _bounds;
 };

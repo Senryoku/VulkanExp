@@ -60,7 +60,7 @@
     <ClCompile Include="src\VulkanLifecycle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\glTF.cpp">
+    <ClCompile Include="src\Scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\JSON.cpp">
@@ -197,7 +197,7 @@
     <ClInclude Include="src\vulkan\Image.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\glTF.hpp">
+    <ClInclude Include="src\Scene.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\JSON.hpp">

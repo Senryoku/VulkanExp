@@ -7,8 +7,8 @@
 #include <Pipeline.hpp>
 
 #include <RollingBuffer.hpp>
+#include <Scene.hpp>
 #include <ShaderBindingTable.hpp>
-#include <glTF.hpp>
 #include <vulkan/Query.hpp>
 
 class IrradianceProbes {
@@ -17,9 +17,9 @@ class IrradianceProbes {
 	void initProbes(VkQueue queue);
 	void createPipeline();
 	void createShaderBindingTable();
-	void writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
+	void writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
 	void updateUniforms();
-	void update(const glTF& scene, VkQueue queue);
+	void update(const Scene& scene, VkQueue queue);
 
 	inline const Image&		getColor() const { return _color; }
 	inline const Image&		getDepth() const { return _depth; }

@@ -248,7 +248,7 @@ void IrradianceProbes::createPipeline() {
 	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 2);
 }
 
-void IrradianceProbes::writeDescriptorSet(const glTF& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
+void IrradianceProbes::writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
 	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, tlas, *this, lightBuffer);
 	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workColorView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
@@ -328,7 +328,7 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
 }
 
-void IrradianceProbes::update(const glTF& scene, VkQueue queue) {
+void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 #if 0
 	// Decouple the updates from the framerate?
 	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.

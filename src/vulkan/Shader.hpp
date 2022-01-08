@@ -8,9 +8,9 @@
 class Shader : public HandleWrapper<VkShaderModule> {
   public:
 	Shader() = default;
-	Shader(VkDevice device, const std::string& path) { load(device, path); }
+	Shader(VkDevice device, const std::string& path) { loadglTF(device, path); }
 
-	bool load(VkDevice device, const std::string& path) {
+	bool loadglTF(VkDevice device, const std::string& path) {
 		auto					 source = readFile(path);
 		VkShaderModuleCreateInfo createInfo{
 			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,

@@ -10,7 +10,7 @@ class STBImage {
 	STBImage() = default;
 	STBImage(STBImage&&) noexcept;
 	STBImage& operator=(STBImage&&) noexcept;
-	STBImage(const std::filesystem::path& path) { load(path); }
+	STBImage(const std::filesystem::path& path) { loadglTF(path); }
 	~STBImage() {
 		if(_data) {
 			stbi_image_free(_data);
@@ -19,7 +19,7 @@ class STBImage {
 		}
 	}
 
-	void load(const std::filesystem::path& path) {
+	void loadglTF(const std::filesystem::path& path) {
 		_data = stbi_load(path.string().c_str(), &_x, &_y, &_n, 4); // Force 4 channels
 		_n = 4;														// Adjust _n so it reflects the actual _data (we force 4 channels)
 		if(!_data) {

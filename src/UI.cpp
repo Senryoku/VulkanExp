@@ -18,7 +18,7 @@ struct DebugTexture {
 };
 static std::vector<DebugTexture> DebugTextureIDs;
 
-static glTF::Node* SelectedNode = nullptr;
+static Scene::Node* SelectedNode = nullptr;
 
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context

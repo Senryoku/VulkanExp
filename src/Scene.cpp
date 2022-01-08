@@ -1,4 +1,4 @@
-#include "glTF.hpp"
+#include "Scene.hpp"
 
 #include <fstream>
 
@@ -61,11 +61,11 @@ glm::mat4 JSON::value::to<glm::mat4>() const {
 	};
 }
 
-glTF::glTF(std::filesystem::path path) {
-	load(path);
+Scene::Scene(std::filesystem::path path) {
+	loadglTF(path);
 }
 
-void glTF::load(std::filesystem::path path) {
+void Scene::loadglTF(std::filesystem::path path) {
 	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
 	JSON		json{path};
 	const auto& object = json.getRoot();
@@ -276,7 +276,7 @@ void glTF::load(std::filesystem::path path) {
 	}
 
 	for(const auto& scene : object["scenes"]) {
-		Scene s;
+		SubScene s;
 		s.name = scene("name", std::string("Unamed Scene"));
 		if(scene.contains("nodes")) {
 			for(const auto& c : scene["nodes"]) {
@@ -292,7 +292,7 @@ void glTF::load(std::filesystem::path path) {
 	_root.children = _scenes[_defaultScene].nodes;
 }
 
-void glTF::allocateMeshes(const Device& device) {
+void Scene::allocateMeshes(const Device& device) {
 	uint32_t						  totalVertexSize = 0;
 	uint32_t						  totalIndexSize = 0;
 	std::vector<VkMemoryRequirements> memReqs;
@@ -334,7 +334,7 @@ void glTF::allocateMeshes(const Device& device) {
 	OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
 }
 
-void glTF::free() {
+void Scene::free() {
 	for(auto& m : getMeshes())
 		m.destroy();
 
@@ -346,4 +346,4 @@ void glTF::free() {
 	IndexMemory.free();
 }
 
-glTF::~glTF() {}
+Scene::~Scene() {}

@@ -679,7 +679,7 @@ void Application::recordCommandBuffers() {
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
 			_gbufferPipeline.bind(b);
 
-			const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
+			const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
 				transform = transform * n.transform;
 				if(n.mesh != -1) {
 					GBufferPushConstant pc{transform, 0, 0};

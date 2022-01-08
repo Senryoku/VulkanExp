@@ -3,7 +3,7 @@
 #include <DescriptorPool.hpp>
 #include <IrradianceProbes.hpp>
 #include <Light.hpp>
-#include <glTF.hpp>
+#include <Scene.hpp>
 
 inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 	uint32_t				   texturesCount = static_cast<uint32_t>(Textures.size());
@@ -25,7 +25,7 @@ inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 }
 
 // Writes all the necessary descriptors for ray tracing
-inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const glTF& scene, const VkAccelerationStructureKHR& accelerationStructure,
+inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const Scene& scene, const VkAccelerationStructureKHR& accelerationStructure,
 										   const IrradianceProbes& irradianceProbes, const Buffer& lightBuffer) {
 	DescriptorSetWriter dsw(descSet);
 

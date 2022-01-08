@@ -16,7 +16,7 @@
 #include <FileWatch.hpp>
 
 #include "Logger.hpp"
-#include "glTF.hpp"
+#include "Scene.hpp"
 #include "vulkan/Buffer.hpp"
 #include "vulkan/DescriptorPool.hpp"
 #include "vulkan/DescriptorSetLayout.hpp"
@@ -192,12 +192,12 @@ class Application {
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
 
-	glTF _scene;
+	Scene _scene;
 
 	bool							 _probeDebug = false;
 	bool							 _irradianceProbeAutoUpdate = true;
 	IrradianceProbes				 _irradianceProbes;
-	glTF							 _probeMesh;
+	Scene							 _probeMesh;
 	RenderPass						 _probeDebugRenderPass;
 	DescriptorPool					 _probeDebugDescriptorPool;
 	std::vector<DescriptorSetLayout> _probeDebugDescriptorSetLayouts;

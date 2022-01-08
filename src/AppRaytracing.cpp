@@ -58,8 +58,8 @@ void Application::createAccelerationStructure() {
 	std::vector<VkAccelerationStructureBuildSizesInfoKHR> buildSizesInfo;
 	buildSizesInfo.reserve(submeshesCount);
 
-	const auto&												meshes = _scene.getMeshes();
-	const std::function<void(const glTF::Node&, glm::mat4)> visitNode = [&](const glTF::Node& n, glm::mat4 transform) {
+	const auto&												 meshes = _scene.getMeshes();
+	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
 		transform = transform * n.transform;
 		for(const auto& c : n.children) {
 			visitNode(_scene.getNodes()[c], transform);
