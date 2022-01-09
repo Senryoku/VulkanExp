@@ -9,11 +9,17 @@ void main()
 {
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
     vec4 final = vec4(0);
-    // TODO: Base the kernel on the roughness.
-    for(int i = 0; i < 16; ++i) {
-        for(int j = 0; j < 16; ++j) {
-            final += imageLoad(inImage, coords + ivec2(i - 8, j - 8));
+    float roughness = imageLoad(inImage, coords).w;
+    float stdDev = max(1, 12 * roughness); // FIXME: This is arbitrary.
+    float sqrDev = stdDev * stdDev;
+    int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, 7));
+    // TODO: Base the kernel on the roughness. A better approximation should use as much available geometric data as possible (sample direction, depth...)
+    for(int i = -window; i <= window; ++i) {
+        for(int j = -window; j <= window; ++j) {
+                     // Random Gaussian Blur Kernel based on absolutly nothing
+            final += (1 / (2 * 3.14159 * sqrDev)) * exp(-(i*i + j*j) / (2*sqrDev)) * imageLoad(inImage, coords + ivec2(i, j));
         }
     }
-    imageStore(outImage, coords, (1.0 / (16.0 * 16.0)) * final);
+    imageStore(outImage, coords, vec4(final.rgb, 1.0));
+    //imageStore(outImage, coords, (1.0 / (16.0 * 16.0)) * final);
 }

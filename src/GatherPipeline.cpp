@@ -165,9 +165,9 @@ void Application::createGatherPipeline() {
 				 })
 			.add(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				 {
-					 .sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-											VK_SAMPLER_ADDRESS_MODE_REPEAT, static_cast<float>(_reflectionImages[i].getMipLevels())),
-					 .imageView = _reflectionMipmapImageViews[i],
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _reflectionFilteredImageViews[i],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,

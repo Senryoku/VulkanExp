@@ -75,10 +75,10 @@ void main()
 	vec3 direction = reflect(-toOrigin, normal);
 	payload.raydx = rotateAxis(direction, normal, 0.001);
 	payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
-	float shortTmax = (1.0 - roughness) * tmax; // Shorten tmax based on roughness, distant objects should not affect rough surfaces that much, accelerating traversal.
+	float shortTmax = tmax; // 10.0 + (1.0 - roughness) * tmax; // Shorten tmax based on roughness, distant objects should not affect rough surfaces that much, accelerating traversal.
 	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, shortTmax, 0);
-	if(payload.depth < 0) payload.color = vec4(0); // Because of the short tmax, we have to ignore misses. No sky reflection :( Maybe it's not worth it...
-	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, 1.0));
+	//if(payload.depth < 0) payload.color = vec4(0); // Because of the short tmax, we have to ignore misses. No sky reflection :( Maybe it's not worth it...
+	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, roughness));
 	
 	// Direct Light
 	// We missed and reached the environement map, use the miss shader color

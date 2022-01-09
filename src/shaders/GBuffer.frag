@@ -31,8 +31,8 @@ void main() {
     
     float metalnessFactor = metalnessFactor;
     float roughnessFactor = roughnessFactor;
-    vec3 metalRoughMap = texture(metalRoughTexSampler, texCoord).rgb;
-    if(metalRoughMap.b != 1.0) { // Not exactly a good way to test if we do have a metalnessRoughness texture.
+    vec4 metalRoughMap = texture(metalRoughTexSampler, texCoord);
+    if(metalRoughMap.a != 0.0) { // FIXME: Not exactly a good way to test if we do have a metalnessRoughness texture.
         metalnessFactor = metalRoughMap.r;
         roughnessFactor = metalRoughMap.g;
     }

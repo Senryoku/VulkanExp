@@ -36,11 +36,10 @@ void main() {
 	vec4 normalMetalness = subpassLoad(inputNormalMetalness);
 	vec3 normal = normalize(normalMetalness.xyz);
 	float metalness = normalMetalness.w;
-	vec4 albedoReflection = subpassLoad(inputAlbedoRoughness);
-	vec4 albedo = vec4(albedoReflection.rgb, 1.0);
-	float roughness = albedoReflection.a;
-	// FIXME: The 4.0 factor is 100% arbitrary; This looks horrible without a proper filtering. We'll probably get rid of the mipmaps.
-	vec4 reflection = textureLod(inputReflection, fragPosition, roughness * 4.0); 
+	vec4 albedoRoughness = subpassLoad(inputAlbedoRoughness);
+	vec4 albedo = vec4(albedoRoughness.rgb, 1.0);
+	float roughness = albedoRoughness.a;
+	vec4 reflection = texture(inputReflection, fragPosition); 
 
 	// Direct Light
 	color.rgb += subpassLoad(inputDirectLight).rgb;

@@ -158,7 +158,7 @@ void Application::createSwapChain() {
 		_reflectionFilteredImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		_reflectionFilteredImageViews[i].create(_device, _reflectionFilteredImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		_reflectionFilteredImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
-													  VK_IMAGE_LAYOUT_GENERAL);
+													  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		_directLightImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 									 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -714,80 +714,6 @@ void Application::recordCommandBuffers() {
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 2);
 			b.endRenderPass();
 		}
-		/*
-		// Is it really necessary?
-		std::vector<VkImageMemoryBarrier> barriers{{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-													.pNext = VK_NULL_HANDLE,
-													.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-													.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-													.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.image = _gbufferImages[3 * i + 0],
-													.subresourceRange =
-														VkImageSubresourceRange{
-															.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-															.baseMipLevel = 0,
-															.levelCount = 1,
-															.baseArrayLayer = 0,
-															.layerCount = 1,
-														}},
-												   {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-													.pNext = VK_NULL_HANDLE,
-													.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-													.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-													.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.image = _gbufferImages[3 * i + 1],
-													.subresourceRange =
-														VkImageSubresourceRange{
-															.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-															.baseMipLevel = 0,
-															.levelCount = 1,
-															.baseArrayLayer = 0,
-															.layerCount = 1,
-														}},
-												   {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-													.pNext = VK_NULL_HANDLE,
-													.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-													.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-													.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-													.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.image = _gbufferImages[3 * i + 2],
-													.subresourceRange =
-														VkImageSubresourceRange{
-															.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-															.baseMipLevel = 0,
-															.levelCount = 1,
-															.baseArrayLayer = 0,
-															.layerCount = 1,
-														}},
-												   {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-													.pNext = VK_NULL_HANDLE,
-													.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-													.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-													.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-													.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-													.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-													.image = _depthImage,
-													.subresourceRange = VkImageSubresourceRange{
-														.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-														.baseMipLevel = 0,
-														.levelCount = 1,
-														.baseArrayLayer = 0,
-														.layerCount = 1,
-													}}};
-		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr,
-							 static_cast<uint32_t>(barriers.size()), barriers.data());
-		*/
-
-		// TODO: Compute reflection & Shadow via Ray Tracing
 
 		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
 						 VkImageSubresourceRange{
@@ -814,10 +740,26 @@ void Application::recordCommandBuffers() {
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
 
 		// Filter Reflections
+		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+						 VkImageSubresourceRange{
+							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							 .baseMipLevel = 0,
+							 .levelCount = 1,
+							 .baseArrayLayer = 0,
+							 .layerCount = 1,
+						 });
 		_reflectionFilterPipeline.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipeline.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[i], 0, 0);
 		const auto groupSize = 16;
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						 VkImageSubresourceRange{
+							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+							 .baseMipLevel = 0,
+							 .levelCount = 1,
+							 .baseArrayLayer = 0,
+							 .layerCount = 1,
+						 });
 
 		// Generate reflection mipmaps
 		// FIXME: This is not a proper filtering. At all.
