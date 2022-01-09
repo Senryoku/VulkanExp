@@ -132,7 +132,7 @@ void Application::createSwapChain() {
 		_reflectionImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
 		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
-											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+											  VK_IMAGE_LAYOUT_GENERAL);
 
 		// FIXME: Review usage bits
 		_reflectionFilteredImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
@@ -697,15 +697,6 @@ void Application::recordCommandBuffers() {
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 2);
 			b.endRenderPass();
 		}
-
-		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1, // FIXME: Update when we actually compute those
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
 
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
 						 VkImageSubresourceRange{
