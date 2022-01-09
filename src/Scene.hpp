@@ -52,7 +52,7 @@ class Scene {
 		size_t		  material;
 	};
 
-	// FIXME: Loading multiple glTF successivly is completly broken
+	// FIXME: Loading multiple glTF successively is completly broken
 	enum class LoadOperation
 	{
 		AllScenes,

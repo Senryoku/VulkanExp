@@ -110,6 +110,8 @@ void Application::createSwapChain() {
 	_gbufferImageViews.resize(3 * _swapChainImages.size());
 	_reflectionImages.resize(_swapChainImages.size());
 	_reflectionImageViews.resize(_swapChainImages.size());
+	_reflectionFilteredImages.resize(_swapChainImages.size());
+	_reflectionFilteredImageViews.resize(_swapChainImages.size());
 	_reflectionMipmapImageViews.resize(_swapChainImages.size());
 	_directLightImages.resize(_swapChainImages.size());
 	_directLightImageViews.resize(_swapChainImages.size());
@@ -148,6 +150,15 @@ void Application::createSwapChain() {
 		// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
 		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		// FIXME: Review usage bits
+		_reflectionFilteredImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+											VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+												VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+		_reflectionFilteredImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_reflectionFilteredImageViews[i].create(_device, _reflectionFilteredImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		_reflectionFilteredImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
+													  VK_IMAGE_LAYOUT_GENERAL);
 
 		_directLightImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 									 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -802,6 +813,12 @@ void Application::recordCommandBuffers() {
 		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
 
+		// Filter Reflections
+		_reflectionFilterPipeline.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipeline.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[i], 0, 0);
+		const auto groupSize = 16;
+		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+
 		// Generate reflection mipmaps
 		// FIXME: This is not a proper filtering. At all.
 		// We're merely scaling down the original image while we should resample it and filter it using an increasing roughness. This approximation still breaks down at objects
@@ -903,6 +920,7 @@ void Application::cleanupSwapChain() {
 	_lightUniformBuffersMemory.free();
 	_gbufferDescriptorPool.destroy();
 	_reflectionShadowDescriptorPool.destroy();
+	_reflectionFilterDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
 	_gatherFramebuffers.clear();
@@ -912,10 +930,12 @@ void Application::cleanupSwapChain() {
 
 	_gbufferPipeline.destroy();
 	_reflectionShadowPipeline.destroy();
+	_reflectionFilterPipeline.destroy();
 	_gatherPipeline.destroy();
 
 	_gbufferDescriptorSetLayouts.clear();
 	_reflectionShadowDescriptorSetLayout.destroy();
+	_reflectionFilterDescriptorSetLayout.destroy();
 	_gatherDescriptorSetLayout.destroy();
 
 	_gbufferRenderPass.destroy();
@@ -926,6 +946,8 @@ void Application::cleanupSwapChain() {
 	_reflectionImages.clear();
 	_reflectionImageViews.clear();
 	_reflectionMipmapImageViews.clear();
+	_reflectionFilteredImages.clear();
+	_reflectionFilteredImageViews.clear();
 	_directLightImages.clear();
 	_directLightImageViews.clear();
 	_depthImageView.destroy();

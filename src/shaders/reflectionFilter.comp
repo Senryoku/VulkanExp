@@ -1,0 +1,19 @@
+#version 460
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, rgba32f) uniform image2D inImage;
+layout(set = 0, binding = 1, rgba32f) uniform image2D outImage;
+
+void main()
+{
+    ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+    vec4 final = vec4(0);
+    // TODO: Base the kernel on the roughness.
+    for(int i = 0; i < 16; ++i) {
+        for(int j = 0; j < 16; ++j) {
+            final += imageLoad(inImage, coords + ivec2(i - 8, j - 8));
+        }
+    }
+    imageStore(outImage, coords, (1.0 / (16.0 * 16.0)) * final);
+}

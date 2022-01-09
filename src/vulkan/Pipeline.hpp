@@ -42,12 +42,20 @@ class PipelineLayout : public HandleWrapper<VkPipelineLayout> {
 class Pipeline : public HandleWrapper<VkPipeline> {
   public:
 	void create(VkDevice device, const VkGraphicsPipelineCreateInfo& info, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
+		assert(!isValid());
 		VK_CHECK(vkCreateGraphicsPipelines(device, pipelineCache, 1, &info, nullptr, &_handle));
 		_device = device;
 	}
 
 	void create(VkDevice device, const VkRayTracingPipelineCreateInfoKHR& info, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
+		assert(!isValid());
 		VK_CHECK(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, pipelineCache, 1, &info, nullptr, &_handle));
+		_device = device;
+	}
+
+	void create(VkDevice device, const VkComputePipelineCreateInfo& info, VkPipelineCache pipelineCache = VK_NULL_HANDLE) {
+		assert(!isValid());
+		VK_CHECK(vkCreateComputePipelines(device, pipelineCache, 1, &info, nullptr, &_handle));
 		_device = device;
 	}
 
@@ -59,7 +67,7 @@ class Pipeline : public HandleWrapper<VkPipeline> {
 		_pipelineLayout.destroy();
 	}
 
-	void bind(const CommandBuffer& commandBuffer) const { vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _handle); }
+	void bind(const CommandBuffer& commandBuffer, VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) const { vkCmdBindPipeline(commandBuffer, bindPoint, _handle); }
 
 	const PipelineLayout& getLayout() const { return _pipelineLayout; }
 	PipelineLayout&		  getLayout() { return _pipelineLayout; }

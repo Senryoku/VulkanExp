@@ -137,6 +137,8 @@ void Application::uiOnSwapChainReady() {
 			{fmt::format("Direct Light {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _directLightImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
 		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
+		DebugTextureIDs.push_back({fmt::format("Reflection Filtered {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionFilteredImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
 }
 
 template<class T>

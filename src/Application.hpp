@@ -144,6 +144,8 @@ class Application {
 	Pipeline						 _gbufferPipeline;
 	std::vector<Image>				 _reflectionImages;
 	std::vector<ImageView>			 _reflectionImageViews;
+	std::vector<Image>				 _reflectionFilteredImages;
+	std::vector<ImageView>			 _reflectionFilteredImageViews;
 	std::vector<ImageView>			 _reflectionMipmapImageViews;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
@@ -151,6 +153,9 @@ class Application {
 	DescriptorSetLayout				 _reflectionShadowDescriptorSetLayout;
 	Pipeline						 _reflectionShadowPipeline;
 	ShaderBindingTable				 _reflectionShadowShaderBindingTable;
+	DescriptorPool					 _reflectionFilterDescriptorPool;
+	DescriptorSetLayout				 _reflectionFilterDescriptorSetLayout;
+	Pipeline						 _reflectionFilterPipeline;
 	std::vector<Framebuffer>		 _gatherFramebuffers;
 	RenderPass						 _gatherRenderPass;
 	DescriptorPool					 _gatherDescriptorPool;

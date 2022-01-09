@@ -302,5 +302,6 @@
     <None Include="src\shaders\probesInit.rgen" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\backfaceTest.rchit" />
+    <None Include="src\shaders\reflectionFilter.comp" />
   </ItemGroup>
 </Project>
