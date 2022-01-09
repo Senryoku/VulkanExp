@@ -112,7 +112,6 @@ void Application::createSwapChain() {
 	_reflectionImageViews.resize(_swapChainImages.size());
 	_reflectionFilteredImages.resize(_swapChainImages.size());
 	_reflectionFilteredImageViews.resize(_swapChainImages.size());
-	_reflectionMipmapImageViews.resize(_swapChainImages.size());
 	_directLightImages.resize(_swapChainImages.size());
 	_directLightImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
@@ -128,25 +127,9 @@ void Application::createSwapChain() {
 
 		_reflectionImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 									VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-										VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-									true);
+										VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 		_reflectionImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		// View into the first mipmap only for framebuffer usage
-		_reflectionImageViews[i].create(
-			_device,
-			{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			 .image = _reflectionImages[i],
-			 .viewType = VK_IMAGE_VIEW_TYPE_2D,
-			 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-			 .components = {.r = VK_COMPONENT_SWIZZLE_IDENTITY, .g = VK_COMPONENT_SWIZZLE_IDENTITY, .b = VK_COMPONENT_SWIZZLE_IDENTITY, .a = VK_COMPONENT_SWIZZLE_IDENTITY},
-			 .subresourceRange = {
-				 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				 .baseMipLevel = 0,
-				 .levelCount = 1,
-				 .baseArrayLayer = 0,
-				 .layerCount = 1,
-			 }});
-		_reflectionMipmapImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		_reflectionImageViews[i].create(_device, _reflectionImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 		// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
 		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -739,7 +722,7 @@ void Application::recordCommandBuffers() {
 		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
 
-		// Filter Reflections
+		// Filter Reflections (Not physically based)
 		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
 						 VkImageSubresourceRange{
 							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -760,14 +743,6 @@ void Application::recordCommandBuffers() {
 							 .baseArrayLayer = 0,
 							 .layerCount = 1,
 						 });
-
-		// Generate reflection mipmaps
-		// FIXME: This is not a proper filtering. At all.
-		// We're merely scaling down the original image while we should resample it and filter it using an increasing roughness. This approximation still breaks down at objects
-		// boundaries (or in fact any surface/normal discontinuities) but seems widely used anyway, I guess the result is convincing (If I understood correctly, ofc). An easier and
-		// more accurate alternative (but obviously more expensive) would be to actualy fire multiple rays for each pixels in the previous stage. This may make this stage obsolete
-		// and steer us back to using an input attachment.
-		_reflectionImages[i].generateMipmaps(b, _width, _height, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_UNDEFINED);
 
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						 VkImageSubresourceRange{
@@ -887,7 +862,6 @@ void Application::cleanupSwapChain() {
 	_gbufferImageViews.clear();
 	_reflectionImages.clear();
 	_reflectionImageViews.clear();
-	_reflectionMipmapImageViews.clear();
 	_reflectionFilteredImages.clear();
 	_reflectionFilteredImageViews.clear();
 	_directLightImages.clear();

@@ -146,7 +146,6 @@ class Application {
 	std::vector<ImageView>			 _reflectionImageViews;
 	std::vector<Image>				 _reflectionFilteredImages;
 	std::vector<ImageView>			 _reflectionFilteredImageViews;
-	std::vector<ImageView>			 _reflectionMipmapImageViews;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
 	DescriptorPool					 _reflectionShadowDescriptorPool;

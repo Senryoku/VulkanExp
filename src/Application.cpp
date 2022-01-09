@@ -236,7 +236,7 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 
 	{
 		if(_deriveLightPositionFromTime) {
-			_minute += _dayCycleSpeed * time / 60.0;
+			_minute += _dayCycleSpeed * time / 60.0f;
 			while(_minute > 60) {
 				_hour = ++_hour;
 				_minute -= 60;
