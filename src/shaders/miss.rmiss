@@ -18,5 +18,6 @@ void main()
 {
 	payload.depth = -1.0f;
 	payload.color.w = 0.0;
-	payload.color.rgb = sky(gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, DirectionalLight.direction.xyz);
+	// FIXME: The sun visible from this environnement map will also show up in reflections from glossy objects, but it's already handled by the direct light specular portion :(
+	payload.color.rgb = sky(gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, DirectionalLight.direction.xyz,  DirectionalLight.color.rgb, true);
 }

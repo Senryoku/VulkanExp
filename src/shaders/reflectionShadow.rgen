@@ -83,7 +83,7 @@ void main()
 	// Direct Light
 	// We missed and reached the environement map, use the miss shader color
 	if(depth <= 0) {
-		vec3 skyColor = sky(origin.xyz, normalize(inverse(ubo.view) * inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy), 1.0, 1.0)).xyz, DirectionalLight.direction.xyz);
+		vec3 skyColor = sky(origin.xyz, normalize(inverse(ubo.view) * inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy), 1.0, 1.0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
 		imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(skyColor, 1.0));
 	} else { // Otherwise, trace some shadows
 		vec3 color = vec3(0.0);

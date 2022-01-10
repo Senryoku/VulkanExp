@@ -180,8 +180,6 @@ void main()
 		--payload.recursionDepth;
 		specularLight = payload.color.rgb;
 	}
-	// ??
-	color += reflectionAttenuation(normal, normalize(-gl_WorldRayDirectionEXT), specularLight, -reflectDir, texColor, m.metallicFactor, m.roughnessFactor).rgb;
 	*/
 
 	// Direct lighting

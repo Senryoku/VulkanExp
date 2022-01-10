@@ -3,6 +3,7 @@
  * See https://developer.nvidia.com/gpugems/gpugems2/part-ii-shading-lighting-and-shadows/chapter-16-accurate-atmospheric-scattering
  */
 
+ // TODO: Turn these into uniforms
 const vec3 WaveLengths = vec3(0.650f, 0.570f, 0.475f);
 const vec3 InvWaveLengths = vec3(1.0f / pow(0.650f, 4.0f), 1.0f / pow(0.570f, 4.0f), 1.0f / pow(0.475f, 4.0f));
 const float AvegerageDensityAltitude = 0.25f; // [0, 1] factor of the atmosphere depth
@@ -52,12 +53,12 @@ const float Kr = 0.0025f;		// Rayleigh scattering constant
 const float Kr4PI = Kr * 4.0f * pi;
 const float Km = 0.0010f;		// Mie scattering constant
 const float Km4PI = Km * 4.0f * pi;
-const float ESun = 20.0f;		// Sun brightness constant
-const float KrESun = Kr * ESun;
-const float KmESun = Km * ESun;
 const float g = -0.990f;		// The Mie phase asymmetry factor
 
-vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition) {
+// Original value for sunColor: vec3(20);
+const float sunBrighnessFactor = 20.0f; // FIXME: Hack
+vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, bool showSun) {
+	sunColor *= sunBrighnessFactor;
 	// Translate so y = 0 is on the planet surface
 	const vec3 planetCenter = vec3(0, -InnerRadius, 0);
 	vec3 position = rayOrigin - planetCenter;
@@ -98,11 +99,13 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition) {
 			samplePoint += sampleRay;
 		}
 
-		vec3 secondary = color * KmESun;	
-		color *= InvWaveLengths * KrESun;
-		float miecos = dot(lightDir, -rayDirection);
-		float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(max(1e-3, 1.0f + g * g - 2.0 * g * miecos), 1.5);
-		color += miePhase * secondary;
+		vec3 secondary = color * Km * sunColor;	
+		color *= InvWaveLengths * Kr * sunColor;
+		if(showSun) {
+			float miecos = dot(lightDir, -rayDirection);
+			float miePhase = 1.5f * ((1.0f - g * g) / (2.0f + g * g)) * (1.0f + miecos * miecos) / pow(max(1e-3, 1.0f + g * g - 2.0 * g * miecos), 1.5);
+			color += miePhase * secondary;
+		}
 		if(!any(isinf(color)))
 			return clamp(color, 0, 1); // FIXME: This clamp should not be necessary, but it generates way too much energy right now, and probes leaks horribly (but the root is probably something else entirely)
 	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
