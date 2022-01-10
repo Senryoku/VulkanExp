@@ -109,9 +109,9 @@ void main()
 	
 	vec3 position = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 	
-	uint materialInstanceIndex = offsets.o[3 * gl_InstanceID + 0];
-	uint vertexInstanceOffset = offsets.o[3 * gl_InstanceID + 1];
-	uint indexInstanceOffset = offsets.o[3 * gl_InstanceID + 2];
+	uint materialInstanceIndex = offsets.o[3 * gl_InstanceCustomIndexEXT + 0];
+	uint vertexInstanceOffset = offsets.o[3 * gl_InstanceCustomIndexEXT + 1];
+	uint indexInstanceOffset = offsets.o[3 * gl_InstanceCustomIndexEXT + 2];
 	uint indexOffset = indexInstanceOffset + 3 * gl_PrimitiveID;
 
 	ivec3 index = ivec3(indices.i[indexOffset], indices.i[indexOffset + 1], indices.i[indexOffset + 2]);

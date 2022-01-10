@@ -66,11 +66,11 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition) {
 
 	if(height < OuterRadius) {
 		// Stop at the horizon (Intersection with the planet). 
-		if(rayOrigin.y > 0) {
+		if(rayOrigin.y >= 0) {
 			float planetDistance = traceSphereOutside(vec3(0), InnerRadius, position, rayDirection);
-			if(planetDistance > 0) return vec3(0);
+			if(planetDistance >= 0) return vec3(0);
 		} else { // We're inside the planet, arbitrary cutoff
-			if(rayDirection.y < 0) return vec3(0);
+			if(rayDirection.y <= 0) return vec3(0);
 		}
 
 		float rayDepth = traceSphereInside(vec3(0), OuterRadius, position, rayDirection);
@@ -111,4 +111,5 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition) {
 			return 0.5f * vec3(0.5294117647, 0.80784313725, 0.92156862745);
 		}
 	}
+	return vec3(0);
 }
