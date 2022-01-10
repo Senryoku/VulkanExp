@@ -147,7 +147,7 @@ void main()
 	
 	vec3 emissiveLight = m.emissiveFactor;
 	if(m.emissiveTexture != -1) {
-		emissiveLight = m.emissiveFactor * textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
+		emissiveLight *= textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
 	}
 
 	vec3 color = vec3(0) + emissiveLight;

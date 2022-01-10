@@ -110,7 +110,7 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			material.name = mat("name", std::string("NoName"));
 			if(mat.contains("pbrMetallicRoughness")) {
 				material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-				material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 0.0f);
+				material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
 				material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
 				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
 					material.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
