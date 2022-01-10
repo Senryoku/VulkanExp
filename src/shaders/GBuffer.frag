@@ -29,15 +29,13 @@ void main() {
         finalNormal = normalize(mat3(normalize(tangent.xyz), normalize(bitangent), finalNormal) * tangentSpaceNormal);
     }
     
-    float metalnessFactor = metalnessFactor;
-    float roughnessFactor = roughnessFactor;
+    float metalness = metalnessFactor;
+    float roughness = roughnessFactor;
     vec4 metalRoughMap = texture(metalRoughTexSampler, texCoord);
-    if(metalRoughMap.a != 0.0) { // FIXME: Not exactly a good way to test if we do have a metalnessRoughness texture.
-        metalnessFactor = metalRoughMap.r;
-        roughnessFactor = metalRoughMap.g;
-    }
+    metalness *= metalRoughMap.b;
+    roughness *= metalRoughMap.g;
 
     outPositionDepth = positionDepth;
-    outNormalMetalness = vec4(finalNormal, metalnessFactor);
-    outAlbedoRoughness = vec4(texColor.rgb, roughnessFactor);
+    outNormalMetalness = vec4(finalNormal, metalness);
+    outAlbedoRoughness = vec4(texColor.rgb, roughness);
 }

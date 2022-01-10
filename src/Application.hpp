@@ -209,7 +209,7 @@ class Application {
 	std::vector<Framebuffer>		 _probeDebugFramebuffers;
 
 	// Raytracing test
-	bool									_raytracingDebug = true;
+	bool									_raytracingDebug = false;
 	std::vector<Image>						_rayTraceStorageImages;
 	std::vector<ImageView>					_rayTraceStorageImageViews;
 	CommandBuffers							_rayTraceCommandBuffers;

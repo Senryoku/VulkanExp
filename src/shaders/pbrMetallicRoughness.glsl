@@ -39,7 +39,7 @@ float microfacetDistribution(float alphaRoughness, float NdotH)
 	diffuseColor *= (1.0 - metallicFactor);
 
 	float alphaRoughness = roughnessFactor * roughnessFactor;
-	vec3 specularColor = mix(f0, diffuseColor, metallicFactor);
+	vec3 specularColor = mix(f0, albedo.rgb, metallicFactor);
 	float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
 	
 	// For typical incident reflectance range (between 4% to 100%) set the grazing reflectance to 100% for typical fresnel effect.

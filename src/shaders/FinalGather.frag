@@ -43,13 +43,18 @@ void main() {
 
 	// Direct Light
 	color.rgb += subpassLoad(inputDirectLight).rgb;
+	
+	vec3 f0 = vec3(0.04);
+	vec3 diffuseColor = albedo.rgb * (1.0 - f0);
+	diffuseColor *= (1.0 - metalness);
 
 	// Specular (???)
 	vec3 view = normalize(position - origin);
-	// FIXME: The (1.0 - roughness) is completely arbitrary. Figure out the proper attenuation once we also have a proper filtering.
-	color.rgb += (1.0 - roughness) * (1.0 - roughness) * albedo.rgb * reflection.rgb;
+	// FIXME: The (1.0 - roughness) factor is completely arbitrary. Figure out the proper attenuation once we also have a proper filtering.
+	vec3 specularColor = mix(f0, albedo.rgb, metalness);
+	color.rgb += specularColor * reflection.rgb;
 	
 	// Indirect Light (Radiance from probes)
-	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;  
-	color.rgb += indirectLight * albedo.rgb;
+	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;
+	color.rgb += indirectLight * diffuseColor;
 }

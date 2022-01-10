@@ -138,7 +138,8 @@ void Application::uiOnSwapChainReady() {
 	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
 		DebugTextureIDs.push_back({fmt::format("GBuffer {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
-		DebugTextureIDs.push_back({fmt::format("Reflection Filtered {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionFilteredImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
+		DebugTextureIDs.push_back(
+			{fmt::format("Reflection Filtered {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionFilteredImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 }
 
 template<class T>
@@ -297,18 +298,21 @@ void Application::drawUI() {
 							auto&& mat = Materials[submesh.materialIndex];
 							if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 								++treeUniqueIdx;
-								if(mat.albedoTexture != -1) {
-									ImGui::Text("Albedo Texture");
-									ImGui::Image(SceneUITextureIDs[mat.albedoTexture].imID, ImVec2(100, 100));
-								}
-								if(mat.metallicRoughnessTexture != -1) {
-									ImGui::Text("Metallic Roughness Texture");
-									ImGui::Image(SceneUITextureIDs[mat.metallicRoughnessTexture].imID, ImVec2(100, 100));
-								}
-								if(mat.emissiveTexture != -1) {
-									ImGui::Text("Emissive Texture");
-									ImGui::Image(SceneUITextureIDs[mat.emissiveTexture].imID, ImVec2(100, 100));
-								}
+								const auto texInput = [&](const char* name, uint32_t* index) {
+									int tex = *index;
+									if(ImGui::InputInt(name, &tex)) {
+										if(tex == -1 || (tex >= 0 && tex < Textures.size())) {
+											(*index) = tex;
+											dirtyMaterials = true;
+										}
+									}
+									if(*index != -1)
+										ImGui::Image(SceneUITextureIDs[*index].imID, ImVec2(100, 100));
+								};
+								texInput("Albedo Texture", &mat.albedoTexture);
+								texInput("Normal Texture", &mat.normalTexture);
+								texInput("Metallic Roughness Texture", &mat.metallicRoughnessTexture);
+								texInput("Emissive Texture", &mat.emissiveTexture);
 								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
 									dirtyMaterials = true;
 								}
@@ -328,9 +332,10 @@ void Application::drawUI() {
 			}
 			if(dirtyMaterials) {
 				vkDeviceWaitIdle(_device); // Overkill
-				uploadMaterials();		   // TODO: Optimize by updating only the relevant slice
-				recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part of a
-										// uniform buffer (like the model matrix?)
+				writeGBufferDescriptorSets();
+				uploadMaterials();		// TODO: Optimize by updating only the relevant slice
+				recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
+										// of a uniform buffer (like the model matrix?)
 			}
 		} else {
 			ImGui::Text("No selected node.");

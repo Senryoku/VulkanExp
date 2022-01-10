@@ -137,6 +137,14 @@ void main()
 		normal = normalize(mat3(tangent, bitangent, normal) * mappedNormal);
 	}
 	
+	float metalness = m.metallicFactor;
+	float roughness = m.roughnessFactor;
+	if(m.metallicRoughnessTexture != -1) {
+		vec4 metallicRoughnessTexture = textureGrad(textures[m.metallicRoughnessTexture], texCoord, grad.xy, grad.zw);
+		metalness *= metallicRoughnessTexture.b;
+		roughness *= metallicRoughnessTexture.g;
+	}
+	
 	vec3 emissiveLight = m.emissiveFactor;
 	if(m.emissiveTexture != -1) {
 		emissiveLight = m.emissiveFactor * textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
@@ -207,7 +215,7 @@ void main()
 	);
 	if(!isShadowed) {
 		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, texColor, m.metallicFactor, m.roughnessFactor).rgb;
+		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, texColor, metalness, roughness).rgb;
 	}
 
 	payload.color = vec4(color, texColor.a);
