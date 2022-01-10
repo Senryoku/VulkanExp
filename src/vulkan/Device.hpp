@@ -70,6 +70,12 @@ class Device : public HandleWrapper<VkDevice> {
 
 	void submit(const uint32_t queueFamilyIndex, std::function<void(const CommandBuffer&)> function) const;
 
+	VkQueue getQueue(PhysicalDevice::QueueFamilyIndex family, uint32_t queueIndex = 0) const {
+		VkQueue queue;
+		vkGetDeviceQueue(_handle, family, 0, &queue);
+		return queue;
+	}
+
   private:
 	const PhysicalDevice* _physicalDevice = nullptr;
 };

@@ -21,7 +21,7 @@ void Application::initVulkan() {
 	PhysicalDevice::QueueFamilyIndex transfertFamily = _physicalDevice.getTransfertQueueFamilyIndex();
 	PhysicalDevice::QueueFamilyIndex presentFamily = _physicalDevice.getPresentQueueFamilyIndex(_surface);
 
-	float								 queuePriority = 1.0f;
+	float								 queuePriorities[4]{1.0f};
 	std::vector<VkDeviceQueueCreateInfo> queues;
 	uint32_t							 queuesFromGraphicsFamily = 1;
 	if(computeFamily != graphicsFamily)
@@ -32,28 +32,28 @@ void Application::initVulkan() {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 		.queueFamilyIndex = graphicsFamily,
 		.queueCount = queuesFromGraphicsFamily,
-		.pQueuePriorities = &queuePriority,
+		.pQueuePriorities = queuePriorities,
 	});
 	if(computeFamily != graphicsFamily)
 		queues.push_back({
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.queueFamilyIndex = computeFamily,
 			.queueCount = 1,
-			.pQueuePriorities = &queuePriority,
+			.pQueuePriorities = queuePriorities,
 		});
 	if(transfertFamily != graphicsFamily)
 		queues.push_back({
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.queueFamilyIndex = transfertFamily,
 			.queueCount = 1,
-			.pQueuePriorities = &queuePriority,
+			.pQueuePriorities = queuePriorities,
 		});
 	if(presentFamily != graphicsFamily)
 		queues.push_back({
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.queueFamilyIndex = presentFamily,
 			.queueCount = 1,
-			.pQueuePriorities = &queuePriority,
+			.pQueuePriorities = queuePriorities,
 		});
 
 	_device = Device{_surface, _physicalDevice, queues, _requiredDeviceExtensions};

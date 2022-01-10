@@ -11,6 +11,7 @@
 #include "JSON.hpp"
 #include "Logger.hpp"
 #include "STBImage.hpp"
+#include <vulkan/CommandBuffer.hpp>
 #include <vulkan/Image.hpp>
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
@@ -369,10 +370,38 @@ void Scene::allocateMeshes(const Device& device) {
 	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
 
 	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * offsetTable.size());
-	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, OffsetTableSize);
-	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	// FIXME: Remove VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT and use a staging buffer.
-	OffsetTableMemory.fill(offsetTable.data(), offsetTable.size());
+	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, OffsetTableSize);
+	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// Upload OffsetTable via a staging buffer.
+	Buffer		 stagingBuffer;
+	DeviceMemory stagingMemory;
+	stagingBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, OffsetTableSize);
+	stagingMemory.allocate(device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	stagingMemory.fill(offsetTable.data(), offsetTable.size());
+
+	CommandPool tmpCmdPool;
+	tmpCmdPool.create(device, device.getPhysicalDevice().getTransfertQueueFamilyIndex());
+	CommandBuffers stagingCommands;
+	stagingCommands.allocate(device, tmpCmdPool, 1);
+	stagingCommands[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	VkBufferCopy copyRegion{
+		.srcOffset = 0,
+		.dstOffset = 0,
+		.size = OffsetTableSize,
+	};
+	vkCmdCopyBuffer(stagingCommands[0], stagingBuffer, OffsetTableBuffer, 1, &copyRegion);
+
+	stagingCommands[0].end();
+	VkSubmitInfo submitInfo{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = stagingCommands.getBuffersHandles().data(),
+	};
+	auto queue = device.getQueue(device.getPhysicalDevice().getTransfertQueueFamilyIndex(), 0);
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queue));
 }
 
 void Scene::free() {
