@@ -40,10 +40,10 @@ class Scene {
 	};
 
 	struct Node {
-		std::string			  name;
-		glm::mat4			  transform; // Relative to parent
-		std::vector<uint32_t> children;	 // Indices in _nodes
-		uint32_t			  mesh = -1; // Index in global mesh array
+		std::string			  name = "Unamed Node";
+		glm::mat4			  transform = glm::mat4(1.0); // Relative to parent
+		std::vector<uint32_t> children;					  // Indices in _nodes
+		uint32_t			  mesh = -1;				  // Index in global mesh array
 	};
 
 	struct Primitive {

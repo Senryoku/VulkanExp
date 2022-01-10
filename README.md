@@ -6,6 +6,7 @@
   - Probably a lot.
 
 ### Major Features
+ - Rewrite probe update using a (or multiple) compute shader: Try to improve ray cast scheduling to gain some perfomance.
  - Scene
  - - Import model(s) INTO a scene;
  - - Save

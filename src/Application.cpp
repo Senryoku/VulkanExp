@@ -28,8 +28,8 @@ void Application::run() {
 	system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
 	{
 		QuickTimer qt("glTF load");
-		_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		//_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
+		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
+		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
 		//_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.loadglTF("./data/models/postwar_city_-_exterior_scene/scene.gltf");

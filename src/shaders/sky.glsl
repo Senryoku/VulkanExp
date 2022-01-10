@@ -56,9 +56,11 @@ const float Km4PI = Km * 4.0f * pi;
 const float g = -0.990f;		// The Mie phase asymmetry factor
 
 // Original value for sunColor: vec3(20);
-const float sunBrighnessFactor = 20.0f; // FIXME: Hack
+const float sunBrightnessFactor = 10.0f; // FIXME: Hack
 vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, bool showSun) {
-	sunColor *= sunBrighnessFactor;
+	//sunColor = normalize(sunColor);
+	sunColor *= sunBrightnessFactor;
+	
 	// Translate so y = 0 is on the planet surface
 	const vec3 planetCenter = vec3(0, -InnerRadius, 0);
 	vec3 position = rayOrigin - planetCenter;
@@ -107,7 +109,7 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 			color += miePhase * secondary;
 		}
 		if(!any(isinf(color)))
-			return clamp(color, 0, 1); // FIXME: This clamp should not be necessary, but it generates way too much energy right now, and probes leaks horribly (but the root is probably something else entirely)
+			return color;
 	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
 		float depth = traceSphereOutside(vec3(0), OuterRadius, position, rayDirection);
 		if(depth > 0) {

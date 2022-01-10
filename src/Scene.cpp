@@ -313,7 +313,7 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 		}
 		case LoadOperation::AppendToCurrentScene: {
 			Node root; // Dummy root node for all the scenes.
-			root.name = "Appened glTF file";
+			root.name = "Appended glTF file";
 			for(const auto& scene : object["scenes"]) {
 				Node n; // Dummy root node for this scene
 				n.name = scene("name", std::string("Unamed Scene"));
@@ -326,9 +326,9 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 				root.children.push_back(_nodes.size() - 1);
 			}
 			_nodes.push_back(root);
-			//_scenes[_defaultScene].nodes.push_back(_nodes.size() - 1);
-			//_root.children = _scenes[_defaultScene].nodes;
-			_nodes[_scenes[_defaultScene].nodes[0]].children.push_back(_nodes.size() - 1);
+			_scenes[_defaultScene].nodes.push_back(_nodes.size() - 1);
+			_root.children = _scenes[_defaultScene].nodes;
+			//_nodes[_scenes[_defaultScene].nodes[0]].children.push_back(_nodes.size() - 1);
 			break;
 		}
 	};

@@ -115,17 +115,21 @@ void main()
 	// Reflection
 	#if 1
 	// One sample per pixel than we'll try to filter later (keyword: try)
-	vec3 direction = reflect(-toOrigin, normal);
-	payload.raydx = rotateAxis(direction, normal, 0.001);
-	payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
-	float shortTmax = tmax; // 10.0 + (1.0 - roughness) * tmax; // Shorten tmax based on roughness, distant objects should not affect rough surfaces that much, accelerating traversal.
-	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, shortTmax, 0);
-	//if(payload.depth < 0) payload.color = vec4(0); // Because of the short tmax, we have to ignore misses. No sky reflection :( Maybe it's not worth it...
-	imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, roughness));
+	if(depth > 0) {
+		vec3 direction = reflect(-toOrigin, normal);
+		payload.raydx = rotateAxis(direction, normal, 0.001);
+		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
+		float shortTmax = tmax; // 10.0 + (1.0 - roughness) * tmax; // Shorten tmax based on roughness, distant objects should not affect rough surfaces that much, accelerating traversal.
+		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, shortTmax, 0);
+		//if(payload.depth < 0) payload.color = vec4(0); // Because of the short tmax, we have to ignore misses. No sky reflection :( Maybe it's not worth it...
+		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(payload.color.rgb, roughness));
+	} else {
+		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(0));
+	}
 	#else 
 	// Multiple samples, obviously way too slow for real time and high roughness, but can be used to compare approximations.
 	// See https://learnopengl.com/pbr/ibl/specular-ibl (there it's used to pre-filter a environment map)
-	const uint SAMPLE_COUNT = 128u;
+	const uint SAMPLE_COUNT = 16u;
     float totalWeight = 0.0;   
     vec3 prefilteredColor = vec3(0.0);     
     for(uint i = 0u; i < SAMPLE_COUNT; ++i)
@@ -152,7 +156,9 @@ void main()
 	// Direct Light
 	// We missed and reached the environement map, use the miss shader color
 	if(depth <= 0) {
-		vec3 skyColor = sky(origin.xyz, normalize(inverse(ubo.view) * inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy), 1.0, 1.0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
+		vec4 target = inverse(ubo.proj) * vec4(getRayDirection(gl_LaunchIDEXT.xy), 1, 1);
+		vec4 direction = inverse(ubo.view) * vec4(normalize(target.xyz), 0);
+		vec3 skyColor = sky(origin.xyz, direction.xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
 		imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(skyColor, 1.0));
 	} else { // Otherwise, trace some shadows
 		vec3 color = vec3(0.0);
