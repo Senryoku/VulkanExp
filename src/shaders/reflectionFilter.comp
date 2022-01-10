@@ -10,7 +10,7 @@ void main()
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
     vec4 final = vec4(0);
     float roughness = imageLoad(inImage, coords).w;
-    float stdDev = max(1, 12 * roughness); // FIXME: This is arbitrary.
+    float stdDev = max(1, 32 * roughness); // FIXME: This is arbitrary.
     float sqrDev = stdDev * stdDev;
     int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, 7));
     // TODO: Base the kernel on the roughness. A better approximation should use as much available geometric data as possible (sample direction, depth...)
