@@ -37,7 +37,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 		return bestFit;
 	}
 
-	const QueueFamilyIndex& getComputeQueueFamilyIndex() const {
+	QueueFamilyIndex getComputeQueueFamilyIndex() const {
 		QueueFamilyIndex bestFit = -1;
 		for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
 			if(_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
@@ -49,7 +49,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 		return bestFit;
 	}
 
-	const QueueFamilyIndex& getTransfertQueueFamilyIndex() const {
+	QueueFamilyIndex getTransfertQueueFamilyIndex() const {
 		QueueFamilyIndex bestFit = -1;
 		for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
 			if(_queueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
@@ -68,7 +68,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 		return bestFit;
 	}
 
-	const QueueFamilyIndex& getPresentQueueFamilyIndex(VkSurfaceKHR surface) const {
+	QueueFamilyIndex getPresentQueueFamilyIndex(VkSurfaceKHR surface) const {
 		for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
 			VkBool32 presentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(_handle, i, surface, &presentSupport);
