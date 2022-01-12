@@ -433,6 +433,10 @@ void Application::drawUI() {
 		if(ImPlot::BeginPlot("Frame")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 			plot("Frame Time (ms)", _frameTimes);
+			plot("GBuffer Time (ms)", _gbufferTimes);
+			plot("Reflection & Direct Light Time (ms)", _reflectionDirectLightTimes);
+			plot("Reflection Filter Time (ms)", _reflectionFilterTimes);
+			plot("Gather Time (ms)", _gatherTimes);
 			ImPlot::EndPlot();
 		}
 		if(ImPlot::BeginPlot("Irradiance Probes")) {

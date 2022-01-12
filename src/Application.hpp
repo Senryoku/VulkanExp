@@ -116,6 +116,10 @@ class Application {
 	VkQueue					 _presentQueue;
 	CommandPool				 _computeCommandPool;
 	RollingBuffer<float>	 _frameTimes;
+	RollingBuffer<float>	 _gbufferTimes;
+	RollingBuffer<float>	 _reflectionDirectLightTimes;
+	RollingBuffer<float>	 _reflectionFilterTimes;
+	RollingBuffer<float>	 _gatherTimes;
 
 	Texture _blankTexture;
 

@@ -157,7 +157,7 @@ void Application::createSwapChain() {
 
 	_mainTimingQueryPools.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
-		_mainTimingQueryPools[i].create(_device, VK_QUERY_TYPE_TIMESTAMP, 6);
+		_mainTimingQueryPools[i].create(_device, VK_QUERY_TYPE_TIMESTAMP, 7);
 	}
 }
 
@@ -711,6 +711,8 @@ void Application::recordCommandBuffers() {
 		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
 						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
 
+		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 3);
+
 		// Filter Reflections (Not physically based)
 		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
 						 VkImageSubresourceRange{
@@ -749,11 +751,11 @@ void Application::recordCommandBuffers() {
 				VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
 			};
 			b.beginRenderPass(_gatherRenderPass, _gatherFramebuffers[i], _swapChainExtent, clearValues);
-			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 3);
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 4);
 			_gatherPipeline.bind(b);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gatherPipeline.getLayout(), 0, 1, &_gatherDescriptorPool.getDescriptorSets()[i], 0, nullptr);
 			vkCmdDraw(b, 3, 1, 0, 0);
-			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 4);
+			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 5);
 			b.endRenderPass();
 		}
 
@@ -777,7 +779,7 @@ void Application::recordCommandBuffers() {
 			b.endRenderPass();
 		}
 
-		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 5);
+		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 6);
 		b.end();
 	}
 }
