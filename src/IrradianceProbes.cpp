@@ -12,13 +12,13 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 	GridParameters.extentMin = min;
 	GridParameters.extentMax = max;
 
-	_probesToUpdate.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, MaxProbesPerUpdate * sizeof(uint32_t));
+	_probesToUpdate.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getProbeCount() * sizeof(uint32_t));
 	_probesToUpdateMemory.allocate(device, _probesToUpdate, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 	// Large enough to update all probes time at MaxRaysPerProbe rays per probe at once.
 	// FIXME: Could be resized dynamically depending on GridParameters (layersPerUpdate and raysPerProbe)
-	_rayIrradianceDepth.create(device, GridParameters.resolution[1] * GridParameters.resolution[0] * GridParameters.resolution[2], MaxRaysPerProbe, VK_FORMAT_R32G32B32A32_SFLOAT,
-							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
+	_rayIrradianceDepth.create(device, getProbeCount(), MaxRaysPerProbe, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+							   VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
 	_rayIrradianceDepth.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_rayIrradianceDepthView.create(device, _rayIrradianceDepth, VK_FORMAT_R32G32B32A32_SFLOAT);
 	_rayDirection.create(device, 1, MaxRaysPerProbe, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
@@ -91,8 +91,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 
 	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
 	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	_probeInfoBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-							GridParameters.resolution[0] * GridParameters.resolution[1] * GridParameters.resolution[2] * sizeof(ProbeInfo));
+	_probeInfoBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getProbeCount() * sizeof(ProbeInfo));
 	_probeInfoMemory.allocate(device, _probeInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	updateUniforms();
 
@@ -379,10 +378,15 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 uint32_t IrradianceProbes::selectProbesToUpdate() {
 	std::vector<uint32_t> toUpdate;
 	toUpdate.reserve(_probesState.size());
-	for(uint32_t idx = 0; idx < _probesState.size(); ++idx) {
+	uint32_t idx = _lastUpdateOffset;
+	uint32_t checkedProbes = 0;
+	while(checkedProbes < _probesState.size() && (ProbesPerUpdate == 0 || toUpdate.size() < ProbesPerUpdate)) {
 		if(_probesState[idx].state != 0)
 			toUpdate.push_back(idx);
+		idx = (idx + 1) % _probesState.size();
+		++checkedProbes;
 	}
+	_lastUpdateOffset = idx;
 	_probesToUpdateMemory.fill(toUpdate.data(), toUpdate.size());
 	return static_cast<uint32_t>(toUpdate.size());
 }
@@ -422,15 +426,22 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	PushConstant pc{
 		.orientation = glm::transpose(glm::mat3(X, Y, Z)),
 	};
-	// TODO: Right now we're updating every ON probes, but if the probe states become more complexe, we'll have to update the hysteresis only after every single probe has been
-	// updated at least once, or something like that.
-	if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
-		updateUniforms();
-		GridParameters.hysteresis += 0.1f * (TargetHysteresis - GridParameters.hysteresis);
-	} else if(GridParameters.hysteresis != TargetHysteresis) {
-		GridParameters.hysteresis = TargetHysteresis;
-		updateUniforms();
+
+	// Get closer to the target hysteresis.
+	static uint32_t updatedProbes = 0;
+	// FIXME: This is wrong. Idealy we should make sure that every probe has been updated at least once before updating the hysteresis, but it require much more bookeeping. I think
+	// this is enough for now.
+	if(updatedProbes >= getProbeCount()) {
+		if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
+			updateUniforms();
+			GridParameters.hysteresis += 0.1f * (TargetHysteresis - GridParameters.hysteresis);
+		} else if(GridParameters.hysteresis != TargetHysteresis) {
+			GridParameters.hysteresis = TargetHysteresis;
+			updateUniforms();
+		}
+		updatedProbes -= getProbeCount();
 	}
+	updatedProbes += probeCount;
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
 	cmdBuff.begin();

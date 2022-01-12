@@ -415,7 +415,7 @@ void Application::drawUI() {
 				uniformNeedsUpdate = true;
 			}
 			int probesPerUpdate = _irradianceProbes.ProbesPerUpdate;
-			if(ImGui::SliderInt("Probes Per Update", &probesPerUpdate, 0, _irradianceProbes.MaxProbesPerUpdate)) {
+			if(ImGui::SliderInt("Probes Per Update", &probesPerUpdate, 0, _irradianceProbes.getProbeCount())) {
 				_irradianceProbes.ProbesPerUpdate = probesPerUpdate;
 			}
 

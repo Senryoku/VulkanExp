@@ -23,6 +23,8 @@ class IrradianceProbes {
 	void update(const Scene& scene, VkQueue queue);
 	void destroy();
 
+	inline uint32_t getProbeCount() const { return GridParameters.resolution.x * GridParameters.resolution.y * GridParameters.resolution.z; }
+
 	inline const Image&		getRayIrradianceDepth() const { return _rayIrradianceDepth; }
 	inline const ImageView& getRayIrradianceDepthView() const { return _rayIrradianceDepthView; }
 	inline const Image&		getRayDirection() const { return _rayDirection; }
@@ -36,7 +38,6 @@ class IrradianceProbes {
 	inline const Buffer&	getProbeInfoBuffer() const { return _probeInfoBuffer; }
 
 	static const uint32_t MaxRaysPerProbe = 256;
-	static const uint32_t MaxProbesPerUpdate = 32 * 32 * 32;
 
 	uint32_t ProbesPerUpdate = 0; // 0 means as much as necessary/possible. Not used yet.
 
@@ -112,6 +113,7 @@ class IrradianceProbes {
 	ImageView			   _workIrradianceView;
 	Image				   _workDepth;
 	ImageView			   _workDepthView;
+	uint32_t			   _lastUpdateOffset = 0; // The last update stopped on this offset in the "To Update" array.
 
 	QueryPool			 _queryPool;
 	RollingBuffer<float> _computeTimes;
