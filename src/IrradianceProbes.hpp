@@ -16,10 +16,12 @@ class IrradianceProbes {
 	void init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max);
 	void initProbes(VkQueue queue);
 	void createPipeline();
+	void destroyPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
 	void updateUniforms();
 	void update(const Scene& scene, VkQueue queue);
+	void destroy();
 
 	inline const Image&		getRayIrradianceDepth() const { return _rayIrradianceDepth; }
 	inline const ImageView& getRayIrradianceDepthView() const { return _rayIrradianceDepthView; }
@@ -32,8 +34,6 @@ class IrradianceProbes {
 	inline const ImageView& getDepthView() const { return _depthView; }
 	inline const Buffer&	getGridParametersBuffer() const { return _gridInfoBuffer; }
 	inline const Buffer&	getProbeInfoBuffer() const { return _probeInfoBuffer; }
-
-	void destroy();
 
 	static const uint32_t MaxRaysPerProbe = 256;
 
@@ -69,23 +69,23 @@ class IrradianceProbes {
 										  // write it right before updates
 
 	Fence				_fence;
-	Pipeline			_pipeline;
 	PipelineLayout		_pipelineLayout;
+	DescriptorPool		_descriptorPool;
+	DescriptorSetLayout _descriptorSetLayout;
+	CommandPool			_commandPool;
+	CommandBuffers		_commandBuffers;
+	Pipeline			_traceRaysPipeline;
+	ShaderBindingTable	_shaderBindingTable;
 	Pipeline			_updateIrradiancePipeline;
 	Pipeline			_updateDepthPipeline;
 	Pipeline			_copyBordersPipeline;
-	DescriptorSetLayout _descriptorSetLayout;
-	DescriptorPool		_descriptorPool;
-	CommandPool			_commandPool;
-	CommandBuffers		_commandBuffers;
 	Pipeline			_pipelineProbeInit;
 	ShaderBindingTable	_probeInitShaderBindingTable;
 
-	Buffer			   _gridInfoBuffer;
-	DeviceMemory	   _gridInfoMemory;
-	Buffer			   _probeInfoBuffer;
-	DeviceMemory	   _probeInfoMemory;
-	ShaderBindingTable _shaderBindingTable;
+	Buffer		 _gridInfoBuffer;
+	DeviceMemory _gridInfoMemory;
+	Buffer		 _probeInfoBuffer;
+	DeviceMemory _probeInfoMemory;
 
 	// Exposed results
 	Image	  _irradiance;
@@ -98,7 +98,6 @@ class IrradianceProbes {
 	ImageView _rayIrradianceDepthView;
 	Image	  _rayDirection;
 	ImageView _rayDirectionView;
-
 	Image	  _workIrradiance;
 	ImageView _workIrradianceView;
 	Image	  _workDepth;

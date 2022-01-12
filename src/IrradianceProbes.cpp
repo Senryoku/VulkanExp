@@ -147,19 +147,18 @@ void IrradianceProbes::updateUniforms() {
 	_gridInfoMemory.fill(&GridParameters, 1);
 }
 
+void IrradianceProbes::destroyPipeline() {
+	_traceRaysPipeline.destroy();
+	_pipelineProbeInit.destroy();
+	_updateIrradiancePipeline.destroy();
+	_updateDepthPipeline.destroy();
+	_copyBordersPipeline.destroy();
+	_queryPool.destroy();
+}
+
 void IrradianceProbes::createPipeline() {
-	if(_pipeline)
-		_pipeline.destroy();
-	if(_pipelineProbeInit)
-		_pipelineProbeInit.destroy();
-	if(_updateIrradiancePipeline)
-		_updateIrradiancePipeline.destroy();
-	if(_updateDepthPipeline)
-		_updateDepthPipeline.destroy();
-	if(_copyBordersPipeline)
-		_copyBordersPipeline.destroy();
-	if(_queryPool)
-		_queryPool.destroy();
+	if(_traceRaysPipeline)
+		destroyPipeline();
 
 	// Init Pipeline
 	{
@@ -264,7 +263,7 @@ void IrradianceProbes::createPipeline() {
 			.maxPipelineRayRecursionDepth = 2,
 			.layout = _pipelineLayout,
 		};
-		_pipeline.create(*_device, pipelineCreateInfo);
+		_traceRaysPipeline.create(*_device, pipelineCreateInfo);
 	}
 
 	Shader updateIrradianceShader(*_device, "./shaders_spv/probesUpdateIrradiance.comp.spv");
@@ -328,7 +327,7 @@ void IrradianceProbes::writeLightDescriptor() {
 }
 
 void IrradianceProbes::createShaderBindingTable() {
-	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _pipeline);
+	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _traceRaysPipeline);
 	_probeInitShaderBindingTable.create(*_device, {1, 0, 1, 0}, _pipelineProbeInit);
 }
 
@@ -436,7 +435,7 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	vkCmdPushConstants(cmdBuff, _pipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstant), &pc);
 
 	// Trace Rays
-	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline);
+	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _traceRaysPipeline);
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
 					  GridParameters.layersPerUpdate * GridParameters.resolution.x * GridParameters.resolution.z, GridParameters.raysPerProbe, 1);
@@ -540,8 +539,6 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 }
 
 void IrradianceProbes::destroy() {
-	_queryPool.destroy();
-
 	_shaderBindingTable.destroy();
 	_probeInitShaderBindingTable.destroy();
 	_fence.destroy();
@@ -553,11 +550,7 @@ void IrradianceProbes::destroy() {
 	_probeInfoMemory.free();
 	_descriptorPool.destroy();
 	_descriptorSetLayout.destroy();
-	_pipeline.destroy();
-	_updateIrradiancePipeline.destroy();
-	_updateDepthPipeline.destroy();
-	_copyBordersPipeline.destroy();
-	_pipelineProbeInit.destroy();
+	destroyPipeline();
 	_pipelineLayout.destroy();
 
 	_rayIrradianceDepthView.destroy();
