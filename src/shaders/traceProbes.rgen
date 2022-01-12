@@ -50,5 +50,6 @@ void main() {
         
     ivec2 coords = ivec2(gl_LaunchIDEXT.x, rayIndex);
     imageStore(rayIrradianceDepth, coords, vec4(payload.color.rgb, payload.depth));
-    imageStore(rayDirection, coords, vec4(direction, 1.0));
+    if(gl_LaunchIDEXT.x == rayIndex)
+        imageStore(rayDirection, ivec2(0, rayIndex), vec4(direction, 1.0));
 }

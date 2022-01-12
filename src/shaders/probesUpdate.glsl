@@ -40,11 +40,7 @@ void main()
     vec4 result = vec4(0);
     for(int i = 0; i < grid.raysPerProbe; ++i) {
         vec4 rayData = imageLoad(rayIrradianceDepth, ivec2(gl_GlobalInvocationID.x, i));
-        #if 0
-        vec3 direction = imageLoad(rayDirection, ivec2(gl_GlobalInvocationID.x, i)).xyz;
-        #else
-	    vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(i, grid.raysPerProbe);
-        #endif
+        vec3 direction = imageLoad(rayDirection, ivec2(0, i)).xyz;
         vec3 texelDirection = octDecode(normalizeLocalTexelCoord(localFragCoord, grid.colorRes));
 #ifdef IRRADIANCE
         float weight = max(0.0, dot(texelDirection, direction));

@@ -19,8 +19,8 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 							   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
 	_rayIrradianceDepth.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_rayIrradianceDepthView.create(device, _rayIrradianceDepth, VK_FORMAT_R32G32B32A32_SFLOAT);
-	_rayDirection.create(device, GridParameters.resolution[1] * GridParameters.resolution[0] * GridParameters.resolution[2], MaxRaysPerProbe, VK_FORMAT_R32G32B32A32_SFLOAT,
-						 VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
+	_rayDirection.create(device, 1, MaxRaysPerProbe, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+						 VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
 	_rayDirection.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_rayDirectionView.create(device, _rayDirection, VK_FORMAT_R32G32B32A32_SFLOAT);
 	device.submit(device.getPhysicalDevice().getGraphicsQueueFamilyIndex(), [&](const CommandBuffer& b) {
