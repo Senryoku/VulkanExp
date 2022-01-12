@@ -18,25 +18,41 @@ layout(push_constant) uniform Push {
 
 #include "irradiance.glsl"
 
-layout(location = 0) rayPayloadEXT bool isBackface;
+struct payload_t {
+	bool isBackface;
+	float depth;
+};
+
+layout(location = 0) rayPayloadEXT payload_t payload;
 
 const float tmin = 0.01f;
-const float tmax = 10000.0f;
 
 void main() 
 {
+    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+    float maxDistance = length(gridCellSize);
+    float tmax = 1.5f * maxDistance;
+
 	vec4 origin = vec4(probeIndexToWorldPosition(ivec3(gl_LaunchIDEXT.xyz), grid), 1);
+    bool affectGeometry = false;
 
     uint backfaceHits = 0;
-	for(int i = 0; i < grid.raysPerProbe; ++i) {
+	for(int i = 0; i < 512; ++i) {
 		vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(i, grid.raysPerProbe);
 
-        isBackface = false;
+        payload.isBackface = false;
+        payload.depth = tmax;
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
-        if(isBackface) ++backfaceHits;
+        if(payload.depth < maxDistance) {
+            if(payload.isBackface) ++backfaceHits;
+            vec3 position = origin.xyz + payload.depth * direction;
+            vec3 dist = abs(position - origin.xyz);
+            if(dist.x <  gridCellSize.x && dist.y <  gridCellSize.y && dist.z <  gridCellSize.z)
+                affectGeometry = true;
+        }
     }
     
-    if(backfaceHits > 0.5 * grid.raysPerProbe) {
+    if(!affectGeometry || backfaceHits > 0.5 * grid.raysPerProbe) {
         Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 0; // OFF
     } else {
         Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 1; // ON
