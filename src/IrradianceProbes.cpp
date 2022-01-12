@@ -366,28 +366,35 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
-
-	// Get probe states back.
-	auto buffSize = GridParameters.resolution[0] * GridParameters.resolution[1] * GridParameters.resolution[2] * sizeof(ProbeInfo);
-	auto data = _probeInfoMemory.map(buffSize);
-	_probesState.resize(buffSize / sizeof(ProbeInfo));
-	memcpy(_probesState.data(), data, buffSize);
-	_probeInfoMemory.unmap();
 }
 
 uint32_t IrradianceProbes::selectProbesToUpdate() {
+	static uint32_t s_LoopIndex = 0; // Used to trigger updates of slowly updating probes.
+
+	// Get probe states back.
+	auto buffSize = getProbeCount() * sizeof(ProbeInfo);
+	auto data = _probeInfoMemory.map(buffSize);
+	_probesState.resize(getProbeCount());
+	memcpy(_probesState.data(), data, buffSize);
+	_probeInfoMemory.unmap();
+
 	std::vector<uint32_t> toUpdate;
 	toUpdate.reserve(_probesState.size());
 	uint32_t idx = _lastUpdateOffset;
 	uint32_t checkedProbes = 0;
 	while(checkedProbes < _probesState.size() && (ProbesPerUpdate == 0 || toUpdate.size() < ProbesPerUpdate)) {
-		if(_probesState[idx].state != 0)
+		if(_probesState[idx].state != 0 && ((idx + s_LoopIndex) % _probesState[idx].state) == 0)
 			toUpdate.push_back(idx);
-		idx = (idx + 1) % _probesState.size();
+		++idx;
+		if(idx >= _probesState.size()) {
+			idx = 0;
+			++s_LoopIndex;
+		}
 		++checkedProbes;
 	}
 	_lastUpdateOffset = idx;
-	_probesToUpdateMemory.fill(toUpdate.data(), toUpdate.size());
+	if(toUpdate.size() > 0)
+		_probesToUpdateMemory.fill(toUpdate.data(), toUpdate.size());
 	return static_cast<uint32_t>(toUpdate.size());
 }
 

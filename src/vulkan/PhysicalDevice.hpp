@@ -25,7 +25,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 
 	using QueueFamilyIndex = uint32_t;
 
-	const QueueFamilyIndex& getGraphicsQueueFamilyIndex() const {
+	QueueFamilyIndex getGraphicsQueueFamilyIndex() const {
 		QueueFamilyIndex bestFit = -1;
 		for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
 			if(_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {

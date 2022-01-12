@@ -1,4 +1,5 @@
 #ifdef IRRADIANCE
+#extension GL_EXT_shader_atomic_float : enable
 layout (local_size_x = 1, local_size_y = 6, local_size_z = 6) in;
 #else
 layout (local_size_x = 1, local_size_y = 14, local_size_z = 14) in;
@@ -41,6 +42,8 @@ vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
 }
 #endif
 
+shared float globalMaxChange;
+
 void main()
 {
     uint linearIndex = indices[gl_WorkGroupID.x];
@@ -72,10 +75,20 @@ void main()
     float hysteresis = grid.hysteresis;
 #ifdef IRRADIANCE
     // Adjust hysteresis if enough changes are detected for faster convergence.
-    float maxChange = abs(max3(result.rgb - previous.rgb));
+    float maxChange = max3(abs(result.rgb - previous.rgb));
     if(maxChange > 0.25) hysteresis = max(0, hysteresis - 0.10);
     if(maxChange > 0.80) hysteresis = 0.0;
 #endif
     result.rgb = mix(result.rgb, previous, hysteresis);
     imageStore(imageOut, globalFragCoords, vec4(result.rgb, 1.0));
+#ifdef IRRADIANCE
+    atomicAdd(globalMaxChange, maxChange); // FIXME: This should be an atomicMax, but GL_EXT_shader_atomic_float isn't supported by my GPU/driver :(
+    if(localFragCoord == ivec2(0)) {
+        groupMemoryBarrier();
+        globalMaxChange /= 6 * 6;
+        if(globalMaxChange < 0.02 / Probes[linearIndex]) Probes[linearIndex] = min(Probes[linearIndex] + 1, 8);
+        if(globalMaxChange > 0.04 / Probes[linearIndex]) Probes[linearIndex] = max(Probes[linearIndex] - 1, 1);
+        if(globalMaxChange > 0.25) Probes[linearIndex] = 1;
+    }
+#endif
 }

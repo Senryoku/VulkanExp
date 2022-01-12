@@ -21,9 +21,15 @@ class Device : public HandleWrapper<VkDevice> {
 		VkPhysicalDeviceFeatures deviceFeatures{
 			.samplerAnisotropy = VK_TRUE,
 		};
+		VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
+			.pNext = nullptr,
+			.shaderSharedFloat32Atomics = true,
+			.shaderSharedFloat32AtomicAdd = true,
+		};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR deviceFeatureRayTracingPipeline{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
-			.pNext = VK_NULL_HANDLE,
+			.pNext = &atomicFloatFeatures,
 			.rayTracingPipeline = VK_TRUE,
 		};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR deviceFeaturesAccStruct{
