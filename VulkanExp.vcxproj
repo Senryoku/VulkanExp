@@ -139,7 +139,9 @@
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\probe_instanced.vert" />
     <None Include="src\shaders\rayPayload.glsl" />
-    <None Include="src\shaders\reflectionFilter.comp" />
+    <None Include="src\shaders\reflectionFilter.glsl" />
+    <None Include="src\shaders\reflectionFilterX.comp" />
+    <None Include="src\shaders\reflectionFilterY.comp" />
     <None Include="src\shaders\reflectionShadow.rgen" />
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\shaders\sky.glsl" />

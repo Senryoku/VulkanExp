@@ -302,11 +302,13 @@
     <None Include="src\shaders\probesInit.rgen" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\backfaceTest.rchit" />
-    <None Include="src\shaders\reflectionFilter.comp" />
+    <None Include="src\shaders\reflectionFilter.glsl" />
     <None Include="src\shaders\traceProbes.rgen" />
     <None Include="src\shaders\probesUpdate.glsl" />
     <None Include="src\shaders\probesUpdateIrradiance.comp" />
     <None Include="src\shaders\probesUpdateDepth.comp" />
     <None Include="src\shaders\probesCopyBorders.comp" />
+    <None Include="src\shaders\reflectionFilterX.comp" />
+    <None Include="src\shaders\reflectionFilterY.comp" />
   </ItemGroup>
 </Project>

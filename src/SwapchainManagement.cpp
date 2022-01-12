@@ -696,14 +696,15 @@ void Application::recordCommandBuffers() {
 			b.endRenderPass();
 		}
 
-		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1,
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
+		auto wholeImage = VkImageSubresourceRange{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		};
+
+		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
 
 		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline.getLayout(), 0, 1, &_reflectionShadowDescriptorPool.getDescriptorSets()[i], 0,
@@ -714,35 +715,21 @@ void Application::recordCommandBuffers() {
 		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 3);
 
 		// Filter Reflections (Not physically based)
-		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1,
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
-		_reflectionFilterPipeline.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipeline.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[i], 0, 0);
-		const auto groupSize = 16;
+		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
+		const auto groupSize = 32;
+		_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0,
+								0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
-		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1,
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
+		// Memory Barrier
+		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
+		_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0,
+								0);
+		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, wholeImage);
 
-		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						 VkImageSubresourceRange{
-							 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-							 .baseMipLevel = 0,
-							 .levelCount = 1,
-							 .baseArrayLayer = 0,
-							 .layerCount = 1,
-						 });
+		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, wholeImage);
 
 		// Gather
 		{
@@ -838,7 +825,8 @@ void Application::cleanupSwapChain() {
 
 	_gbufferPipeline.destroy();
 	_reflectionShadowPipeline.destroy();
-	_reflectionFilterPipeline.destroy();
+	_reflectionFilterPipelineX.destroy();
+	_reflectionFilterPipelineY.destroy();
 	_gatherPipeline.destroy();
 
 	_gbufferDescriptorSetLayouts.clear();

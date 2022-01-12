@@ -1,6 +1,4 @@
-#version 460
-
-layout (local_size_x = 16, local_size_y = 16) in;
+layout (local_size_x = 32, local_size_y = 32) in;
 
 layout(set = 0, binding = 0, rgba32f) uniform image2D inImage;
 layout(set = 0, binding = 1, rgba32f) uniform image2D outImage;
@@ -15,11 +13,16 @@ void main()
     int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, 7));
     // TODO: Base the kernel on the roughness. A better approximation should use as much available geometric data as possible (sample direction, depth...)
     for(int i = -window; i <= window; ++i) {
-        for(int j = -window; j <= window; ++j) {
-                     // Random Gaussian Blur Kernel based on absolutly nothing
-            final += (1 / (2 * 3.14159 * sqrDev)) * exp(-(i*i + j*j) / (2*sqrDev)) * imageLoad(inImage, coords + ivec2(i, j));
-        }
+#ifdef DIRECTION_X
+        ivec2 offset = ivec2(i, 0);
+#else
+        ivec2 offset = ivec2(0, i);
+#endif
+        final += (1 / sqrt(2 * 3.14159 * sqrDev)) * exp(-(i * i) / (2 * sqrDev)) * imageLoad(inImage, coords + offset);
     }
+#ifdef DIRECTION_X
+    imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
+#else
     imageStore(outImage, coords, vec4(final.rgb, 1.0));
-    //imageStore(outImage, coords, (1.0 / (16.0 * 16.0)) * final);
+#endif
 }

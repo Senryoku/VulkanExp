@@ -133,21 +133,27 @@ void Application::createReflectionShadowPipeline() {
 	DescriptorSetLayoutBuilder filterDSLB;
 	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT).add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
 	_reflectionFilterDescriptorSetLayout = filterDSLB.build(_device);
-	_reflectionFilterPipeline.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
-	Shader						filterShader(_device, "./shaders_spv/reflectionFilter.comp.spv");
+	_reflectionFilterPipelineX.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
+	Shader						filterShaderX(_device, "./shaders_spv/reflectionFilterX.comp.spv");
 	VkComputePipelineCreateInfo info{
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-		.stage = filterShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
-		.layout = _reflectionFilterPipeline.getLayout(),
+		.stage = filterShaderX.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+		.layout = _reflectionFilterPipelineX.getLayout(),
 		.basePipelineHandle = VK_NULL_HANDLE,
 		.basePipelineIndex = 0,
 	};
-	_reflectionFilterPipeline.create(_device, info);
+	_reflectionFilterPipelineX.create(_device, info);
+	_reflectionFilterPipelineY.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
+	Shader filterShaderY(_device, "./shaders_spv/reflectionFilterY.comp.spv");
+	info.stage = filterShaderY.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT);
+	info.layout = _reflectionFilterPipelineY.getLayout();
+	_reflectionFilterPipelineY.create(_device, info);
+
 	{
 		std::vector<VkDescriptorSetLayout> layoutsToAllocate;
-		uint32_t						   setCount = _swapChainImages.size();
+		uint32_t						   setCount = 2 * _swapChainImages.size();
 		for(size_t i = 0; i < setCount; ++i)
 			layoutsToAllocate.push_back(_reflectionFilterDescriptorSetLayout);
 		_reflectionFilterDescriptorPool.create(_device, layoutsToAllocate.size(),
@@ -155,12 +161,27 @@ void Application::createReflectionShadowPipeline() {
 												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * setCount},
 											   });
 		_reflectionFilterDescriptorPool.allocate(layoutsToAllocate);
-		for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-			DescriptorSetWriter writer(_reflectionFilterDescriptorPool.getDescriptorSets()[i]);
+		for(size_t i = 0; i < setCount / 2; ++i) {
+			// X
+			DescriptorSetWriter writer(_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0]);
 			writer
 				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.update(_device);
+			// Y
+			DescriptorSetWriter writer2(_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1]);
+			writer2
+				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _reflectionFilteredImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,

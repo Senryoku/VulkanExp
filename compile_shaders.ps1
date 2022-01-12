@@ -20,10 +20,13 @@ Foreach($shader in $shaders)
 	If($exists) {
 		$d2 = [datetime](Get-ItemProperty -Path $dstfolder\$filename.spv -Name LastWriteTime).lastwritetime
 	}
+	$baseColor = $host.UI.RawUI.ForegroundColor
 	If(-not $exists -or $d -gt $d2 -or $libsdate -gt $d2)
 	{
 		Write-Output "Compiling $filename to $dstfolder\$filename.spv"
+		$host.UI.RawUI.ForegroundColor = 'Red'
 		glslc.exe -O -g --target-env=vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
+		$host.UI.RawUI.ForegroundColor = $baseColor
 	} Else {
 		#Write-Output "Skiping $filename ($d < $d2)"
 	}

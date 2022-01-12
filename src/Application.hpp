@@ -158,7 +158,8 @@ class Application {
 	ShaderBindingTable				 _reflectionShadowShaderBindingTable;
 	DescriptorPool					 _reflectionFilterDescriptorPool;
 	DescriptorSetLayout				 _reflectionFilterDescriptorSetLayout;
-	Pipeline						 _reflectionFilterPipeline;
+	Pipeline						 _reflectionFilterPipelineX;
+	Pipeline						 _reflectionFilterPipelineY;
 	std::vector<Framebuffer>		 _gatherFramebuffers;
 	RenderPass						 _gatherRenderPass;
 	DescriptorPool					 _gatherDescriptorPool;
