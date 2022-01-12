@@ -3,18 +3,18 @@
 
 #include "ProbeGrid.glsl"
 
-layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 6, set = 0, std140) uniform Block {
+layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(set = 0, binding = 6, std140) uniform Block {
     ProbeGrid grid;
 };
 
-layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
-layout(binding = 11, set = 0, rgba32f) uniform image2D rayIrradianceDepth;
-layout(binding = 12, set = 0, rgba32f) uniform image2D rayDirection;
+layout(set = 0, binding = 7)           buffer          ProbesBlock { uint Probes[]; };
+layout(set = 0, binding = 11, rgba32f) uniform image2D rayIrradianceDepth;
+layout(set = 0, binding = 12, rgba32f) uniform image2D rayDirection;
+layout(set = 0, binding = 15)          buffer          ProbeIndicesBlock { uint indices[]; };
 
 layout(push_constant) uniform Push {
     mat4 randomOrientation;
-    uint probeIndexOffset;
 } push;
 
 #include "irradiance.glsl"
@@ -29,16 +29,11 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 const float tmin = 0.01;
 
 void main() {
-    uint indexWithinLayer = gl_LaunchIDEXT.x % (grid.resolution.x * grid.resolution.z);
-    ivec3 probeIndex = ivec3(indexWithinLayer / grid.resolution.x, push.probeIndexOffset + gl_LaunchIDEXT.x / (grid.resolution.x * grid.resolution.z), indexWithinLayer % grid.resolution.x);
-    uint linearIndex = probeLinearIndex(probeIndex, grid);
-    // Skip OFF probes
-    if(Probes[linearIndex] == 0) return;
+    uint linearIndex = indices[gl_LaunchIDEXT.x];
+    ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     uint rayIndex = gl_LaunchIDEXT.y;
     float tmax = length(grid.extentMax - grid.extentMin);
     
-    payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
-
 	vec4 origin = vec4(probeIndexToWorldPosition(probeIndex, grid), 1);
 	vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(rayIndex, grid.raysPerProbe);
 
@@ -46,6 +41,7 @@ void main() {
     payload.depth = -1;
 	payload.raydx = rotateAxis(direction, normalize(cross(direction, vec3(1, 0, 0))), 0.001);
 	payload.raydy = rotateAxis(direction, normalize(cross(direction, vec3(0, 1, 0))), 0.001);
+    payload.recursionDepth = 1; // Skip reflections
 	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         
     ivec2 coords = ivec2(gl_LaunchIDEXT.x, rayIndex);

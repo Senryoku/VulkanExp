@@ -4,8 +4,8 @@
 #include <implot/implot.h>
 
 struct TextureRef {
-	const Texture& const texture;
-	const ImTextureID	 imID;
+	const Texture&	  texture;
+	const ImTextureID imID;
 };
 
 static std::vector<TextureRef> SceneUITextureIDs;
@@ -414,12 +414,9 @@ void Application::drawUI() {
 				_irradianceProbes.GridParameters.raysPerProbe = rays;
 				uniformNeedsUpdate = true;
 			}
-			int layersPerUpdate = _irradianceProbes.GridParameters.layersPerUpdate;
-			if(ImGui::SliderInt("Layer Per Update", &layersPerUpdate, 1, _irradianceProbes.GridParameters.resolution.y)) {
-				while(_irradianceProbes.GridParameters.resolution.y % layersPerUpdate != 0)
-					--layersPerUpdate;
-				_irradianceProbes.GridParameters.layersPerUpdate = layersPerUpdate;
-				uniformNeedsUpdate = true;
+			int probesPerUpdate = _irradianceProbes.ProbesPerUpdate;
+			if(ImGui::SliderInt("Probes Per Update", &probesPerUpdate, 0, _irradianceProbes.MaxProbesPerUpdate)) {
+				_irradianceProbes.ProbesPerUpdate = probesPerUpdate;
 			}
 
 			if(uniformNeedsUpdate)

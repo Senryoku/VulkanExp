@@ -137,7 +137,6 @@
     <None Include="src\shaders\probesUpdate.glsl" />
     <None Include="src\shaders\probesUpdateDepth.comp" />
     <None Include="src\shaders\probesUpdateIrradiance.comp" />
-    <None Include="src\shaders\probes_raygen.rgen" />
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\probe_instanced.vert" />
     <None Include="src\shaders\rayPayload.glsl" />

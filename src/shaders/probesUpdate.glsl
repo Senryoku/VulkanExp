@@ -17,10 +17,10 @@ layout(set = 0, binding = 13, r11f_g11f_b10f) uniform image2D imageOut;
 #else
 layout(set = 0, binding = 14, rg16f) uniform image2D imageOut;
 #endif
+layout(set = 0, binding = 15) buffer ProbeIndicesBlock { uint indices[]; };
 
 layout(push_constant) uniform Push {
     mat4 randomOrientation;
-    uint probeIndexOffset;
 } push;
 
 #include "irradiance.glsl"
@@ -43,10 +43,8 @@ vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
 
 void main()
 {
-    uint indexWithinLayer = gl_WorkGroupID.x % uint(grid.resolution.x * grid.resolution.z);
-    ivec3 probeIndex = ivec3(indexWithinLayer / grid.resolution.x, push.probeIndexOffset + gl_WorkGroupID.x / (grid.resolution.x * grid.resolution.z), indexWithinLayer % grid.resolution.x);
-    uint linearIndex = probeLinearIndex(probeIndex, grid);
-    if(Probes[linearIndex] == 0) return;
+    uint linearIndex = indices[gl_WorkGroupID.x];
+    ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     ivec2 localFragCoord = ivec2(gl_LocalInvocationID.yz);
 
     vec4 result = vec4(0);

@@ -5,13 +5,15 @@
 
 struct PushConstant {
 	glm::mat4 orientation;
-	uint32_t  yOffset;
 };
 
 void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max) {
 	_device = &device;
 	GridParameters.extentMin = min;
 	GridParameters.extentMax = max;
+
+	_probesToUpdate.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, MaxProbesPerUpdate * sizeof(uint32_t));
+	_probesToUpdateMemory.allocate(device, _probesToUpdate, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 	// Large enough to update all probes time at MaxRaysPerProbe rays per probe at once.
 	// FIXME: Could be resized dynamically depending on GridParameters (layersPerUpdate and raysPerProbe)
@@ -25,6 +27,14 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 	_rayDirectionView.create(device, _rayDirection, VK_FORMAT_R32G32B32A32_SFLOAT);
 	///////////////////////////
 
+	auto wholeImage = VkImageSubresourceRange{
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1,
+	};
+
 	_workIrradiance.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
 						   VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 	_workIrradiance.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -33,14 +43,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 										   .image = _workIrradiance,
 										   .viewType = VK_IMAGE_VIEW_TYPE_2D,
 										   .format = VK_FORMAT_B10G11R11_UFLOAT_PACK32,
-										   .subresourceRange =
-											   VkImageSubresourceRange{
-												   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-												   .baseMipLevel = 0,
-												   .levelCount = 1,
-												   .baseArrayLayer = 0,
-												   .layerCount = 1,
-											   },
+										   .subresourceRange = wholeImage,
 									   });
 
 	_irradiance.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
@@ -51,14 +54,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 									   .image = _irradiance,
 									   .viewType = VK_IMAGE_VIEW_TYPE_2D,
 									   .format = VK_FORMAT_B10G11R11_UFLOAT_PACK32,
-									   .subresourceRange =
-										   VkImageSubresourceRange{
-											   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-											   .baseMipLevel = 0,
-											   .levelCount = 1,
-											   .baseArrayLayer = 0,
-											   .layerCount = 1,
-										   },
+									   .subresourceRange = wholeImage,
 								   });
 
 	_workDepth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
@@ -69,14 +65,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 									  .image = _workDepth,
 									  .viewType = VK_IMAGE_VIEW_TYPE_2D,
 									  .format = VK_FORMAT_R16G16_SFLOAT,
-									  .subresourceRange =
-										  VkImageSubresourceRange{
-											  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-											  .baseMipLevel = 0,
-											  .levelCount = 1,
-											  .baseArrayLayer = 0,
-											  .layerCount = 1,
-										  },
+									  .subresourceRange = wholeImage,
 								  });
 
 	_depth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
@@ -87,14 +76,7 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 								  .image = _depth,
 								  .viewType = VK_IMAGE_VIEW_TYPE_2D,
 								  .format = VK_FORMAT_R16G16_SFLOAT,
-								  .subresourceRange =
-									  VkImageSubresourceRange{
-										  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-										  .baseMipLevel = 0,
-										  .levelCount = 1,
-										  .baseArrayLayer = 0,
-										  .layerCount = 1,
-									  },
+								  .subresourceRange = wholeImage,
 							  });
 
 	// Transition image to their expected layout
@@ -111,15 +93,16 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	_probeInfoBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 							GridParameters.resolution[0] * GridParameters.resolution[1] * GridParameters.resolution[2] * sizeof(ProbeInfo));
-	_probeInfoMemory.allocate(device, _probeInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_probeInfoMemory.allocate(device, _probeInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	updateUniforms();
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT) // Ray Irradiance Depth
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT) // Ray Direction
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									 // Color
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);								 // Depth
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Irradiance Depth
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Direction
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Color
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Depth
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT); // Probes Indices
 	_descriptorSetLayout = dslBuilder.build(device);
 
 	_pipelineLayout.create(device, {_descriptorSetLayout},
@@ -310,6 +293,7 @@ void IrradianceProbes::writeDescriptorSet(const Scene& scene, VkAccelerationStru
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayDirectionView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workIrradianceView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
+	writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, {.buffer = _probesToUpdate, .offset = 0, .range = VK_WHOLE_SIZE});
 	writer.update(*_device);
 }
 
@@ -356,7 +340,6 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 	static uint32_t yOffset = 0;
 	PushConstant	pc{
 		   .orientation = glm::transpose(glm::mat3(X, Y, Z)),
-		   .yOffset = 0,
 	   };
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
@@ -384,13 +367,27 @@ void IrradianceProbes::initProbes(VkQueue queue) {
 
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
+
+	// Get probe states back.
+	auto buffSize = GridParameters.resolution[0] * GridParameters.resolution[1] * GridParameters.resolution[2] * sizeof(ProbeInfo);
+	auto data = _probeInfoMemory.map(buffSize);
+	_probesState.resize(buffSize / sizeof(ProbeInfo));
+	memcpy(_probesState.data(), data, buffSize);
+	_probeInfoMemory.unmap();
+}
+
+uint32_t IrradianceProbes::selectProbesToUpdate() {
+	std::vector<uint32_t> toUpdate;
+	toUpdate.reserve(_probesState.size());
+	for(uint32_t idx = 0; idx < _probesState.size(); ++idx) {
+		if(_probesState[idx].state != 0)
+			toUpdate.push_back(idx);
+	}
+	_probesToUpdateMemory.fill(toUpdate.data(), toUpdate.size());
+	return static_cast<uint32_t>(toUpdate.size());
 }
 
 void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
-	static uint32_t yOffset = 0;
-	// Make sure yOffset is still valid as layersPerUpdate can be updated at runtime
-	if(yOffset % GridParameters.layersPerUpdate != 0)
-		yOffset = 0;
 #if 0
 	// Decouple the updates from the framerate?
 	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.
@@ -403,6 +400,7 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	VK_CHECK(vkWaitForFences(*_device, 1, &_fence.getHandle(), VK_TRUE, UINT64_MAX));
 #endif
 	writeLightDescriptor();
+	auto probeCount = selectProbesToUpdate();
 
 	if(_queryPool.newSampleFlag) {
 		auto queryResults = _queryPool.get();
@@ -423,16 +421,16 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	genBasis(Z, X, Y);
 	PushConstant pc{
 		.orientation = glm::transpose(glm::mat3(X, Y, Z)),
-		.yOffset = yOffset,
 	};
-	if(yOffset % GridParameters.resolution[1] == 0)
-		if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
-			updateUniforms();
-			GridParameters.hysteresis += 0.1f * (TargetHysteresis - GridParameters.hysteresis);
-		} else if(GridParameters.hysteresis != TargetHysteresis) {
-			GridParameters.hysteresis = TargetHysteresis;
-			updateUniforms();
-		}
+	// TODO: Right now we're updating every ON probes, but if the probe states become more complexe, we'll have to update the hysteresis only after every single probe has been
+	// updated at least once, or something like that.
+	if(std::abs(GridParameters.hysteresis - TargetHysteresis) > 0.05) {
+		updateUniforms();
+		GridParameters.hysteresis += 0.1f * (TargetHysteresis - GridParameters.hysteresis);
+	} else if(GridParameters.hysteresis != TargetHysteresis) {
+		GridParameters.hysteresis = TargetHysteresis;
+		updateUniforms();
+	}
 
 	auto& cmdBuff = _commandBuffers.getBuffers()[0];
 	cmdBuff.begin();
@@ -444,8 +442,8 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	// Trace Rays
 	vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _traceRaysPipeline);
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
-	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry,
-					  GridParameters.layersPerUpdate * GridParameters.resolution.x * GridParameters.resolution.z, GridParameters.raysPerProbe, 1);
+	vkCmdTraceRaysKHR(cmdBuff, &_shaderBindingTable.raygenEntry, &_shaderBindingTable.missEntry, &_shaderBindingTable.anyhitEntry, &_shaderBindingTable.callableEntry, probeCount,
+					  GridParameters.raysPerProbe, 1);
 
 	VkImageMemoryBarrier barrier{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -472,9 +470,9 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 	// Aggregate results into irradiance and depth buffers
 	_updateIrradiancePipeline.bind(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE);
-	vkCmdDispatch(cmdBuff, GridParameters.layersPerUpdate * GridParameters.resolution.x * GridParameters.resolution.z, 1, 1);
+	vkCmdDispatch(cmdBuff, probeCount, 1, 1);
 	_updateDepthPipeline.bind(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE);
-	vkCmdDispatch(cmdBuff, GridParameters.layersPerUpdate * GridParameters.resolution.x * GridParameters.resolution.z, 1, 1);
+	vkCmdDispatch(cmdBuff, probeCount, 1, 1);
 
 	barrier.image = _workIrradiance;
 	vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
@@ -485,10 +483,9 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 
 	// Copy Borders
 	_copyBordersPipeline.bind(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE);
-	vkCmdDispatch(cmdBuff, GridParameters.layersPerUpdate * GridParameters.resolution.x * GridParameters.resolution.z, 1, 1);
+	vkCmdDispatch(cmdBuff, probeCount, 1, 1);
 
-	// Copy the result to the image sampled in the main pipeline
-	int32_t		xOffset = pc.yOffset * GridParameters.resolution[0];
+	// Copy the result to the image sampled in the main pipeline (since we update arbitrary probes, the whole texture has to be copied)
 	VkImageCopy copy{
 		.srcSubresource =
 			{
@@ -497,7 +494,7 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 				.baseArrayLayer = 0,
 				.layerCount = 1,
 			},
-		.srcOffset = {static_cast<int32_t>(GridParameters.colorRes) * xOffset, 0, 0},
+		.srcOffset = {0, 0, 0},
 		.dstSubresource =
 			{
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -505,8 +502,8 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 				.baseArrayLayer = 0,
 				.layerCount = 1,
 			},
-		.dstOffset = {static_cast<int32_t>(GridParameters.colorRes) * xOffset, 0, 0},
-		.extent = {GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.layersPerUpdate, GridParameters.colorRes * GridParameters.resolution[2], 1},
+		.dstOffset = {0, 0, 0},
+		.extent = {GridParameters.colorRes * GridParameters.resolution.x * GridParameters.resolution.y, GridParameters.colorRes * GridParameters.resolution.z, 1},
 	};
 	VkImageSubresourceRange range{
 		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -524,9 +521,7 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	Image::setLayout(cmdBuff, _irradiance, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _workIrradiance, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
 
-	copy.srcOffset.x = GridParameters.depthRes * xOffset;
-	copy.dstOffset.x = GridParameters.depthRes * xOffset;
-	copy.extent = {GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.layersPerUpdate, GridParameters.depthRes * GridParameters.resolution[2], 1},
+	copy.extent = {GridParameters.depthRes * GridParameters.resolution.x * GridParameters.resolution.y, GridParameters.depthRes * GridParameters.resolution.z, 1},
 	Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
 	vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
@@ -549,7 +544,6 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	VK_CHECK(vkResetFences(*_device, 1, &_fence.getHandle()));
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, _fence));
 	_queryPool.newSampleFlag = true;
-	yOffset = (yOffset + GridParameters.layersPerUpdate) % GridParameters.resolution.y;
 }
 
 void IrradianceProbes::destroy() {
@@ -562,6 +556,8 @@ void IrradianceProbes::destroy() {
 	_gridInfoBuffer.destroy();
 	_probeInfoBuffer.destroy();
 	_probeInfoMemory.free();
+	_probesToUpdate.destroy();
+	_probesToUpdateMemory.free();
 	_descriptorPool.destroy();
 	_descriptorSetLayout.destroy();
 	destroyPipeline();

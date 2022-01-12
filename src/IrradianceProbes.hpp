@@ -36,6 +36,9 @@ class IrradianceProbes {
 	inline const Buffer&	getProbeInfoBuffer() const { return _probeInfoBuffer; }
 
 	static const uint32_t MaxRaysPerProbe = 256;
+	static const uint32_t MaxProbesPerUpdate = 32 * 32 * 32;
+
+	uint32_t ProbesPerUpdate = 0; // 0 means as much as necessary/possible. Not used yet.
 
 	float TargetHysteresis = 0.98f;
 
@@ -50,7 +53,7 @@ class IrradianceProbes {
 		const unsigned int colorRes = 8; // These resolutions are actually baked in the shaders
 		const unsigned int depthRes = 16;
 		float			   shadowBias = 0.3f;
-		unsigned int	   layersPerUpdate = 16; // Should be a divisor of resolution.y
+		unsigned int	   padding[1];
 	};
 	GridInfo GridParameters;
 
@@ -98,14 +101,17 @@ class IrradianceProbes {
 	ImageView _depthView;
 
 	// Working buffers
-	Image	  _rayIrradianceDepth;
-	ImageView _rayIrradianceDepthView;
-	Image	  _rayDirection;
-	ImageView _rayDirectionView;
-	Image	  _workIrradiance;
-	ImageView _workIrradianceView;
-	Image	  _workDepth;
-	ImageView _workDepthView;
+	std::vector<ProbeInfo> _probesState;
+	DeviceMemory		   _probesToUpdateMemory;
+	Buffer				   _probesToUpdate;
+	Image				   _rayIrradianceDepth;
+	ImageView			   _rayIrradianceDepthView;
+	Image				   _rayDirection;
+	ImageView			   _rayDirectionView;
+	Image				   _workIrradiance;
+	ImageView			   _workIrradianceView;
+	Image				   _workDepth;
+	ImageView			   _workDepthView;
 
 	QueryPool			 _queryPool;
 	RollingBuffer<float> _computeTimes;
@@ -114,5 +120,6 @@ class IrradianceProbes {
 	RollingBuffer<float> _borderCopyTimes;
 	RollingBuffer<float> _copyTimes;
 
-	void writeLightDescriptor();
+	void	 writeLightDescriptor();
+	uint32_t selectProbesToUpdate();
 };

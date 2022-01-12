@@ -10,10 +10,10 @@ layout(binding = 6, set = 0, std140) uniform Block {
 layout(binding = 7, set = 0) buffer ProbesBlock { uint Probes[]; };
 layout(set = 0, binding = 13, r11f_g11f_b10f) uniform image2D irradiance;
 layout(set = 0, binding = 14, rg16f)          uniform image2D depth;
+layout(set = 0, binding = 15) buffer ProbeIndicesBlock { uint indices[]; };
 
 layout(push_constant) uniform Push {
     mat4 randomOrientation;
-    uint probeIndexOffset;
 } push;
 
 #include "irradiance.glsl"
@@ -221,8 +221,8 @@ ivec2 depthCopiesSrc[4 + 4 * 14] = {
 
 void main()
 {
-    uint indexWithinLayer = gl_WorkGroupID.x % uint(grid.resolution.x * grid.resolution.z);
-    ivec3 probeIndex = ivec3(indexWithinLayer / grid.resolution.x, push.probeIndexOffset + gl_WorkGroupID.x / (grid.resolution.x * grid.resolution.z), indexWithinLayer % grid.resolution.x);
+    uint linearIndex = indices[gl_WorkGroupID.x];
+    ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     ivec2 globalIrradianceFragOffset = probeIndexToColorUVOffset(probeIndex, grid);
     ivec2 globalDepthFragOffset = probeIndexToDepthUVOffset(probeIndex, grid);
 
