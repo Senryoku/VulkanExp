@@ -35,7 +35,7 @@ void main() {
     // Skip OFF probes
     if(Probes[linearIndex] == 0) return;
     uint rayIndex = gl_LaunchIDEXT.y;
-    float tmax = length(grid.maxExtent - grid.minExtent);
+    float tmax = length(grid.extentMax - grid.extentMin);
     
     payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
 
