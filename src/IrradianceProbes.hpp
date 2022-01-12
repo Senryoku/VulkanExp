@@ -60,6 +60,10 @@ class IrradianceProbes {
 	};
 
 	const RollingBuffer<float>& getComputeTimes() const { return _computeTimes; }
+	const RollingBuffer<float>& getTraceTimes() const { return _traceTimes; }
+	const RollingBuffer<float>& getUpdateTimes() const { return _updateTimes; }
+	const RollingBuffer<float>& getBorderCopyTimes() const { return _borderCopyTimes; }
+	const RollingBuffer<float>& getCopyTimes() const { return _copyTimes; }
 
 	void setLightBuffer(const Buffer& lightBuffer);
 
@@ -105,6 +109,10 @@ class IrradianceProbes {
 
 	QueryPool			 _queryPool;
 	RollingBuffer<float> _computeTimes;
+	RollingBuffer<float> _traceTimes;
+	RollingBuffer<float> _updateTimes;
+	RollingBuffer<float> _borderCopyTimes;
+	RollingBuffer<float> _copyTimes;
 
 	void writeLightDescriptor();
 };

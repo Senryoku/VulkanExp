@@ -147,10 +147,10 @@ void Application::uiOnSwapChainReady() {
 }
 
 template<class T>
-void plot(const RollingBuffer<T>& rb) {
+void plot(const char* name, const RollingBuffer<T>& rb) {
 	auto data = rb.get();
-	ImPlot::PlotLine("Frame Time (ms)", data.first, static_cast<int>(data.firstCount));
-	ImPlot::PlotLine("Frame Time (ms)", data.second, static_cast<int>(data.secondCount), 1.0, data.firstCount);
+	ImPlot::PlotLine(name, data.first, static_cast<int>(data.firstCount));
+	ImPlot::PlotLine(name, data.second, static_cast<int>(data.secondCount), 1.0, data.firstCount);
 }
 
 // Re-record Dear IMGUI command buffer for this frame.
@@ -432,13 +432,17 @@ void Application::drawUI() {
 	if(ImGui::Begin("Statistics")) {
 		if(ImPlot::BeginPlot("Frame")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			plot(_frameTimes);
+			plot("Frame Time (ms)", _frameTimes);
 			ImPlot::EndPlot();
 		}
 		if(ImPlot::BeginPlot("Irradiance Probes")) {
-			ImPlot::SetupAxes("Frame Number", "Update Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			ImPlot::SetupAxes("Frame Number", "Total Update Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 			// ImPlot::PlotLine("Update Time (ms)", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
-			plot(_irradianceProbes.getComputeTimes());
+			plot("Full Time (ms)", _irradianceProbes.getComputeTimes());
+			plot("Trace Time (ms)", _irradianceProbes.getTraceTimes());
+			plot("Update Time (ms)", _irradianceProbes.getUpdateTimes());
+			plot("Border Copy (ms)", _irradianceProbes.getBorderCopyTimes());
+			plot("Copy (ms)", _irradianceProbes.getCopyTimes());
 			ImPlot::EndPlot();
 		}
 	}

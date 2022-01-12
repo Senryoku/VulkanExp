@@ -47,7 +47,7 @@ void main()
             if(payload.isBackface) ++backfaceHits;
             vec3 position = origin.xyz + payload.depth * direction;
             vec3 dist = abs(position - origin.xyz);
-            if(dist.x <  gridCellSize.x && dist.y <  gridCellSize.y && dist.z <  gridCellSize.z)
+            if(dist.x < gridCellSize.x && dist.y < gridCellSize.y && dist.z < gridCellSize.z)
                 affectGeometry = true;
         }
     }

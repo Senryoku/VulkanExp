@@ -299,7 +299,7 @@ void IrradianceProbes::createPipeline() {
 
 	createShaderBindingTable();
 
-	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 2);
+	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 5);
 }
 
 void IrradianceProbes::writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
@@ -404,8 +404,13 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 
 	if(_queryPool.newSampleFlag) {
 		auto queryResults = _queryPool.get();
-		if(queryResults.size() > 1 && queryResults[0].available && queryResults[1].available) {
-			_computeTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
+		if(queryResults.size() >= 5 && queryResults[0].available && queryResults[1].available && queryResults[2].available && queryResults[3].available &&
+		   queryResults[4].available) {
+			_computeTimes.add(0.000001f * (queryResults[4].result - queryResults[0].result));
+			_traceTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
+			_updateTimes.add(0.000001f * (queryResults[2].result - queryResults[1].result));
+			_borderCopyTimes.add(0.000001f * (queryResults[3].result - queryResults[2].result));
+			_copyTimes.add(0.000001f * (queryResults[4].result - queryResults[3].result));
 			_queryPool.newSampleFlag = false;
 		}
 	}
@@ -460,6 +465,8 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	};
 	vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
+
 	vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorPool.getDescriptorSets()[0], 0, 0);
 	// Aggregate results into irradiance and depth buffers
 	_updateIrradiancePipeline.bind(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -471,6 +478,8 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	barrier.image = _workDepth;
 	vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 2);
 
 	// Copy Borders
 	_copyBordersPipeline.bind(cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -506,6 +515,9 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	};
 	Image::setLayout(cmdBuff, _workIrradiance, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _irradiance, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
+
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 3);
+
 	vkCmdCopyImage(cmdBuff, _workIrradiance, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _irradiance, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 	Image::setLayout(cmdBuff, _irradiance, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _workIrradiance, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
@@ -518,7 +530,7 @@ void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
 	vkCmdCopyImage(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 	Image::setLayout(cmdBuff, _depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
 	Image::setLayout(cmdBuff, _workDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, range);
-	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
+	_queryPool.writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 4);
 	cmdBuff.end();
 
 	VkSubmitInfo submitInfo{
