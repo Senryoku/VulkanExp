@@ -152,10 +152,14 @@ class Application {
 	std::vector<ImageView>			 _reflectionFilteredImageViews;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
-	DescriptorPool					 _reflectionShadowDescriptorPool;
-	DescriptorSetLayout				 _reflectionShadowDescriptorSetLayout;
-	Pipeline						 _reflectionShadowPipeline;
-	ShaderBindingTable				 _reflectionShadowShaderBindingTable;
+	DescriptorPool					 _directLightDescriptorPool;
+	DescriptorSetLayout				 _directLightDescriptorSetLayout;
+	Pipeline						 _directLightPipeline;
+	ShaderBindingTable				 _directLightShaderBindingTable;
+	DescriptorPool					 _reflectionDescriptorPool;
+	DescriptorSetLayout				 _reflectionDescriptorSetLayout;
+	Pipeline						 _reflectionPipeline;
+	ShaderBindingTable				 _reflectionShaderBindingTable;
 	DescriptorPool					 _reflectionFilterDescriptorPool;
 	DescriptorSetLayout				 _reflectionFilterDescriptorSetLayout;
 	Pipeline						 _reflectionFilterPipelineX;
@@ -175,7 +179,8 @@ class Application {
 
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
-	void createReflectionShadowPipeline();
+	void createReflectionPipeline();
+	void createDirectLightPipeline();
 	void createGatherPipeline();
 
 	LightBuffer _light;

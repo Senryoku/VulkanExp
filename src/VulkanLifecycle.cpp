@@ -239,7 +239,8 @@ void Application::cleanupVulkan() {
 	_accStructInstancesMemory.free();
 
 	// We souldn't have to recreate the underlying buffer/memory on swapchain re-creation.
-	_reflectionShadowShaderBindingTable.destroy();
+	_directLightShaderBindingTable.destroy();
+	_reflectionShaderBindingTable.destroy();
 	_raytracingShaderBindingTable.destroy();
 
 	for(auto& f : _inFlightFences)

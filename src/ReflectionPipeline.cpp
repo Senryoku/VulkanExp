@@ -1,8 +1,8 @@
 #include "Application.hpp"
 #include <Raytracing.hpp>
 
-void Application::createReflectionShadowPipeline() {
-	Shader raygenShader(_device, "./shaders_spv/reflectionShadow.rgen.spv");
+void Application::createReflectionPipeline() {
+	Shader raygenShader(_device, "./shaders_spv/reflection.rgen.spv");
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
 	Shader raymissShadowShader(_device, "./shaders_spv/shadow.rmiss.spv");
 	Shader closesthitShader(_device, "./shaders_spv/closesthit.rchit.spv");
@@ -61,8 +61,8 @@ void Application::createReflectionShadowPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)										  // 15 Result (Reflections)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // 16 Result (Direct Light)
 
-	_reflectionShadowDescriptorSetLayout = dslBuilder.build(_device);
-	_reflectionShadowPipeline.getLayout().create(_device, {_reflectionShadowDescriptorSetLayout});
+	_reflectionDescriptorSetLayout = dslBuilder.build(_device);
+	_reflectionPipeline.getLayout().create(_device, {_reflectionDescriptorSetLayout});
 
 	VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -71,59 +71,55 @@ void Application::createReflectionShadowPipeline() {
 		.groupCount = static_cast<uint32_t>(shaderGroups.size()),
 		.pGroups = shaderGroups.data(),
 		.maxPipelineRayRecursionDepth = 2, // We need light occlusion tests for the reflections
-		.layout = _reflectionShadowPipeline.getLayout(),
+		.layout = _reflectionPipeline.getLayout(),
 	};
-	_reflectionShadowPipeline.create(_device, raytracingPipelineCreateInfo, _pipelineCache);
+	_reflectionPipeline.create(_device, raytracingPipelineCreateInfo, _pipelineCache);
 
-	_reflectionShadowShaderBindingTable.create(_device, {1, 2, 1, 0}, _reflectionShadowPipeline);
+	_reflectionShaderBindingTable.create(_device, {1, 2, 1, 0}, _reflectionPipeline);
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	uint32_t						   setCount = _swapChainImages.size();
 	for(size_t i = 0; i < setCount; ++i)
-		layoutsToAllocate.push_back(_reflectionShadowDescriptorSetLayout);
-	_reflectionShadowDescriptorPool.create(_device, layoutsToAllocate.size(),
-										   std::array<VkDescriptorPoolSize, 5>{
-											   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, setCount},
-											   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 * setCount},
-											   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
-											   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
-											   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * setCount},
-										   });
-	_reflectionShadowDescriptorPool.allocate(layoutsToAllocate);
+		layoutsToAllocate.push_back(_reflectionDescriptorSetLayout);
+	_reflectionDescriptorPool.create(_device, layoutsToAllocate.size(),
+									 std::array<VkDescriptorPoolSize, 5>{
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, setCount},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4 * setCount},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * setCount},
+									 });
+	_reflectionDescriptorPool.allocate(layoutsToAllocate);
 
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 		auto writer =
-			baseSceneWriter(_device, _reflectionShadowDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
+			baseSceneWriter(_device, _reflectionDescriptorPool.getDescriptorSets()[i], _scene, _topLevelAccelerationStructure, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
-		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				   {
-					   .buffer = _cameraUniformBuffers[i],
-					   .offset = 0,
-					   .range = sizeof(CameraBuffer),
-				   });
-		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 0],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 1],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 2],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
+		writer
+			.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				 {
+					 .buffer = _cameraUniformBuffers[i],
+					 .offset = 0,
+					 .range = sizeof(CameraBuffer),
+				 })
+			.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				 {
+					 .imageView = _gbufferImageViews[3 * i + 0],
+					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				 })
+			.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				 {
+					 .imageView = _gbufferImageViews[3 * i + 1],
+					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				 })
+			.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				 {
+					 .imageView = _gbufferImageViews[3 * i + 2],
+					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				 });
 		// Result
 		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _reflectionImageViews[i],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(16, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _directLightImageViews[i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
 

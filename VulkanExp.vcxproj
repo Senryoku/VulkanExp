@@ -39,12 +39,13 @@
     <ClCompile Include="ext\implot\implot_items.cpp" />
     <ClCompile Include="ext\stb_image.cpp" />
     <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\DirectLightPipeline.cpp" />
     <ClCompile Include="src\GatherPipeline.cpp" />
     <ClCompile Include="src\GBufferPipeline.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\IrradianceProbes.cpp" />
     <ClCompile Include="src\AppRaytracing.cpp" />
-    <ClCompile Include="src\ReflectionShadowPipeline.cpp" />
+    <ClCompile Include="src\ReflectionPipeline.cpp" />
     <ClCompile Include="src\Resources.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
@@ -119,6 +120,7 @@
     <None Include="shaders\triangle.vert" />
     <None Include="shaders\ubo.vert" />
     <None Include="src\IrradianceProbes.hpp" />
+    <None Include="src\shaders\directLight.rgen" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\backfaceTest.rchit" />
@@ -142,7 +144,7 @@
     <None Include="src\shaders\reflectionFilter.glsl" />
     <None Include="src\shaders\reflectionFilterX.comp" />
     <None Include="src\shaders\reflectionFilterY.comp" />
-    <None Include="src\shaders\reflectionShadow.rgen" />
+    <None Include="src\shaders\reflection.rgen" />
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\shaders\sky.glsl" />
     <None Include="src\shaders\traceProbes.rgen" />

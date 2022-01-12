@@ -625,7 +625,8 @@ void Application::initSwapChain() {
 
 	createGBufferPipeline();
 	createGatherPipeline();
-	createReflectionShadowPipeline();
+	createDirectLightPipeline();
+	createReflectionPipeline();
 
 	_commandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
 
@@ -706,11 +707,15 @@ void Application::recordCommandBuffers() {
 
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
 
-		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionShadowPipeline.getLayout(), 0, 1, &_reflectionShadowDescriptorPool.getDescriptorSets()[i], 0,
-								0);
-		vkCmdTraceRaysKHR(b, &_reflectionShadowShaderBindingTable.raygenEntry, &_reflectionShadowShaderBindingTable.missEntry, &_reflectionShadowShaderBindingTable.anyhitEntry,
-						  &_reflectionShadowShaderBindingTable.callableEntry, _width, _height, 1);
+		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, 1, &_reflectionDescriptorPool.getDescriptorSets()[i], 0, 0);
+		vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
+						  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
+
+		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline.getLayout(), 0, 1, &_directLightDescriptorPool.getDescriptorSets()[i], 0, 0);
+		vkCmdTraceRaysKHR(b, &_directLightShaderBindingTable.raygenEntry, &_directLightShaderBindingTable.missEntry, &_directLightShaderBindingTable.anyhitEntry,
+						  &_directLightShaderBindingTable.callableEntry, _width, _height, 1);
 
 		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 3);
 
@@ -814,7 +819,8 @@ void Application::cleanupSwapChain() {
 	_lightUniformBuffers.clear();
 	_lightUniformBuffersMemory.free();
 	_gbufferDescriptorPool.destroy();
-	_reflectionShadowDescriptorPool.destroy();
+	_directLightDescriptorPool.destroy();
+	_reflectionDescriptorPool.destroy();
 	_reflectionFilterDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
@@ -824,13 +830,15 @@ void Application::cleanupSwapChain() {
 	_commandBuffers.free();
 
 	_gbufferPipeline.destroy();
-	_reflectionShadowPipeline.destroy();
+	_directLightPipeline.destroy();
+	_reflectionPipeline.destroy();
 	_reflectionFilterPipelineX.destroy();
 	_reflectionFilterPipelineY.destroy();
 	_gatherPipeline.destroy();
 
 	_gbufferDescriptorSetLayouts.clear();
-	_reflectionShadowDescriptorSetLayout.destroy();
+	_directLightDescriptorSetLayout.destroy();
+	_reflectionDescriptorSetLayout.destroy();
 	_reflectionFilterDescriptorSetLayout.destroy();
 	_gatherDescriptorSetLayout.destroy();
 
@@ -839,12 +847,12 @@ void Application::cleanupSwapChain() {
 
 	_gbufferImages.clear();
 	_gbufferImageViews.clear();
+	_directLightImages.clear();
+	_directLightImageViews.clear();
 	_reflectionImages.clear();
 	_reflectionImageViews.clear();
 	_reflectionFilteredImages.clear();
 	_reflectionFilteredImageViews.clear();
-	_directLightImages.clear();
-	_directLightImageViews.clear();
 	_depthImageView.destroy();
 	_depthImage.destroy();
 	_swapChainImageViews.clear();

@@ -430,23 +430,22 @@ void Application::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Statistics")) {
-		if(ImPlot::BeginPlot("Frame")) {
+		if(ImPlot::BeginPlot("Main Render")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			plot("Frame Time (ms)", _frameTimes);
-			plot("GBuffer Time (ms)", _gbufferTimes);
-			plot("Reflection & Direct Light Time (ms)", _reflectionDirectLightTimes);
-			plot("Reflection Filter Time (ms)", _reflectionFilterTimes);
-			plot("Gather Time (ms)", _gatherTimes);
+			plot("Full Time", _frameTimes);
+			plot("GBuffer Time", _gbufferTimes);
+			plot("Reflection & Direct Light Time", _reflectionDirectLightTimes);
+			plot("Reflection Filter Time", _reflectionFilterTimes);
+			plot("Gather Time", _gatherTimes);
 			ImPlot::EndPlot();
 		}
 		if(ImPlot::BeginPlot("Irradiance Probes")) {
-			ImPlot::SetupAxes("Frame Number", "Total Update Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			// ImPlot::PlotLine("Update Time (ms)", _irradianceProbes.getComputeTimes().data(), static_cast<int>(_irradianceProbes.getComputeTimes().size()));
-			plot("Full Time (ms)", _irradianceProbes.getComputeTimes());
-			plot("Trace Time (ms)", _irradianceProbes.getTraceTimes());
-			plot("Update Time (ms)", _irradianceProbes.getUpdateTimes());
-			plot("Border Copy (ms)", _irradianceProbes.getBorderCopyTimes());
-			plot("Copy (ms)", _irradianceProbes.getCopyTimes());
+			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			plot("Full Time", _irradianceProbes.getComputeTimes());
+			plot("Trace Time", _irradianceProbes.getTraceTimes());
+			plot("Update Time", _irradianceProbes.getUpdateTimes());
+			plot("Border Copy", _irradianceProbes.getBorderCopyTimes());
+			plot("Copy", _irradianceProbes.getCopyTimes());
 			ImPlot::EndPlot();
 		}
 	}

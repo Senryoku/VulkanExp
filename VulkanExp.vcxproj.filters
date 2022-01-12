@@ -111,7 +111,7 @@
     <ClCompile Include="src\GBufferPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ReflectionShadowPipeline.cpp">
+    <ClCompile Include="src\ReflectionPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ThreadPool.cpp">
@@ -127,6 +127,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ext\implot\implot_items.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DirectLightPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -296,7 +299,7 @@
     <None Include="src\shaders\GBuffer.frag" />
     <None Include="src\shaders\GBuffer.vert" />
     <None Include="src\shaders\FullScreenQuad.vert" />
-    <None Include="src\shaders\reflectionShadow.rgen" />
+    <None Include="src\shaders\reflection.rgen" />
     <None Include="src\shaders\Lights.glsl" />
     <None Include="src\shaders\sky.glsl" />
     <None Include="src\shaders\probesInit.rgen" />
@@ -310,5 +313,6 @@
     <None Include="src\shaders\probesCopyBorders.comp" />
     <None Include="src\shaders\reflectionFilterX.comp" />
     <None Include="src\shaders\reflectionFilterY.comp" />
+    <None Include="src\shaders\directLight.rgen" />
   </ItemGroup>
 </Project>
