@@ -21,29 +21,36 @@ class IrradianceProbes {
 	void updateUniforms();
 	void update(const Scene& scene, VkQueue queue);
 
-	inline const Image&		getColor() const { return _color; }
+	inline const Image&		getRayIrradianceDepth() const { return _rayIrradianceDepth; }
+	inline const ImageView& getRayIrradianceDepthView() const { return _rayIrradianceDepthView; }
+	inline const Image&		getRayDirection() const { return _rayDirection; }
+	inline const ImageView& getRayDirectionView() const { return _rayDirectionView; }
+
+	inline const Image&		getIrradiance() const { return _irradiance; }
 	inline const Image&		getDepth() const { return _depth; }
-	inline const ImageView& getColorView() const { return _colorView; }
+	inline const ImageView& getIrradianceView() const { return _irradianceView; }
 	inline const ImageView& getDepthView() const { return _depthView; }
 	inline const Buffer&	getGridParametersBuffer() const { return _gridInfoBuffer; }
 	inline const Buffer&	getProbeInfoBuffer() const { return _probeInfoBuffer; }
 
 	void destroy();
 
+	static const uint32_t MaxRaysPerProbe = 256;
+
 	float TargetHysteresis = 0.98f;
 
 	// This will be passed to shaders as a UBO, alignment and order of members is important.
 	struct GridInfo {
-		glm::vec3	 extentMin;
-		float		 depthSharpness = 12.0f; // Exponent for depth testing
-		glm::vec3	 extentMax;
-		float		 hysteresis = 0.0f; // Importance of previously cast rays, starts low to accelerate probes convergence, will converge towards TargetHysteresis
-		glm::ivec3	 resolution{32, 16, 32};
-		unsigned int raysPerProbe = 128;
-		unsigned int colorRes = 8;
-		unsigned int depthRes = 16;
-		float		 shadowBias = 0.3f;
-		unsigned int layerPerUpdate = 2; // Should be a divisor of resolution.y
+		glm::vec3		   extentMin;
+		float			   depthSharpness = 12.0f; // Exponent for depth testing
+		glm::vec3		   extentMax;
+		float			   hysteresis = 0.0f; // Importance of previously cast rays, starts low to accelerate probes convergence, will converge towards TargetHysteresis
+		glm::ivec3		   resolution{32, 16, 32};
+		unsigned int	   raysPerProbe = 192;
+		const unsigned int colorRes = 8; // These resolutions are actually baked in the shaders
+		const unsigned int depthRes = 16;
+		float			   shadowBias = 0.3f;
+		unsigned int	   layersPerUpdate = 16; // Should be a divisor of resolution.y
 	};
 	GridInfo GridParameters;
 
@@ -64,6 +71,9 @@ class IrradianceProbes {
 	Fence				_fence;
 	Pipeline			_pipeline;
 	PipelineLayout		_pipelineLayout;
+	Pipeline			_updateIrradiancePipeline;
+	Pipeline			_updateDepthPipeline;
+	Pipeline			_copyBordersPipeline;
 	DescriptorSetLayout _descriptorSetLayout;
 	DescriptorPool		_descriptorPool;
 	CommandPool			_commandPool;
@@ -78,14 +88,19 @@ class IrradianceProbes {
 	ShaderBindingTable _shaderBindingTable;
 
 	// Exposed results
-	Image	  _color;
-	ImageView _colorView;
+	Image	  _irradiance;
+	ImageView _irradianceView;
 	Image	  _depth;
 	ImageView _depthView;
 
 	// Working buffers
-	Image	  _workColor;
-	ImageView _workColorView;
+	Image	  _rayIrradianceDepth;
+	ImageView _rayIrradianceDepthView;
+	Image	  _rayDirection;
+	ImageView _rayDirectionView;
+
+	Image	  _workIrradiance;
+	ImageView _workIrradianceView;
 	Image	  _workDepth;
 	ImageView _workDepthView;
 

@@ -9,7 +9,7 @@ ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
 }
 
 uint probeLinearIndex(ivec3 index, ProbeGrid grid) {
-    return index.x +  grid.resolution.x * index.y + grid.resolution.x * grid.resolution.y * index.z;
+    return index.x + grid.resolution.x * index.y + grid.resolution.x * grid.resolution.y * index.z;
 }
 
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
@@ -45,7 +45,7 @@ ivec2 probeIndexToDepthUVOffset(ivec3 index, ProbeGrid grid) {
 */
 vec3 sphericalFibonacci(float i, float n) {
     const float PHI = sqrt(5) * 0.5 + 0.5;
-#   define madfrac(A, B) ((A)*(B)-floor((A)*(B)))
+#define madfrac(A, B) ((A)*(B)-floor((A)*(B)))
     float phi = 2.0 * pi * madfrac(i, PHI - 1);
     float cosTheta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
     float sinTheta = sqrt(clamp(1.0 - cosTheta * cosTheta, 0, 1));

@@ -1,0 +1,3 @@
+#version 460
+#define IRRADIANCE
+#include "probesUpdate.glsl"

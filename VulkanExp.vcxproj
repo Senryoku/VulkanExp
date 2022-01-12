@@ -130,7 +130,11 @@
     <None Include="src\shaders\Material.glsl" />
     <None Include="src\shaders\pbrMetallicRoughness.glsl" />
     <None Include="src\shaders\irradiance.glsl" />
+    <None Include="src\shaders\probesCopyBorders.comp" />
     <None Include="src\shaders\probesInit.rgen" />
+    <None Include="src\shaders\probesUpdate.glsl" />
+    <None Include="src\shaders\probesUpdateDepth.comp" />
+    <None Include="src\shaders\probesUpdateIrradiance.comp" />
     <None Include="src\shaders\probes_raygen.rgen" />
     <None Include="src\shaders\probe_debug.frag" />
     <None Include="src\shaders\probe_instanced.vert" />
@@ -139,6 +143,7 @@
     <None Include="src\shaders\reflectionShadow.rgen" />
     <None Include="src\shaders\shadow.rmiss" />
     <None Include="src\shaders\sky.glsl" />
+    <None Include="src\shaders\traceProbes.rgen" />
     <None Include="src\shaders\Vertex.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

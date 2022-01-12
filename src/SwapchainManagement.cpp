@@ -426,7 +426,7 @@ void Application::initProbeDebug() {
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 										   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0),
-					.imageView = _irradianceProbes.getColorView(),
+					.imageView = _irradianceProbes.getIrradianceView(),
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
 		dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

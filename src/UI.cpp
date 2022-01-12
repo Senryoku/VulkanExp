@@ -9,6 +9,8 @@ struct TextureRef {
 };
 
 static std::vector<TextureRef> SceneUITextureIDs;
+static ImTextureID			   ProbesRayIrradianceDepth;
+static ImTextureID			   ProbesRayDirection;
 static ImTextureID			   ProbesColor;
 static ImTextureID			   ProbesDepth;
 
@@ -91,7 +93,9 @@ void Application::initImGui(uint32_t queueFamily) {
 	for(const auto& texture : Textures) {
 		SceneUITextureIDs.push_back({texture, ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
-	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getColorView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	ProbesRayIrradianceDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayIrradianceDepthView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesRayDirection = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayDirectionView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getIrradianceView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
@@ -204,6 +208,12 @@ void Application::drawUI() {
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
 		float scale = 3.0f;
+		ImGui::Text("Probes Ray Irradiance Depth");
+		ImGui::Image(ProbesRayIrradianceDepth,
+					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
+		ImGui::Text("Probes Ray Direction");
+		ImGui::Image(ProbesRayDirection,
+					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
 		ImGui::Text("Probes Color");
 		ImGui::Image(ProbesColor,
 					 ImVec2(scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
@@ -400,15 +410,15 @@ void Application::drawUI() {
 			uniformNeedsUpdate = ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f) || uniformNeedsUpdate;
 			uniformNeedsUpdate = ImGui::SliderFloat("Shadow Bias", &_irradianceProbes.GridParameters.shadowBias, 0.0f, 1.0f) || uniformNeedsUpdate;
 			int rays = _irradianceProbes.GridParameters.raysPerProbe;
-			if(ImGui::SliderInt("Rays Per Probe", &rays, 1, 128)) {
+			if(ImGui::SliderInt("Rays Per Probe", &rays, 1, IrradianceProbes::MaxRaysPerProbe)) {
 				_irradianceProbes.GridParameters.raysPerProbe = rays;
 				uniformNeedsUpdate = true;
 			}
-			int layerPerUpdate = _irradianceProbes.GridParameters.layerPerUpdate;
-			if(ImGui::SliderInt("Layer Per Update", &layerPerUpdate, 1, _irradianceProbes.GridParameters.resolution.y)) {
-				while(_irradianceProbes.GridParameters.resolution.y % layerPerUpdate != 0)
-					--layerPerUpdate;
-				_irradianceProbes.GridParameters.layerPerUpdate = layerPerUpdate;
+			int layersPerUpdate = _irradianceProbes.GridParameters.layersPerUpdate;
+			if(ImGui::SliderInt("Layer Per Update", &layersPerUpdate, 1, _irradianceProbes.GridParameters.resolution.y)) {
+				while(_irradianceProbes.GridParameters.resolution.y % layersPerUpdate != 0)
+					--layersPerUpdate;
+				_irradianceProbes.GridParameters.layersPerUpdate = layersPerUpdate;
 				uniformNeedsUpdate = true;
 			}
 
