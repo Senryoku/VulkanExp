@@ -107,7 +107,7 @@ void main()
 
 	const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	
-	vec3 position = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+	vec3 position = gl_WorldRayDirectionEXT * gl_HitTEXT + gl_WorldRayOriginEXT;
 	
 	uint materialInstanceIndex = offsets.o[3 * gl_InstanceCustomIndexEXT + 0];
 	uint vertexInstanceOffset = offsets.o[3 * gl_InstanceCustomIndexEXT + 1];
