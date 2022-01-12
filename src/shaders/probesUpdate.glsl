@@ -29,6 +29,18 @@ float max3 (vec3 v) {
   return max (max (v.x, v.y), v.z);
 }
 
+#ifdef IRRADIANCE
+// For res = 6
+vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
+    return 3.33333 * coord + 0.833333;
+}
+#else
+// For res = 14
+vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
+    return 0.142857 * coord - 0.928571;
+}
+#endif
+
 void main()
 {
     uint indexWithinLayer = gl_WorkGroupID.x % uint(grid.resolution.x * grid.resolution.z);
@@ -38,10 +50,10 @@ void main()
     ivec2 localFragCoord = ivec2(gl_LocalInvocationID.yz);
 
     vec4 result = vec4(0);
+    vec3 texelDirection = octDecode(specializedNormalizeLocalTexelCoord(localFragCoord));
     for(int i = 0; i < grid.raysPerProbe; ++i) {
         vec4 rayData = imageLoad(rayIrradianceDepth, ivec2(gl_GlobalInvocationID.x, i));
         vec3 direction = imageLoad(rayDirection, ivec2(0, i)).xyz;
-        vec3 texelDirection = octDecode(normalizeLocalTexelCoord(localFragCoord, grid.colorRes));
 #ifdef IRRADIANCE
         float weight = max(0.0, dot(texelDirection, direction));
         result += vec4(weight * rayData.rgb, weight);
@@ -66,6 +78,6 @@ void main()
     if(maxChange > 0.25) hysteresis = max(0, hysteresis - 0.10);
     if(maxChange > 0.80) hysteresis = 0.0;
 #endif
-    result.rgb = hysteresis * previous + (1.0f - hysteresis) * result.rgb;
+    result.rgb = mix(result.rgb, previous, hysteresis);
     imageStore(imageOut, globalFragCoords, vec4(result.rgb, 1.0));
 }

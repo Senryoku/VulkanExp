@@ -15,7 +15,7 @@ uint probeLinearIndex(ivec3 index, ProbeGrid grid) {
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
-    return grid.extentMin + index * gridCellSize; // + 0.5 * gridCellSize;
+    return index * gridCellSize + grid.extentMin; // + 0.5 * gridCellSize;
 }
 
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {

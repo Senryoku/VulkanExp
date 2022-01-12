@@ -27,7 +27,6 @@ vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
 }
 
 const float tmin = 0.01;
-const float tmax = 10000.0;
 
 void main() {
     uint indexWithinLayer = gl_LaunchIDEXT.x % (grid.resolution.x * grid.resolution.z);
@@ -36,6 +35,7 @@ void main() {
     // Skip OFF probes
     if(Probes[linearIndex] == 0) return;
     uint rayIndex = gl_LaunchIDEXT.y;
+    float tmax = length(grid.maxExtent - grid.minExtent);
     
     payload.recursionDepth = 1; // Not sure about this one, but given the final resolution, I think it's safe to go for the cheaper option
 
