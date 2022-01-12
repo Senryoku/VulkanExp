@@ -23,10 +23,6 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 						 VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT /* For Debug View */);
 	_rayDirection.allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_rayDirectionView.create(device, _rayDirection, VK_FORMAT_R32G32B32A32_SFLOAT);
-	device.submit(device.getPhysicalDevice().getGraphicsQueueFamilyIndex(), [&](const CommandBuffer& b) {
-		_rayIrradianceDepth.transitionLayout(b, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		_rayDirection.transitionLayout(b, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-	});
 	///////////////////////////
 
 	_workIrradiance.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
@@ -46,7 +42,6 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 												   .layerCount = 1,
 											   },
 									   });
-	_workIrradiance.transitionLayout(transfertFamilyQueueIndex, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	_irradiance.create(device, GridParameters.colorRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.colorRes * GridParameters.resolution[2],
 					   VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -65,7 +60,6 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 											   .layerCount = 1,
 										   },
 								   });
-	_irradiance.transitionLayout(transfertFamilyQueueIndex, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	_workDepth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
 					  VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
@@ -84,7 +78,6 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 											  .layerCount = 1,
 										  },
 								  });
-	_workDepth.transitionLayout(transfertFamilyQueueIndex, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	_depth.create(device, GridParameters.depthRes * GridParameters.resolution[0] * GridParameters.resolution[1], GridParameters.depthRes * GridParameters.resolution[2],
 				  VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -103,7 +96,16 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 										  .layerCount = 1,
 									  },
 							  });
-	_depth.transitionLayout(transfertFamilyQueueIndex, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	// Transition image to their expected layout
+	device.submit(transfertFamilyQueueIndex, [&](const CommandBuffer& b) {
+		_rayIrradianceDepth.transitionLayout(b, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		_rayDirection.transitionLayout(b, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		_workIrradiance.transitionLayout(b, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		_irradiance.transitionLayout(b, VK_FORMAT_B10G11R11_UFLOAT_PACK32, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		_workDepth.transitionLayout(b, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		_depth.transitionLayout(b, VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	});
 
 	_gridInfoBuffer.create(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GridInfo));
 	_gridInfoMemory.allocate(device, _gridInfoBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
