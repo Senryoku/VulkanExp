@@ -67,6 +67,12 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 	float height = length(position);
 	vec3 lightDir = normalize(sunPosition);
 
+	// FIXME: Workaround for when we're 'exactly' on the surface
+	if(abs(height - InnerRadius) < 1e-3) {
+		position += 1e-2 * normalize(position);
+		height = length(position);
+	}
+
 	if(height < OuterRadius) {
 		// Stop at the horizon (Intersection with the planet). 
 		if(rayOrigin.y >= 0) {
