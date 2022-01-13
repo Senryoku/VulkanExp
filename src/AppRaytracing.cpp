@@ -43,6 +43,7 @@ void Application::createAccelerationStructure() {
 		submeshesCount += m.SubMeshes.size();
 	submeshesCount *= 2; // FIXME
 
+	std::vector<uint32_t>							submeshesIndices;
 	std::vector<VkTransformMatrixKHR>				transforms;
 	std::vector<VkAccelerationStructureGeometryKHR> geometries;
 	geometries.reserve(submeshesCount); // Avoid reallocation since buildInfos will refer to this.
@@ -69,6 +70,7 @@ void Application::createAccelerationStructure() {
 		if(n.mesh != -1) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+				submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
 				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
 				/*
 				 * Right now there's a one-to-one relation between submeshes and geometries.
@@ -193,7 +195,7 @@ void Application::createAccelerationStructure() {
 
 		_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 			.transform = transforms[customIndex],
-			.instanceCustomIndex = customIndex,
+			.instanceCustomIndex = submeshesIndices[customIndex],
 			.mask = 0xFF,
 			.instanceShaderBindingTableRecordOffset = 0,
 			.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,

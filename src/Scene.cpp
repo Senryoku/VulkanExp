@@ -339,12 +339,13 @@ void Scene::allocateMeshes(const Device& device) {
 	uint32_t						  totalIndexSize = 0;
 	std::vector<VkMemoryRequirements> memReqs;
 	std::vector<OffsetEntry>		  offsetTable;
-	for(const auto& m : getMeshes()) {
-		for(const auto& sm : m.SubMeshes) {
+	for(auto& m : getMeshes()) {
+		for(auto& sm : m.SubMeshes) {
 			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
 			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
+			sm.indexIntoOffsetTable = offsetTable.size();
 			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
 											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
 			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);

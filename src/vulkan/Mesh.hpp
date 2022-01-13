@@ -40,6 +40,7 @@ class SubMesh {
 	SubMesh(SubMesh&&) noexcept = default;
 
 	std::string name;
+	uint32_t	indexIntoOffsetTable = -1;
 	size_t		materialIndex = 0;
 	Material*	material = nullptr; // FIXME: Probably only use the index?
 
