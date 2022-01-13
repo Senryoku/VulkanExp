@@ -146,16 +146,22 @@ void Application::initVulkan() {
 	}
 
 	// Load a blank image
-	_blankTexture.source = "data/blank.png";
-	auto	 blankPath = _blankTexture.source.string();
-	STBImage image{blankPath};
-	Images.try_emplace(blankPath);
-	Images[blankPath].image.setDevice(_device);
-	Images[blankPath].image.upload(image, graphicsFamily);
-	Images[blankPath].imageView.create(_device, Images[blankPath].image, VK_FORMAT_R8G8B8A8_SRGB);
-	_blankTexture.gpuImage = &Images[blankPath];
-	_blankTexture.sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-									   Images[blankPath].image.getMipLevels());
+	_blankTexture = &_engineTextures.emplace_back();
+	_blankTexture->source = "data/blank.png";
+	_blankTexture->format = VK_FORMAT_R8G8B8A8_SRGB;
+
+	for(auto& tex : _engineTextures) {
+		auto	 path = tex.source.string();
+		STBImage source{path};
+		Images.try_emplace(path);
+		auto& img = Images[path];
+		tex.gpuImage = &img;
+		img.image.setDevice(_device);
+		img.image.upload(source, graphicsFamily);
+		img.imageView.create(_device, img.image, tex.format);
+		tex.sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+								 img.image.getMipLevels());
+	}
 
 	auto bounds = _scene.computeBounds();
 	_irradianceProbes.init(_device, transfertFamily, computeFamily, bounds.min, bounds.max);

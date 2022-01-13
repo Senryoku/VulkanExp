@@ -184,7 +184,7 @@ void Application::writeGBufferDescriptorSets() {
 						.offset = 0,
 						.range = sizeof(CameraBuffer),
 					});
-			auto& albedo = Materials[m].albedoTexture != -1 ? Textures[Materials[m].albedoTexture] : _blankTexture;
+			auto& albedo = Materials[m].albedoTexture != -1 ? Textures[Materials[m].albedoTexture] : *_blankTexture;
 			dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
 						.sampler = *albedo.sampler,
@@ -192,21 +192,21 @@ void Application::writeGBufferDescriptorSets() {
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
 			// Use a blank texture if this mesh doesn't have a normal map
-			auto& normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : _blankTexture;
+			auto& normals = Materials[m].normalTexture != -1 ? Textures[Materials[m].normalTexture] : *_blankTexture;
 			dsw.add(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
 						.sampler = *normals.sampler,
 						.imageView = normals.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
-			auto& metallicRoughness = Materials[m].metallicRoughnessTexture != -1 ? Textures[Materials[m].metallicRoughnessTexture] : _blankTexture;
+			auto& metallicRoughness = Materials[m].metallicRoughnessTexture != -1 ? Textures[Materials[m].metallicRoughnessTexture] : *_blankTexture;
 			dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
 						.sampler = *metallicRoughness.sampler,
 						.imageView = metallicRoughness.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
-			auto& emissive = Materials[m].emissiveTexture != -1 ? Textures[Materials[m].emissiveTexture] : _blankTexture;
+			auto& emissive = Materials[m].emissiveTexture != -1 ? Textures[Materials[m].emissiveTexture] : *_blankTexture;
 			dsw.add(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					{
 						.sampler = *emissive.sampler,

@@ -120,7 +120,8 @@ class Application {
 	RollingBuffer<float>	 _reflectionFilterTimes;
 	RollingBuffer<float>	 _gatherTimes;
 
-	Texture _blankTexture;
+	std::vector<Texture> _engineTextures;
+	Texture*			 _blankTexture = nullptr;
 
 	VkSwapchainKHR		   _swapChain;
 	VkFormat			   _swapChainImageFormat;
