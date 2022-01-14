@@ -277,10 +277,10 @@ void Application::createRayTracingPipeline() {
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
 	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Camera
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Result
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // Result
 	_rayTracingDescriptorSetLayout = dslBuilder.build(_device);
-	_rayTracingPipelineLayout.create(_device, {_rayTracingDescriptorSetLayout});
+	_rayTracingPipelineLayout.create(_device, {_rayTracingDescriptorSetLayout, _descriptorSetLayouts[0]});
 
 	/*
 		Setup ray tracing shader groups
@@ -397,7 +397,8 @@ void Application::recordRayTracingCommands() {
 
 		// Dispatch the ray tracing commands
 		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipeline);
-		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 1, &_rayTracingDescriptorPool.getDescriptorSets()[i], 0, 0);
+		const auto descSets = {_rayTracingDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
+		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipelineLayout, 0, 2, descSets.begin(), 0, 0);
 
 		vkCmdTraceRaysKHR(cmdBuff, &_raytracingShaderBindingTable.raygenEntry, &_raytracingShaderBindingTable.missEntry, &_raytracingShaderBindingTable.anyhitEntry,
 						  &_raytracingShaderBindingTable.callableEntry, _width, _height, 1);

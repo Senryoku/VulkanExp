@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#include "common.glsl"
 #include "Lights.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
@@ -27,10 +28,6 @@ layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
 layout(location = 1) rayPayloadEXT bool isShadowed;
-
-vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
-	return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
-}
 
 const float tmin = 0.1;
 const float tmax = 10000.0;
@@ -133,7 +130,6 @@ void main()
 		//if(payload.depth < 0) payload.color = vec4(0); // Because of the short tmax, we have to ignore misses. No sky reflection :( Maybe it's not worth it...
 	#else
 		// Single sample, Blue noise and importance sampling
-		// TODO: rotate the noise texture each frame (+ TAA?)
 		vec4 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0));
         vec3 H = ImportanceSampleGGX(noise.xy, normal, roughness);
         vec3 direction  = normalize(2.0 * dot(toOrigin, H) * H - toOrigin);
@@ -154,8 +150,7 @@ void main()
     vec3 prefilteredColor = vec3(0.0);     
     for(uint i = 0u; i < SAMPLE_COUNT; ++i)
     {
-        //vec2 Xi = Hammersley(i, SAMPLE_COUNT);
-		vec2 Xi = texture(blueNoise, vec2(gl_LaunchIDEXT.xy / 64.0)).xy;
+		vec2 Xi = texture(sampler2D(blueNoiseTextures[(SAMPLE_COUNT * ubo.frameIndex + i) % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0)).xy;
 		vec3 H  = ImportanceSampleGGX(Xi, normal, roughness);
         vec3 L  = normalize(2.0 * dot(toOrigin, H) * H - toOrigin);
 

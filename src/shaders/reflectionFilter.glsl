@@ -29,15 +29,13 @@ void main()
 #endif
         final += (1 / sqrt(2 * 3.14159 * sqrDev)) * exp(-(i * i) / (2 * sqrDev)) * imageLoad(inImage, coords + offset);
     }
-#ifdef DIRECTION_X
 #ifdef DISABLE
     imageStore(outImage, coords, imageLoad(inImage, coords));
 #else
-    imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
-#endif
-#else
-#ifndef DISABLE
-    imageStore(outImage, coords, vec4(final.rgb, 1.0));
-#endif
+    #ifdef DIRECTION_X
+            imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
+    #else
+            imageStore(outImage, coords, vec4(final.rgb, 1.0));
+    #endif
 #endif
 }

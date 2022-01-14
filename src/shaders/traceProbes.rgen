@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#include "common.glsl"
 #include "ProbeGrid.glsl"
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
@@ -21,10 +22,6 @@ layout(push_constant) uniform Push {
 #include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
-
-vec3 rotateAxis(vec3 p, vec3 axis, float angle) {
-	return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
-}
 
 const float tmin = 0.01;
 

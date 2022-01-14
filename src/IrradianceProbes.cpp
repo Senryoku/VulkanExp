@@ -197,7 +197,7 @@ void IrradianceProbes::createPipeline() {
 		shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 		Shader raymissShadowShader(*_device, "./shaders_spv/shadow.rmiss.spv");
 		shader_stages.push_back(raymissShadowShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
-		Shader closesthitShader(*_device, "./shaders_spv/closesthit.rchit.spv");
+		Shader closesthitShader(*_device, "./shaders_spv/closesthit_noreflection.rchit.spv");
 		shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 
 		// Ray generation group
