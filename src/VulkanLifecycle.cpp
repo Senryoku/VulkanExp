@@ -146,9 +146,14 @@ void Application::initVulkan() {
 	}
 
 	// Load a blank image
+	_engineTextures.reserve(1024);
 	_blankTexture = &_engineTextures.emplace_back();
 	_blankTexture->source = "data/blank.png";
 	_blankTexture->format = VK_FORMAT_R8G8B8A8_SRGB;
+
+	_blueNoiseTexture = &_engineTextures.emplace_back();
+	_blueNoiseTexture->source = "data/BlueNoise/64_64/LDR_RGBA_0.png";
+	_blueNoiseTexture->format = VK_FORMAT_R8G8B8A8_SRGB;
 
 	for(auto& tex : _engineTextures) {
 		auto	 path = tex.source.string();

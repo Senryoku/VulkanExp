@@ -122,6 +122,7 @@ class Application {
 
 	std::vector<Texture> _engineTextures;
 	Texture*			 _blankTexture = nullptr;
+	Texture*			 _blueNoiseTexture = nullptr;
 
 	VkSwapchainKHR		   _swapChain;
 	VkFormat			   _swapChainImageFormat;
@@ -131,7 +132,9 @@ class Application {
 	VkFormat			   _depthFormat;
 	uint32_t			   _lastImageIndex = 0;
 
-	CommandPool _transfertCommandPool;
+	CommandPool						 _transfertCommandPool;
+	std::vector<DescriptorSetLayout> _descriptorSetLayouts;
+	DescriptorPool					 _descriptorPool;
 
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
@@ -330,19 +333,11 @@ class Application {
 		VK_CHECK(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger));
 	}
 
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device) const {
-		uint32_t extensionCount;
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
+	bool checkDeviceExtensionSupport(const PhysicalDevice& device) const {
+		const auto&			  availableExtensions = device.getExtensions();
 		std::set<std::string> requiredExtensions(_requiredDeviceExtensions.begin(), _requiredDeviceExtensions.end());
-
-		for(const auto& extension : availableExtensions) {
+		for(const auto& extension : availableExtensions)
 			requiredExtensions.erase(extension.extensionName);
-		}
-
 		return requiredExtensions.empty();
 	}
 
@@ -358,7 +353,6 @@ class Application {
 		// FIXME: This should be made optional
 		if(!device.getFeatures().samplerAnisotropy)
 			return 0;
-
 		auto swapChainSupport = device.getSwapChainSupport(_surface);
 		if(swapChainSupport.formats.empty() || swapChainSupport.presentModes.empty())
 			return 0;

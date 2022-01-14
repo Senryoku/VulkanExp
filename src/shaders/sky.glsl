@@ -61,8 +61,8 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 	//sunColor = normalize(sunColor);
 	sunColor *= sunBrightnessFactor;
 	
-	// Translate so y = 0 is on the planet surface
-	const vec3 planetCenter = vec3(0, -InnerRadius, 0);
+	// Translate so y = -100 is on the planet surface
+	const vec3 planetCenter = vec3(0, -InnerRadius - 100, 0);
 	vec3 position = rayOrigin - planetCenter;
 	float height = length(position);
 	vec3 lightDir = normalize(sunPosition);
@@ -75,11 +75,11 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 
 	if(height < OuterRadius) {
 		// Stop at the horizon (Intersection with the planet). 
-		if(rayOrigin.y >= 0) {
+		if(height > InnerRadius) {
 			float planetDistance = traceSphereOutside(vec3(0), InnerRadius, position, rayDirection);
-			if(planetDistance >= 0) return vec3(0);
-		} else { // We're inside the planet, arbitrary cutoff
-			if(rayDirection.y <= 0) return vec3(0);
+			if(planetDistance >= 0) return max(0.1, dot(lightDir, normalize(position + planetDistance * rayDirection))) * vec3(0.1);
+		} else { // We're inside the planet, just display something to help orient ourself :D
+			return dot(vec3(0, 1, 0), rayDirection) * vec3(0.25, 0, 0) + dot(vec3(0, -1, 0), rayDirection) * vec3(0, 0.25, 0);
 		}
 
 		float rayDepth = traceSphereInside(vec3(0), OuterRadius, position, rayDirection);
@@ -119,7 +119,7 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 	} else { // We're outside the atmosphere, TODO, or TOIGNORE :)
 		float depth = traceSphereOutside(vec3(0), OuterRadius, position, rayDirection);
 		if(depth > 0) {
-			return 0.5f * vec3(0.5294117647, 0.80784313725, 0.92156862745);
+			return dot(lightDir, normalize(position + depth * rayDirection)) * 0.5f * vec3(0.5294117647, 0.80784313725, 0.92156862745);
 		}
 	}
 	return vec3(0);

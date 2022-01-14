@@ -1,6 +1,79 @@
 #include "Application.hpp"
 
 void Application::createGBufferPipeline() {
+	RenderPassBuilder rpb;
+	// Attachments
+	rpb.add({
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+				.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+			})
+		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+		})
+		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+		})
+		.add({
+			.format = _depthFormat,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		})
+		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
+					{// Output (GBuffer)
+					 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+					 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+					 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+					{}, {},
+					{// Depth
+					 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+					{})
+		// Dependencies (FIXME!)
+		.add({
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		});
+	_gbufferRenderPass = rpb.build(_device);
+
+	_gbufferFramebuffers.resize(_swapChainImageViews.size());
+	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+		_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
+									   {
+										   _gbufferImageViews[3 * i + 0],
+										   _gbufferImageViews[3 * i + 1],
+										   _gbufferImageViews[3 * i + 2],
+										   _depthImageView,
+									   },
+									   _swapChainExtent);
+
 	Shader vertShader(_device, "./shaders_spv/GBuffer.vert.spv");
 	Shader fragShader(_device, "./shaders_spv/GBuffer.frag.spv");
 

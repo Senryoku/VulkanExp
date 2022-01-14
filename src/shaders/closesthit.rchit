@@ -150,21 +150,25 @@ void main()
 		emissiveLight *= textureGrad(textures[m.emissiveTexture], texCoord, grad.xy, grad.zw).rgb;
 	}
 
-	vec3 color = vec3(0) + emissiveLight;
-
-	vec3 indirectLight = sampleProbes(position, normal, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);  
-	color += indirectLight * texColor.rgb;	
-	
 	float tmax = 10000.0;
-	/*
-	vec3 specularLight = indirectLight; // FIXME: Should trace another ray in primary rays of the full ray traced path; Revert to just the indirect light as a cheap alternative for everything else.
-	vec3 reflectDir = reflect(normalize(position - gl_WorldRayOriginEXT), normal);
+
+	vec3 color = vec3(0) + emissiveLight;
+		
+	vec3 f0 = vec3(0.04);
+	vec3 diffuseColor = texColor.rgb * (1.0 - f0);
+	diffuseColor *= (1.0 - metalness);
+
+	// Specular (Use irradiance from prbes as a crude approximation on secondary rays)
+	vec3 specularColor = mix(f0, texColor.rgb, metalness);
+	vec3 reflectDir = reflect(gl_WorldRayDirectionEXT, normal);
+	vec3 reflection;
 	if(payload.recursionDepth == 0) {
 		++payload.recursionDepth;
+		// FIXME: Roughness isn't taken into account here (but this path should only be used of debugging)
 		vec2 polar = cartesianToPolar(reflectDir);
 		payload.color = vec4(0);
-		payload.raydx = polarToCartesian(polar + vec2(0.1f, 0));
-		payload.raydy = polarToCartesian(polar + vec2(0, 0.1f));
+		payload.raydx = polarToCartesian(polar + vec2(0.001f, 0));
+		payload.raydy = polarToCartesian(polar + vec2(0, 0.001f));
 		traceRayEXT(topLevelAS,        // acceleration structure
 				0,                     // rayFlags
 				0xFF,                  // cullMask
@@ -172,15 +176,21 @@ void main()
 				0,                     // sbtRecordStride
 				0,                     // missIndex
 				position,              // ray origin
-				0.1,                   // ray min range
+				0.01,                   // ray min range
 				reflectDir,            // ray direction
 				tmax,                  // ray max range
 				0                      // payload location 0
 		);
 		--payload.recursionDepth;
-		specularLight = payload.color.rgb;
+		reflection = payload.color.rgb;
+	} else {
+		reflection = sampleProbes(position, reflectDir, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);
 	}
-	*/
+	color.rgb += specularColor * reflection.rgb;
+	
+	// Indirect Light (Radiance from probes)
+	vec3 indirectLight = sampleProbes(position, normal, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);  
+	color.rgb += indirectLight * diffuseColor;
 
 	// Direct lighting
 	isShadowed = true;

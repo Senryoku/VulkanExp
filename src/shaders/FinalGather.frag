@@ -49,12 +49,11 @@ void main() {
 	diffuseColor *= (1.0 - metalness);
 
 	// Specular (???)
-	vec3 view = normalize(position - origin);
-	// FIXME: The (1.0 - roughness) factor is completely arbitrary. Figure out the proper attenuation once we also have a proper filtering.
 	vec3 specularColor = mix(f0, albedo.rgb, metalness);
 	color.rgb += specularColor * reflection.rgb;
 	
 	// Indirect Light (Radiance from probes)
+	vec3 view = normalize(position - origin);
 	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;
 	color.rgb += indirectLight * diffuseColor;
 }

@@ -29,9 +29,9 @@ void Application::run() {
 	{
 		QuickTimer qt("glTF load");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
+		//_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
-		//_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
+		_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.loadglTF("./data/models/postwar_city_-_exterior_scene/scene.gltf");
 		//_scene.loadglTF("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}

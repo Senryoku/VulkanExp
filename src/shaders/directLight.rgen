@@ -60,6 +60,7 @@ void main()
 		vec3 color = vec3(0.0);
 		isShadowed = true;
 		float tmax = 10000.0;
+		// TODO: Add a shadow offset? (Needs to pass a lot more geometric data, or 'just' the bias (a vec3, probably compressible to a vec2).
 		traceRayEXT(topLevelAS,            // acceleration structure
 					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
 					0xFF,                  // cullMask

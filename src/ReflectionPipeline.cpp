@@ -62,7 +62,7 @@ void Application::createReflectionPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR);										  // 16 Result (Direct Light)
 
 	_reflectionDescriptorSetLayout = dslBuilder.build(_device);
-	_reflectionPipeline.getLayout().create(_device, {_reflectionDescriptorSetLayout});
+	_reflectionPipeline.getLayout().create(_device, {_reflectionDescriptorSetLayout, _descriptorSetLayouts[0].getHandle()});
 
 	VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -127,7 +127,9 @@ void Application::createReflectionPipeline() {
 	}
 
 	DescriptorSetLayoutBuilder filterDSLB;
-	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT).add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
 	_reflectionFilterDescriptorSetLayout = filterDSLB.build(_device);
 	_reflectionFilterPipelineX.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
 	Shader						filterShaderX(_device, "./shaders_spv/reflectionFilterX.comp.spv");
@@ -163,10 +165,15 @@ void Application::createReflectionPipeline() {
 			writer
 				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionImageViews[i],
+						 .imageView = _gbufferImageViews[3 * i + 0],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _reflectionImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionFilteredImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -177,10 +184,15 @@ void Application::createReflectionPipeline() {
 			writer2
 				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageView = _gbufferImageViews[3 * i + 0],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionFilteredImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,

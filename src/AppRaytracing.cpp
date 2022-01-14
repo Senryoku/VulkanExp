@@ -43,20 +43,20 @@ void Application::createAccelerationStructure() {
 		submeshesCount += m.SubMeshes.size();
 	submeshesCount *= 2; // FIXME
 
-	std::vector<uint32_t>							submeshesIndices;
-	std::vector<VkTransformMatrixKHR>				transforms;
-	std::vector<VkAccelerationStructureGeometryKHR> geometries;
-	geometries.reserve(submeshesCount); // Avoid reallocation since buildInfos will refer to this.
+	std::vector<uint32_t>									 submeshesIndices;
+	std::vector<VkTransformMatrixKHR>						 transforms;
+	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 rangeInfos;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR*>	 pRangeInfos;
+	std::vector<size_t>										 scratchBufferSizes;
+	size_t													 scratchBufferSize = 0;
+	std::vector<uint32_t>									 blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
+	size_t													 totalBLASSize = 0;
+	std::vector<VkAccelerationStructureBuildSizesInfoKHR>	 buildSizesInfo;
+	geometries.reserve(submeshesCount); // Avoid reallocation since buildInfos will refer to this.
 	rangeInfos.reserve(submeshesCount); // Avoid reallocation since pRangeInfos will refer to this.
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
-	std::vector<size_t>									   scratchBufferSizes;
-	size_t												   scratchBufferSize = 0;
-	std::vector<uint32_t>								   blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
 	blasOffsets.reserve(submeshesCount);
-	size_t												  totalBLASSize = 0;
-	std::vector<VkAccelerationStructureBuildSizesInfoKHR> buildSizesInfo;
 	buildSizesInfo.reserve(submeshesCount);
 
 	const auto&												 meshes = _scene.getMeshes();

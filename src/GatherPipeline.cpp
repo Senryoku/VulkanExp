@@ -2,6 +2,106 @@
 
 // Create final gather pipeline (No actual geometry)
 void Application::createGatherPipeline() {
+	RenderPassBuilder rpb;
+	// Attachments
+	rpb.add({
+				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+				.samples = VK_SAMPLE_COUNT_1_BIT,
+				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			})
+		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		})
+		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		})
+		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		})
+		.add({
+			.format = _swapChainImageFormat,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		})
+		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
+					{
+						// Output
+						{4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+					},
+					{
+						// Inputs (GBuffer)
+						{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						{1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						{2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Direct Light
+					},
+					{},
+					// Depth
+					{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL}, {})
+		// Dependencies (FIXME! I have no idea what I'm doing)
+		.add({
+			// Input Deps (?)
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+		})
+		.add({
+			// Output Deps (?)
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = 0,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		});
+	_gatherRenderPass = rpb.build(_device);
+
+	_gatherFramebuffers.resize(_swapChainImageViews.size());
+	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+		_gatherFramebuffers[i].create(_device, _gatherRenderPass,
+									  {
+										  _gbufferImageViews[3 * i + 0],
+										  _gbufferImageViews[3 * i + 1],
+										  _gbufferImageViews[3 * i + 2],
+										  _directLightImageViews[i],
+										  _swapChainImageViews[i],
+									  },
+									  _swapChainExtent);
+
 	Shader gatherVertShader(_device, "./shaders_spv/FullScreenQuad.vert.spv");
 	Shader gatherFragShader(_device, "./shaders_spv/FinalGather.frag.spv");
 

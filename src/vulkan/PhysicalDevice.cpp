@@ -16,4 +16,9 @@ void PhysicalDevice::init() {
 	vkGetPhysicalDeviceQueueFamilyProperties(_handle, &queueFamilyCount, nullptr);
 	_queueFamilies.resize(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(_handle, &queueFamilyCount, _queueFamilies.data());
+
+	uint32_t extensionCount;
+	vkEnumerateDeviceExtensionProperties(_handle, nullptr, &extensionCount, nullptr);
+	_extensions.resize(extensionCount);
+	vkEnumerateDeviceExtensionProperties(_handle, nullptr, &extensionCount, _extensions.data());
 }

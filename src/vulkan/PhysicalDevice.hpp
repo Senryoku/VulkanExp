@@ -18,6 +18,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 
 	void init();
 
+	const std::vector<VkExtensionProperties>&	  getExtensions() const { return _extensions; }
 	const VkPhysicalDeviceFeatures&				  getFeatures() const { return _features; }
 	const VkPhysicalDeviceProperties&			  getProperties() const { return _properties; };
 	const VkPhysicalDeviceRayTracingPropertiesNV& getRaytracingPipelineProperties() const { return _rayTracingProperties; };
@@ -144,6 +145,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	}
 
   private:
+	std::vector<VkExtensionProperties>	   _extensions;
 	VkPhysicalDeviceFeatures			   _features{};
 	VkPhysicalDeviceProperties			   _properties{};
 	VkPhysicalDeviceMemoryProperties	   _memoryProperties{};

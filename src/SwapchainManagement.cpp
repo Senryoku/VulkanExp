@@ -445,180 +445,33 @@ void Application::initProbeDebug() {
 }
 
 void Application::initSwapChain() {
-	{
-		RenderPassBuilder rpb;
-		// Attachments
-		rpb.add({
-					.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-					.samples = VK_SAMPLE_COUNT_1_BIT,
-					.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-					.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-				})
-			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-			})
-			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-			})
-			.add({
-				.format = _depthFormat,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			})
-			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-						{// Output (GBuffer)
-						 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-						 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-						 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
-						{}, {},
-						{// Depth
-						 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
-						{})
-			// Dependencies (FIXME!)
-			.add({
-				.srcSubpass = VK_SUBPASS_EXTERNAL,
-				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			});
-		_gbufferRenderPass = rpb.build(_device);
-
-		_gbufferFramebuffers.resize(_swapChainImageViews.size());
-		for(size_t i = 0; i < _swapChainImageViews.size(); i++)
-			_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
-										   {
-											   _gbufferImageViews[3 * i + 0],
-											   _gbufferImageViews[3 * i + 1],
-											   _gbufferImageViews[3 * i + 2],
-											   _depthImageView,
-										   },
-										   _swapChainExtent);
+	// Generic DescriptorSetLayouts
+	DescriptorSetLayoutBuilder builder;																													 // Blue Noise DSL
+	builder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Blue Noise
+	_descriptorSetLayouts.push_back(builder.build(_device));
+	DescriptorPoolBuilder poolBuilder;
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1024)
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1024)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024)
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024);
+	_descriptorPool = poolBuilder.build(_device, _swapChainImages.size() * _descriptorSetLayouts.size());
+	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
+	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+		for(size_t index = 0; index < _descriptorSetLayouts.size(); ++index) {
+			layoutsToAllocate.push_back(_descriptorSetLayouts[index]);
+		}
 	}
-	{
-		RenderPassBuilder rpb;
-		// Attachments
-		rpb.add({
-					.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-					.samples = VK_SAMPLE_COUNT_1_BIT,
-					.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-					.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-					.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-					.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-					.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-					.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				})
-			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			})
-			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			})
-			.add({
-				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-				.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			})
-			.add({
-				.format = _swapChainImageFormat,
-				.samples = VK_SAMPLE_COUNT_1_BIT,
-				.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-				.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-				.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			})
-			.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
-						{
-							// Output
-							{4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-						},
-						{
-							// Inputs (GBuffer)
-							{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-							{1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-							{2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-							{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Direct Light
-						},
-						{},
-						// Depth
-						{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL}, {})
-			// Dependencies (FIXME! I have no idea what I'm doing)
-			.add({
-				// Input Deps (?)
-				.srcSubpass = VK_SUBPASS_EXTERNAL,
-				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-			})
-			.add({
-				// Output Deps (?)
-				.srcSubpass = VK_SUBPASS_EXTERNAL,
-				.dstSubpass = 0,
-				.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				.srcAccessMask = 0,
-				.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			});
-		_gatherRenderPass = rpb.build(_device);
-
-		_gatherFramebuffers.resize(_swapChainImageViews.size());
-		for(size_t i = 0; i < _swapChainImageViews.size(); i++)
-			_gatherFramebuffers[i].create(_device, _gatherRenderPass,
-										  {
-											  _gbufferImageViews[3 * i + 0],
-											  _gbufferImageViews[3 * i + 1],
-											  _gbufferImageViews[3 * i + 2],
-											  _directLightImageViews[i],
-											  _swapChainImageViews[i],
-										  },
-										  _swapChainExtent);
+	_descriptorPool.allocate(layoutsToAllocate);
+	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+		DescriptorSetWriter dsw(_descriptorPool.getDescriptorSets()[i]);
+		dsw.add(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				{
+					.sampler = *_blueNoiseTexture->sampler,
+					.imageView = _blueNoiseTexture->gpuImage->imageView,
+					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				});
+		dsw.update(_device);
 	}
 
 	initUniformBuffers();
@@ -708,7 +561,8 @@ void Application::recordCommandBuffers() {
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
 
 		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, 1, &_reflectionDescriptorPool.getDescriptorSets()[i], 0, 0);
+		auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, 2, descriptors.begin(), 0, 0);
 		vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
 						  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
 
@@ -727,7 +581,18 @@ void Application::recordCommandBuffers() {
 								0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
 		// Memory Barrier
-		Image::setLayout(b, _reflectionFilteredImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
+		VkImageMemoryBarrier barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = _reflectionFilteredImages[i],
+			.subresourceRange = wholeImage,
+		};
+		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 		_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0,
 								0);
@@ -818,6 +683,7 @@ void Application::cleanupSwapChain() {
 	_cameraUniformBuffersMemory.free();
 	_lightUniformBuffers.clear();
 	_lightUniformBuffersMemory.free();
+	_descriptorPool.destroy();
 	_gbufferDescriptorPool.destroy();
 	_directLightDescriptorPool.destroy();
 	_reflectionDescriptorPool.destroy();
@@ -836,6 +702,7 @@ void Application::cleanupSwapChain() {
 	_reflectionFilterPipelineY.destroy();
 	_gatherPipeline.destroy();
 
+	_descriptorSetLayouts.clear();
 	_gbufferDescriptorSetLayouts.clear();
 	_directLightDescriptorSetLayout.destroy();
 	_reflectionDescriptorSetLayout.destroy();
