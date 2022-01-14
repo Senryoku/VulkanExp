@@ -6,6 +6,7 @@ layout(binding = 11, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	uint frameIndex;
 } ubo;
 layout(binding = 12, set = 0, rgba8) uniform image2D image;
 

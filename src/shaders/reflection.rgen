@@ -11,6 +11,7 @@ layout(binding = 11, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	uint frameIndex;
 } ubo;
 layout(binding = 12, set = 0, rgba32f) uniform image2D positionDepthTex;
 layout(binding = 13, set = 0, rgba32f) uniform image2D normalMetalnessTex;
@@ -18,7 +19,8 @@ layout(binding = 14, set = 0, rgba32f) uniform image2D albedoRoughnessTex;
 
 layout(binding = 15, set = 0, rgba32f) uniform image2D reflectionOut;
 
-layout(set = 1, binding = 0) uniform sampler2D blueNoise;
+layout(set = 1, binding = 0) uniform sampler blueNoiseSampler;
+layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
 
 #include "rayPayload.glsl"
 #include "pbrMetallicRoughness.glsl"
@@ -132,7 +134,7 @@ void main()
 	#else
 		// Single sample, Blue noise and importance sampling
 		// TODO: rotate the noise texture each frame (+ TAA?)
-		vec4 noise = texture(blueNoise, vec2(gl_LaunchIDEXT.xy / 64.0));
+		vec4 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0));
         vec3 H = ImportanceSampleGGX(noise.xy, normal, roughness);
         vec3 direction  = normalize(2.0 * dot(toOrigin, H) * H - toOrigin);
 		payload.raydx = rotateAxis(direction, normal, 0.001);

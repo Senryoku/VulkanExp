@@ -47,6 +47,7 @@
 struct CameraBuffer {
 	glm::mat4 view;
 	glm::mat4 proj;
+	uint32_t  frameIndex;
 };
 
 struct GBufferPushConstant {
@@ -122,7 +123,7 @@ class Application {
 
 	std::vector<Texture> _engineTextures;
 	Texture*			 _blankTexture = nullptr;
-	Texture*			 _blueNoiseTexture = nullptr;
+	Texture*			 _blueNoiseTextures[64]{nullptr};
 
 	VkSwapchainKHR		   _swapChain;
 	VkFormat			   _swapChainImageFormat;
@@ -255,6 +256,7 @@ class Application {
 
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	size_t	  _currentFrame = 0;
+	uint32_t  _frameIndex = 0;
 
 	bool   _controlCamera = false;
 	Camera _camera{glm::vec3(-380.0f, 650.0f, 120.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};

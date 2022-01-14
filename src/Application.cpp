@@ -177,6 +177,7 @@ void Application::drawFrame() {
 	}
 
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	++_frameIndex;
 }
 
 void Application::cameraControl(float dt) {
@@ -228,6 +229,7 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 		CameraBuffer ubo{
 			.view = _camera.getViewMatrix(),
 			.proj = _camera.getProjectionMatrix(),
+			.frameIndex = _frameIndex,
 		};
 		ubo.proj[1][1] *= -1;
 

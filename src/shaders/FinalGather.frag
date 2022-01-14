@@ -17,6 +17,7 @@ layout(binding = 10, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	uint frameIndex;
 } ubo;
 
 #include "irradiance.glsl"

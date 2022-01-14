@@ -4,6 +4,7 @@
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
+	uint frameIndex;
 } ubo;
 
 layout(push_constant) uniform constants

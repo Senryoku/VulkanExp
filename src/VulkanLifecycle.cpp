@@ -151,9 +151,11 @@ void Application::initVulkan() {
 	_blankTexture->source = "data/blank.png";
 	_blankTexture->format = VK_FORMAT_R8G8B8A8_SRGB;
 
-	_blueNoiseTexture = &_engineTextures.emplace_back();
-	_blueNoiseTexture->source = "data/BlueNoise/64_64/LDR_RGBA_0.png";
-	_blueNoiseTexture->format = VK_FORMAT_R8G8B8A8_SRGB;
+	for(size_t i = 0; i < 64; ++i) {
+		_blueNoiseTextures[i] = &_engineTextures.emplace_back();
+		_blueNoiseTextures[i]->source = fmt::format("data/BlueNoise/64_64/LDR_RGBA_{}.png", i);
+		_blueNoiseTextures[i]->format = VK_FORMAT_R8G8B8A8_UNORM;
+	}
 
 	for(auto& tex : _engineTextures) {
 		auto	 path = tex.source.string();
@@ -162,7 +164,7 @@ void Application::initVulkan() {
 		auto& img = Images[path];
 		tex.gpuImage = &img;
 		img.image.setDevice(_device);
-		img.image.upload(source, graphicsFamily);
+		img.image.upload(source, graphicsFamily, tex.format);
 		img.imageView.create(_device, img.image, tex.format);
 		tex.sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 								 img.image.getMipLevels());

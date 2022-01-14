@@ -11,6 +11,7 @@ layout(binding = 11, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	uint frameIndex;
 } ubo;
 layout(binding = 12, set = 0, rgba32f) uniform image2D positionDepthTex;
 layout(binding = 13, set = 0, rgba32f) uniform image2D normalMetalnessTex;
@@ -74,6 +75,7 @@ void main()
 					1                      // payload (location = 1)
 		);
 		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
+		// https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf Chapter 24
 		if(!isShadowed) {
 			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
 			color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, vec4(albedo, 1.0), metalness, roughness).rgb;

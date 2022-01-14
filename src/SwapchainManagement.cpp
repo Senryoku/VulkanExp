@@ -446,8 +446,10 @@ void Application::initProbeDebug() {
 
 void Application::initSwapChain() {
 	// Generic DescriptorSetLayouts
-	DescriptorSetLayoutBuilder builder;																													 // Blue Noise DSL
-	builder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR); // Blue Noise
+	DescriptorSetLayoutBuilder builder; // Blue Noise DSL
+	builder
+		.add(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR)			 // Sampler
+		.add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR, 64); // Blue Noise Textures
 	_descriptorSetLayouts.push_back(builder.build(_device));
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1024)
@@ -462,15 +464,23 @@ void Application::initSwapChain() {
 			layoutsToAllocate.push_back(_descriptorSetLayouts[index]);
 		}
 	}
+	std::vector<VkDescriptorImageInfo> descInfos;
+	for(size_t i = 0; i < 64; ++i)
+		descInfos.push_back({
+			.sampler = nullptr,
+			.imageView = _blueNoiseTextures[i]->gpuImage->imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		});
 	_descriptorPool.allocate(layoutsToAllocate);
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 		DescriptorSetWriter dsw(_descriptorPool.getDescriptorSets()[i]);
-		dsw.add(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		dsw.add(0, VK_DESCRIPTOR_TYPE_SAMPLER,
 				{
-					.sampler = *_blueNoiseTexture->sampler,
-					.imageView = _blueNoiseTexture->gpuImage->imageView,
+					.sampler = *_blueNoiseTextures[0]->sampler,
+					.imageView = VK_NULL_HANDLE,
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				});
+		dsw.add(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, descInfos);
 		dsw.update(_device);
 	}
 

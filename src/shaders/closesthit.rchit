@@ -189,14 +189,14 @@ void main()
 	color.rgb += specularColor * reflection.rgb;
 	
 	// Indirect Light (Radiance from probes)
-	vec3 indirectLight = sampleProbes(position, normal, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);  
+	vec3 indirectLight = sampleProbes(position, normal, -gl_WorldRayDirectionEXT, grid, irradianceColor, irradianceDepth);
 	color.rgb += indirectLight * diffuseColor;
 
 	// Direct lighting
 	isShadowed = true;
 	vec3 shadowBiasedPosition = position;
 	#if 0
-	// Shadow offset described in Ray Tracing Gems II (https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf)
+	// Shadow offset described in Ray Tracing Gems II (https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf) Chapter 4
 	// Sometimes helps (avoid small harsh shadows), but isn't very convincing overall.
 	vec3 tmpu = position - v0.pos;
 	vec3 tmpv = position - v1.pos;
