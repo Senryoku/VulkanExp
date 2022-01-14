@@ -1286,7 +1286,7 @@
     },
     {
       "children": [
-        
+        14
       ],
       "matrix": [
         1,
@@ -1307,6 +1307,10 @@
         1
       ],
       "name": "Sky"
+    },
+    {
+      "mesh": 6,
+      "name": "Sky_Sky_0"
     }
   ],
   "samplers": [
