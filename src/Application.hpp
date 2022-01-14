@@ -152,8 +152,8 @@ class Application {
 	Pipeline						 _gbufferPipeline;
 	std::vector<Image>				 _reflectionImages;
 	std::vector<ImageView>			 _reflectionImageViews;
-	std::vector<Image>				 _reflectionFilteredImages;
-	std::vector<ImageView>			 _reflectionFilteredImageViews;
+	std::vector<Image>				 _reflectionIntermediateFilterImages;
+	std::vector<ImageView>			 _reflectionIntermediateFilterImageViews;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
 	DescriptorPool					 _directLightDescriptorPool;

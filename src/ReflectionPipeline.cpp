@@ -175,7 +175,7 @@ void Application::createReflectionPipeline() {
 					 })
 				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageView = _reflectionIntermediateFilterImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.update(_device);
@@ -189,12 +189,12 @@ void Application::createReflectionPipeline() {
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageView = _reflectionIntermediateFilterImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionFilteredImageViews[i],
+						 .imageView = _reflectionImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.update(_device);

@@ -267,7 +267,7 @@ void Application::createGatherPipeline() {
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _reflectionFilteredImageViews[i],
+					 .imageView = _reflectionImageViews[i],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
