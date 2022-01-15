@@ -62,7 +62,7 @@ void Application::createDirectLightPipeline() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // 16 Result (Direct Light)
 
 	_directLightDescriptorSetLayout = dslBuilder.build(_device);
-	_directLightPipeline.getLayout().create(_device, {_directLightDescriptorSetLayout});
+	_directLightPipeline.getLayout().create(_device, {_directLightDescriptorSetLayout, _descriptorSetLayouts[0].getHandle()});
 
 	VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,

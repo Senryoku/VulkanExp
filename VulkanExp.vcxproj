@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -120,6 +120,8 @@
     <None Include="shaders\triangle.vert" />
     <None Include="shaders\ubo.vert" />
     <None Include="src\IrradianceProbes.hpp" />
+    <None Include="src\shaders\closesthit.glsl" />
+    <None Include="src\shaders\closesthit_noreflection.rchit" />
     <None Include="src\shaders\directLight.rgen" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\anyhit.rahit" />

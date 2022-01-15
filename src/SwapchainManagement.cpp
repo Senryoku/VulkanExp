@@ -571,20 +571,21 @@ void Application::recordCommandBuffers() {
 		};
 
 		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
-
-		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
-		auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, 2, descriptors.begin(), 0, 0);
-		vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
-						  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
-
+		{
+			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
+			const auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
+			vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
+							  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
+		}
 		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
-
-		vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline.getLayout(), 0, 1, &_directLightDescriptorPool.getDescriptorSets()[i], 0, 0);
-		vkCmdTraceRaysKHR(b, &_directLightShaderBindingTable.raygenEntry, &_directLightShaderBindingTable.missEntry, &_directLightShaderBindingTable.anyhitEntry,
-						  &_directLightShaderBindingTable.callableEntry, _width, _height, 1);
-
+		{
+			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
+			const auto descriptors = {_directLightDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
+			vkCmdTraceRaysKHR(b, &_directLightShaderBindingTable.raygenEntry, &_directLightShaderBindingTable.missEntry, &_directLightShaderBindingTable.anyhitEntry,
+							  &_directLightShaderBindingTable.callableEntry, _width, _height, 1);
+		}
 		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 3);
 
 		// Filter Reflections (Not physically based)

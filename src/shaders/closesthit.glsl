@@ -42,7 +42,7 @@ layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
 layout(location = 0) rayPayloadInEXT rayPayload payload;
 layout(location = 1) rayPayloadEXT bool isShadowed;
 
-hitAttributeEXT vec3 attribs;
+hitAttributeEXT vec2 attribs;
 
 // Tracing Ray Differentials http://graphics.stanford.edu/papers/trd/trd.pdf
 // https://github.com/kennyalive/vulkan-raytracing/blob/master/src/shaders/rt_utils.glsl

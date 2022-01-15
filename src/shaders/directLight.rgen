@@ -3,21 +3,24 @@
 
 #include "Lights.glsl"
 
-layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 10, set = 0) uniform LightUBO {
+layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(set = 0, binding = 10) uniform LightUBO {
 	Light DirectionalLight;
 };
-layout(binding = 11, set = 0) uniform UniformBufferObject 
+layout(set = 0, binding = 11) uniform UniformBufferObject 
 {
     mat4 view;
     mat4 proj;
 	uint frameIndex;
 } ubo;
-layout(binding = 12, set = 0, rgba32f) uniform image2D positionDepthTex;
-layout(binding = 13, set = 0, rgba32f) uniform image2D normalMetalnessTex;
-layout(binding = 14, set = 0, rgba32f) uniform image2D albedoRoughnessTex;
+layout(set = 0, binding = 12, rgba32f) uniform image2D positionDepthTex;
+layout(set = 0, binding = 13, rgba32f) uniform image2D normalMetalnessTex;
+layout(set = 0, binding = 14, rgba32f) uniform image2D albedoRoughnessTex;
 
-layout(binding = 15, set = 0, rgba32f) uniform image2D directLightOut;
+layout(set = 0, binding = 15, rgba32f) uniform image2D directLightOut;
+
+layout(set = 1, binding = 0) uniform sampler blueNoiseSampler;
+layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
 
 #include "pbrMetallicRoughness.glsl"
 
@@ -61,18 +64,24 @@ void main()
 		vec3 color = vec3(0.0);
 		isShadowed = true;
 		float tmax = 10000.0;
+		vec3 direction = normalize(DirectionalLight.direction.xyz);
+		// Take a single sample on the disk
+		float angle = 0.01; // Angle diameter of our primary light source (rad)
+		vec4 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0));
+		vec3 temp = rotateAxis(direction, normalize(cross(normal, direction)), 2 * (noise.x - 0.5) * angle); // FIXME: The distribution is probably biased here, but I don't think it should matter that much for such small angles.
+		direction = rotateAxis(temp, direction, 2.0 * pi * noise.y);
 		// TODO: Add a shadow offset? (Needs to pass a lot more geometric data, or 'just' the bias (a vec3, probably compressible to a vec2).
-		traceRayEXT(topLevelAS,            // acceleration structure
+		traceRayEXT(topLevelAS,                                                                         // acceleration structure
 					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
-					0xFF,                  // cullMask
-					0,                     // sbtRecordOffset
-					0,                     // sbtRecordStride
-					1,                     // missIndex
-					position,              // ray origin
-					0.1,                   // ray min range
-					DirectionalLight.direction.xyz,             // ray direction
-					tmax,                  // ray max range
-					1                      // payload (location = 1)
+					0xFF,                                                                               // cullMask
+					0,                                                                                  // sbtRecordOffset
+					0,                                                                                  // sbtRecordStride
+					1,                                                                                  // missIndex
+					position,                                                                           // ray origin
+					0.1,                                                                                // ray min range
+					direction,                                                                          // ray direction
+					tmax,                                                                               // ray max range
+					1                                                                                   // payload (location = 1)
 		);
 		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
 		// https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf Chapter 24
