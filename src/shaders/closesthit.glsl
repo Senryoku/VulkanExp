@@ -237,19 +237,21 @@ void main()
 	// Direct lighting
 	isShadowed = true;
 	vec3 shadowBiasedPosition = position;
-	#if 1
+	#if 0
 	// Shadow offset described in Ray Tracing Gems II (https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf) Chapter 4
 	// Sometimes helps (avoid small harsh shadows), but isn't very convincing overall.
-	vec3 tmpu = position - v0.pos;
-	vec3 tmpv = position - v1.pos;
-	vec3 tmpw = position - v2.pos;
+	// FIXME: Something is still very wrong.
+	vec3 localPos = barycentricCoords.x * v0.pos + barycentricCoords.y * v1.pos + barycentricCoords.z * v2.pos;
+	vec3 tmpu = localPos - v0.pos;
+	vec3 tmpv = localPos - v1.pos;
+	vec3 tmpw = localPos - v2.pos;
 	float dotu = min(0.0, dot(tmpu, v0.normal));
 	float dotv = min(0.0, dot(tmpv, v1.normal));
 	float dotw = min(0.0, dot(tmpw, v2.normal));
 	tmpu -= dotu * v0.normal;
 	tmpv -= dotv * v1.normal;
 	tmpw -= dotw * v2.normal;
-	shadowBiasedPosition += barycentricCoords.x * tmpu + barycentricCoords.y * tmpv + barycentricCoords.z * tmpw;
+	shadowBiasedPosition += vec3(gl_ObjectToWorld3x4EXT * (barycentricCoords.x * tmpu + barycentricCoords.y * tmpv + barycentricCoords.z * tmpw));
 	#endif
 	traceRayEXT(topLevelAS,            // acceleration structure
 		gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
