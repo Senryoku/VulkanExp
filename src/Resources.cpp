@@ -97,7 +97,7 @@ void uploadTextures(const Device& device, VkQueue queue, const CommandPool& comm
 Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
 					float maxLod) {
 	// 4 bits per properties should be enough (Unless we count Vulkan extensions... Eh.)
-	size_t key = magFilter | (minFilter << 4) | (wrapS << 8) | (wrapT << 12) | (mipmapMode << 16) || (static_cast<size_t>(maxLod) << 32);
+	size_t key = magFilter | (minFilter << 4) | (wrapS << 8) | (wrapT << 12) | (mipmapMode << 16) | (static_cast<size_t>(maxLod) << 32);
 	if(!Samplers.contains(key)) {
 		Samplers.try_emplace(key);
 		VkPhysicalDeviceProperties properties{};
