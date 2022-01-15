@@ -244,8 +244,8 @@ void main()
 	vec3 tmpv = position - v1.pos;
 	vec3 tmpw = position - v2.pos;
 	float dotu = min(0.0, dot(tmpu, v0.normal));
-	float dotv = min(0.0, dot(tmpu, v1.normal));
-	float dotw = min(0.0, dot(tmpu, v2.normal));
+	float dotv = min(0.0, dot(tmpv, v1.normal));
+	float dotw = min(0.0, dot(tmpw, v2.normal));
 	tmpu -= dotu * v0.normal;
 	tmpv -= dotv * v1.normal;
 	tmpw -= dotw * v2.normal;
