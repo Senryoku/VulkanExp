@@ -124,4 +124,79 @@ void Application::createDirectLightPipeline() {
 
 		writer.update(_device);
 	}
+
+	DescriptorSetLayoutBuilder filterDSLB;
+	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+	_directLightFilterDescriptorSetLayout = filterDSLB.build(_device);
+	_directLightFilterPipelineX.getLayout().create(_device, {_directLightFilterDescriptorSetLayout});
+	Shader						filterShaderX(_device, "./shaders_spv/directLightFilterX.comp.spv");
+	VkComputePipelineCreateInfo info{
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.stage = filterShaderX.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+		.layout = _directLightFilterPipelineX.getLayout(),
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = 0,
+	};
+	_directLightFilterPipelineX.create(_device, info);
+	_directLightFilterPipelineY.getLayout().create(_device, {_directLightFilterDescriptorSetLayout});
+	Shader filterShaderY(_device, "./shaders_spv/directLightFilterY.comp.spv");
+	info.stage = filterShaderY.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT);
+	info.layout = _directLightFilterPipelineY.getLayout();
+	_directLightFilterPipelineY.create(_device, info);
+
+	{
+		std::vector<VkDescriptorSetLayout> layoutsToAllocate;
+		uint32_t						   setCount = 2 * _swapChainImages.size();
+		for(size_t i = 0; i < setCount; ++i)
+			layoutsToAllocate.push_back(_directLightFilterDescriptorSetLayout);
+		_directLightFilterDescriptorPool.create(_device, layoutsToAllocate.size(),
+												std::array<VkDescriptorPoolSize, 1>{
+													VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * setCount},
+												});
+		_directLightFilterDescriptorPool.allocate(layoutsToAllocate);
+		for(size_t i = 0; i < setCount / 2; ++i) {
+			// X
+			DescriptorSetWriter writer(_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 0]);
+			writer
+				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _gbufferImageViews[3 * i + 0],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightIntermediateFilterImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.update(_device);
+			// Y
+			DescriptorSetWriter writer2(_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1]);
+			writer2
+				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _gbufferImageViews[3 * i + 0],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightIntermediateFilterImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.update(_device);
+		}
+	}
 }

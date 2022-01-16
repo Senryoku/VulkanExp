@@ -6,7 +6,7 @@ layout(binding = 2) uniform sampler2D normalTexSampler;
 layout(binding = 3) uniform sampler2D metalRoughTexSampler;
 layout(binding = 4) uniform sampler2D emissiveTexSampler;
 
-layout(location = 0) in vec4 positionDepth;
+layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec4 tangent;
 layout(location = 3) in vec3 bitangent;
@@ -35,7 +35,7 @@ void main() {
     metalness *= metalRoughMap.b;
     roughness *= metalRoughMap.g;
 
-    outPositionDepth = positionDepth;
+    outPositionDepth = vec4(position, gl_FragCoord.z / gl_FragCoord.w);
     outNormalMetalness = vec4(finalNormal, metalness);
     outAlbedoRoughness = vec4(texColor.rgb, roughness);
 }

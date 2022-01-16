@@ -20,7 +20,7 @@ layout(location = 2) in vec3 inNormal;
 layout(location = 3) in vec4 inTangent;
 layout(location = 4) in vec2 inTexCoord;
 
-layout(location = 0) out vec4 positionDepth;
+layout(location = 0) out vec3 position;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 layout(location = 3) out vec3 bitangent;
@@ -29,8 +29,10 @@ layout(location = 5) out float metalnessFactor;
 layout(location = 6) out float roughnessFactor;
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
-    positionDepth = vec4((PushConstants.model * vec4(inPosition, 1.0)).xyz, gl_Position.z / gl_Position.z);
+    vec4 worldPosition = PushConstants.model * vec4(inPosition, 1.0);
+    vec4 viewPosition = ubo.view * worldPosition;
+    gl_Position = ubo.proj * viewPosition;
+    position = worldPosition.xyz;
     normal = transpose(inverse(mat3(PushConstants.model))) * inNormal; // transpose(inverse()) is only important in case of non-uniform transformation
     tangent = vec4(mat3(PushConstants.model) * inTangent.xyz, inTangent.w);
     bitangent = cross(normal, tangent.xyz) * inTangent.w;

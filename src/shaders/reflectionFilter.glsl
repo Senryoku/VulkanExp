@@ -4,12 +4,9 @@ layout(set = 0, binding = 0, rgba32f) uniform image2D positionDepth;
 layout(set = 0, binding = 1, rgba32f) uniform image2D inImage;
 layout(set = 0, binding = 2, rgba32f) uniform image2D outImage;
 
-vec3 reinhard(vec3 v)
-{
-    return v / (1.0f + v);
-}
-
 //#define DISABLE
+
+// TODO: Also use a depth-awer kernel? (See directLightFilter)
 
 void main()
 {

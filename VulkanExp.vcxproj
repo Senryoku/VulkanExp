@@ -123,6 +123,9 @@
     <None Include="src\shaders\closesthit.glsl" />
     <None Include="src\shaders\closesthit_noreflection.rchit" />
     <None Include="src\shaders\directLight.rgen" />
+    <None Include="src\shaders\directLightFilter.glsl" />
+    <None Include="src\shaders\directLightFilterX.comp" />
+    <None Include="src\shaders\directLightFilterY.comp" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\backfaceTest.rchit" />

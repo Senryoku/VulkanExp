@@ -120,7 +120,8 @@ void Application::createGatherPipeline() {
 		.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Probe Info
 		.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
 		.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
-		.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		 // Camera
+		.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Camera
+		.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		 // Light
 	_gatherDescriptorSetLayout = builder.build(_device);
 
 	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size());
@@ -301,6 +302,12 @@ void Application::createGatherPipeline() {
 					 .buffer = _cameraUniformBuffers[i],
 					 .offset = 0,
 					 .range = sizeof(CameraBuffer),
+				 })
+			.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				 {
+					 .buffer = _lightUniformBuffers[i],
+					 .offset = 0,
+					 .range = sizeof(LightBuffer),
 				 });
 		dsw.update(_device);
 	}

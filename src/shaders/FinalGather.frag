@@ -6,6 +6,7 @@ layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput i
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMetalness;
 layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inputAlbedoRoughness;
 layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputDirectLight;
+#include "Lights.glsl"
 layout (binding = 5, set = 0) uniform sampler2D inputReflection;
 layout(binding = 6, set = 0) uniform UBOBlock {
 	ProbeGrid grid;
@@ -19,6 +20,9 @@ layout(binding = 10, set = 0) uniform UniformBufferObject
     mat4 proj;
 	uint frameIndex;
 } ubo;
+layout(set = 0, binding = 11) uniform LightUBO {
+	Light DirectionalLight;
+};
 
 #include "irradiance.glsl"
 
@@ -43,7 +47,7 @@ void main() {
 	vec4 reflection = texture(inputReflection, fragPosition); 
 
 	// Direct Light
-	color.rgb += subpassLoad(inputDirectLight).rgb;
+	color.rgb += pbrMetallicRoughness(normal, -normalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb * subpassLoad(inputDirectLight).rgb;
 	
 	vec3 f0 = vec3(0.04);
 	vec3 diffuseColor = albedo.rgb * (1.0 - f0);

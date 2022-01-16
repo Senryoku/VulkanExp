@@ -106,12 +106,14 @@ void Application::createSwapChain() {
 	// Create GBuffer Images & Views
 	_gbufferImages.resize(3 * _swapChainImages.size());
 	_gbufferImageViews.resize(3 * _swapChainImages.size());
+	_directLightImages.resize(_swapChainImages.size());
+	_directLightImageViews.resize(_swapChainImages.size());
+	_directLightIntermediateFilterImages.resize(_swapChainImages.size());
+	_directLightIntermediateFilterImageViews.resize(_swapChainImages.size());
 	_reflectionImages.resize(_swapChainImages.size());
 	_reflectionImageViews.resize(_swapChainImages.size());
 	_reflectionIntermediateFilterImages.resize(_swapChainImages.size());
 	_reflectionIntermediateFilterImageViews.resize(_swapChainImages.size());
-	_directLightImages.resize(_swapChainImages.size());
-	_directLightImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t j = 0; j < 3; j++) {
 			_gbufferImages[3 * i + j].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
@@ -133,6 +135,14 @@ void Application::createSwapChain() {
 											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		// FIXME: Review usage bits
+		_directLightIntermediateFilterImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+													   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+														   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+		_directLightIntermediateFilterImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_directLightIntermediateFilterImageViews[i].create(_device, _directLightIntermediateFilterImages[i], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		_directLightIntermediateFilterImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT,
+																 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
 		_reflectionIntermediateFilterImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
 													  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
 														  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -588,11 +598,12 @@ void Application::recordCommandBuffers() {
 		}
 		_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 3);
 
-		// Filter Reflections (Not physically based)
+		// Filter Direct Light & Reflections (Not physically based)
 		const auto groupSize = 32;
-		_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0,
-								0);
+
+		_directLightFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineX.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 0],
+								0, 0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
 		// Memory Barrier
 		VkImageMemoryBarrier barrier{
@@ -603,9 +614,20 @@ void Application::recordCommandBuffers() {
 			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
 			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = _reflectionIntermediateFilterImages[i],
+			.image = _directLightIntermediateFilterImages[i],
 			.subresourceRange = wholeImage,
 		};
+		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		_directLightFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineY.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1],
+								0, 0);
+		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+
+		_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0,
+								0);
+		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		barrier.image = _reflectionIntermediateFilterImages[i];
 		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 		_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0,
@@ -700,6 +722,7 @@ void Application::cleanupSwapChain() {
 	_descriptorPool.destroy();
 	_gbufferDescriptorPool.destroy();
 	_directLightDescriptorPool.destroy();
+	_directLightFilterDescriptorPool.destroy();
 	_reflectionDescriptorPool.destroy();
 	_reflectionFilterDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
@@ -711,6 +734,8 @@ void Application::cleanupSwapChain() {
 
 	_gbufferPipeline.destroy();
 	_directLightPipeline.destroy();
+	_directLightFilterPipelineX.destroy();
+	_directLightFilterPipelineY.destroy();
 	_reflectionPipeline.destroy();
 	_reflectionFilterPipelineX.destroy();
 	_reflectionFilterPipelineY.destroy();
@@ -719,6 +744,7 @@ void Application::cleanupSwapChain() {
 	_descriptorSetLayouts.clear();
 	_gbufferDescriptorSetLayouts.clear();
 	_directLightDescriptorSetLayout.destroy();
+	_directLightFilterDescriptorSetLayout.destroy();
 	_reflectionDescriptorSetLayout.destroy();
 	_reflectionFilterDescriptorSetLayout.destroy();
 	_gatherDescriptorSetLayout.destroy();
@@ -730,6 +756,8 @@ void Application::cleanupSwapChain() {
 	_gbufferImageViews.clear();
 	_directLightImages.clear();
 	_directLightImageViews.clear();
+	_directLightIntermediateFilterImages.clear();
+	_directLightIntermediateFilterImageViews.clear();
 	_reflectionImages.clear();
 	_reflectionImageViews.clear();
 	_reflectionIntermediateFilterImages.clear();
