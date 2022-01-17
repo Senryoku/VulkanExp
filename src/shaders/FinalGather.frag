@@ -47,7 +47,7 @@ void main() {
 	vec4 reflection = texture(inputReflection, fragPosition); 
 
 	// Direct Light
-	color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, qnormalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
+	color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, normalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
 	
 	vec3 f0 = vec3(0.04);
 	vec3 diffuseColor = albedo.rgb * (1.0 - f0);
