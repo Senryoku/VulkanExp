@@ -286,8 +286,8 @@ void IrradianceProbes::createPipeline() {
 	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 5);
 }
 
-void IrradianceProbes::writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer) {
-	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, tlas, *this, lightBuffer);
+void IrradianceProbes::writeDescriptorSet(const Scene& scene, const Buffer& lightBuffer) {
+	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, *this, lightBuffer);
 	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayIrradianceDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayDirectionView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workIrradianceView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});

@@ -3,7 +3,7 @@
 #include "CommandBuffer.hpp"
 #include "CommandPool.hpp"
 
-void Device::submit(uint32_t queueFamilyIndex, std::function<void(const CommandBuffer&)> function) const {
+void Device::submit(PhysicalDevice::QueueFamilyIndex queueFamilyIndex, std::function<void(const CommandBuffer&)>&& function) const {
 	CommandPool stagingCommandPool;
 	stagingCommandPool.create(_handle, queueFamilyIndex, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
 	CommandBuffers stagingCommands;
@@ -22,6 +22,4 @@ void Device::submit(uint32_t queueFamilyIndex, std::function<void(const CommandB
 	vkGetDeviceQueue(_handle, queueFamilyIndex, 0, &queue);
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 	VK_CHECK(vkQueueWaitIdle(queue));
-	stagingCommands.free();
-	stagingCommandPool.destroy();
 }

@@ -88,7 +88,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	};
 	ImGui_ImplVulkan_Init(&init_info, _imguiRenderPass);
 
-	immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
+	_device.immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 	for(const auto& texture : Textures) {

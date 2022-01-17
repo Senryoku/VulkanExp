@@ -175,7 +175,7 @@ void Application::initVulkan() {
 	auto bounds = _scene.computeBounds();
 	_irradianceProbes.init(_device, transfertFamily, computeFamily, bounds.min, bounds.max);
 
-	createAccelerationStructure();
+	_scene.createAccelerationStructure(_device);
 
 	_pipelineCache.create(_device, PipelineCacheFilepath);
 
@@ -242,17 +242,6 @@ void Application::createInstance() {
 }
 
 void Application::cleanupVulkan() {
-	vkDestroyAccelerationStructureKHR(_device, _topLevelAccelerationStructure, nullptr);
-	for(const auto& blas : _bottomLevelAccelerationStructures)
-		vkDestroyAccelerationStructureKHR(_device, blas, nullptr);
-	_staticBLASBuffer.destroy();
-	_staticBLASMemory.free();
-	_bottomLevelAccelerationStructures.clear();
-	_tlasBuffer.destroy();
-	_tlasMemory.free();
-	_accStructInstancesBuffer.destroy();
-	_accStructInstancesMemory.free();
-
 	// We souldn't have to recreate the underlying buffer/memory on swapchain re-creation.
 	_directLightShaderBindingTable.destroy();
 	_reflectionShaderBindingTable.destroy();
@@ -268,7 +257,7 @@ void Application::cleanupVulkan() {
 	cleanupSwapChain();
 
 	_irradianceProbes.destroy();
-	_probeMesh.free();
+	_probeMesh.free(_device);
 
 	_pipelineCache.save(PipelineCacheFilepath);
 	_pipelineCache.destroy();
@@ -277,8 +266,7 @@ void Application::cleanupVulkan() {
 	_commandPool.destroy();
 	_transfertCommandPool.destroy();
 	_computeCommandPool.destroy();
-	_scene.free();
-	_probeMesh.free();
+	_scene.free(_device);
 	MaterialBuffer.destroy();
 	MaterialMemory.free();
 	Materials.clear();

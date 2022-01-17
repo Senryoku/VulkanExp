@@ -522,7 +522,7 @@ void Application::initSwapChain() {
 
 	// Irradiances Probes & Debug
 	_irradianceProbes.createPipeline();
-	_irradianceProbes.writeDescriptorSet(_scene, _topLevelAccelerationStructure, _lightUniformBuffers[0]);
+	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
 	_irradianceProbes.initProbes(_computeQueue);
 	initProbeDebug();
 

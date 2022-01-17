@@ -229,28 +229,19 @@ class Application {
 	std::vector<Framebuffer>		 _probeDebugFramebuffers;
 
 	// Raytracing test
-	bool									_raytracingDebug = false;
-	std::vector<Image>						_rayTraceStorageImages;
-	std::vector<ImageView>					_rayTraceStorageImageViews;
-	CommandBuffers							_rayTraceCommandBuffers;
-	Buffer									_staticBLASBuffer;
-	DeviceMemory							_staticBLASMemory;
-	Buffer									_tlasBuffer;
-	DeviceMemory							_tlasMemory;
-	VkAccelerationStructureKHR				_topLevelAccelerationStructure;
-	std::vector<VkAccelerationStructureKHR> _bottomLevelAccelerationStructures;
-	DescriptorSetLayout						_rayTracingDescriptorSetLayout;
-	DescriptorPool							_rayTracingDescriptorPool;
-	PipelineLayout							_rayTracingPipelineLayout;
-	Pipeline								_rayTracingPipeline;
-	ShaderBindingTable						_raytracingShaderBindingTable;
-	Buffer									_accStructInstancesBuffer;
-	DeviceMemory							_accStructInstancesMemory;
-	void									createStorageImage();
-	void									createAccelerationStructure();
-	void									createRaytracingDescriptorSets();
-	void									createRayTracingPipeline();
-	void									recordRayTracingCommands();
+	bool				   _raytracingDebug = false;
+	std::vector<Image>	   _rayTraceStorageImages;
+	std::vector<ImageView> _rayTraceStorageImageViews;
+	CommandBuffers		   _rayTraceCommandBuffers;
+	DescriptorSetLayout	   _rayTracingDescriptorSetLayout;
+	DescriptorPool		   _rayTracingDescriptorPool;
+	PipelineLayout		   _rayTracingPipelineLayout;
+	Pipeline			   _rayTracingPipeline;
+	ShaderBindingTable	   _raytracingShaderBindingTable;
+	void				   createStorageImage();
+	void				   createRaytracingDescriptorSets();
+	void				   createRayTracingPipeline();
+	void				   recordRayTracingCommands();
 
 	bool _framebufferResized = false;
 
@@ -400,60 +391,6 @@ class Application {
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR   chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D		   chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-
-	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
-		CommandBuffers buffers;
-		buffers.allocate(_device, _transfertCommandPool, 1);
-		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-		function(buffers[0]);
-
-		buffers[0].end();
-		VkSubmitInfo submitInfo{
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = buffers.getBuffersHandles().data(),
-		};
-		VK_CHECK(vkQueueSubmit(_transfertQueue, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK(vkQueueWaitIdle(_transfertQueue));
-		buffers.free();
-	}
-
-	void immediateSubmitGraphics(std::function<void(VkCommandBuffer cmd)>&& function) {
-		CommandBuffers buffers;
-		buffers.allocate(_device, _commandPool, 1);
-		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-		function(buffers[0]);
-
-		buffers[0].end();
-		VkSubmitInfo submitInfo{
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = buffers.getBuffersHandles().data(),
-		};
-		VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK(vkQueueWaitIdle(_graphicsQueue));
-		buffers.free();
-	}
-
-	void immediateSubmitCompute(std::function<void(VkCommandBuffer cmd)>&& function) {
-		CommandBuffers buffers;
-		buffers.allocate(_device, _computeCommandPool, 1);
-		buffers[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-		function(buffers[0]);
-
-		buffers[0].end();
-		VkSubmitInfo submitInfo{
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = buffers.getBuffersHandles().data(),
-		};
-		VK_CHECK(vkQueueSubmit(_computeQueue, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK(vkQueueWaitIdle(_computeQueue));
-		buffers.free();
-	}
 
 	void initWindow();
 	void initVulkan();

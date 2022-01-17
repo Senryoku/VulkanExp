@@ -74,12 +74,22 @@ class Device : public HandleWrapper<VkDevice> {
 		return *_physicalDevice;
 	}
 
-	void submit(const uint32_t queueFamilyIndex, std::function<void(const CommandBuffer&)> function) const;
+	void submit(PhysicalDevice::QueueFamilyIndex queueFamilyIndex, std::function<void(const CommandBuffer&)>&& function) const;
 
 	VkQueue getQueue(PhysicalDevice::QueueFamilyIndex family, uint32_t queueIndex = 0) const {
 		VkQueue queue;
 		vkGetDeviceQueue(_handle, family, 0, &queue);
 		return queue;
+	}
+
+	inline void immediateSubmitTransfert(std::function<void(const CommandBuffer&)>&& func) const {
+		submit(getPhysicalDevice().getTransfertQueueFamilyIndex(), std::forward<std::function<void(const CommandBuffer&)>>(func));
+	}
+	inline void immediateSubmitGraphics(std::function<void(const CommandBuffer&)>&& func) const {
+		submit(getPhysicalDevice().getGraphicsQueueFamilyIndex(), std::forward<std::function<void(const CommandBuffer&)>>(func));
+	}
+	inline void immediateSubmitCompute(std::function<void(const CommandBuffer&)>&& func) const {
+		submit(getPhysicalDevice().getComputeQueueFamilyIndex(), std::forward<std::function<void(const CommandBuffer&)>>(func));
 	}
 
   private:

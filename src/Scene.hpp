@@ -77,12 +77,15 @@ class Scene {
 
 	void loadglTF(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
 
-	inline std::vector<Mesh>&			getMeshes() { return _meshes; }
-	inline std::vector<SubScene>&		getScenes() { return _scenes; }
-	inline std::vector<Node>&			getNodes() { return _nodes; }
-	inline const std::vector<Mesh>&		getMeshes() const { return _meshes; }
-	inline const std::vector<SubScene>& getScenes() const { return _scenes; }
-	inline const std::vector<Node>&		getNodes() const { return _nodes; }
+	void createAccelerationStructure(const Device& device);
+
+	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
+	inline std::vector<SubScene>&			 getScenes() { return _scenes; }
+	inline std::vector<Node>&				 getNodes() { return _nodes; }
+	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
+	inline const std::vector<SubScene>&		 getScenes() const { return _scenes; }
+	inline const std::vector<Node>&			 getNodes() const { return _nodes; }
+	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 
 	inline void markDirty(Node* node) { _dirtyNodes.push_back(node); }
 	bool		update();
@@ -131,7 +134,7 @@ class Scene {
 
 	// Allocate memory for all meshes in the scene
 	void allocateMeshes(const Device& device);
-	void free();
+	void free(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:
@@ -144,4 +147,13 @@ class Scene {
 	std::vector<Node*> _dirtyNodes;
 
 	Bounds _bounds;
+
+	Buffer									_staticBLASBuffer;
+	DeviceMemory							_staticBLASMemory;
+	Buffer									_tlasBuffer;
+	DeviceMemory							_tlasMemory;
+	VkAccelerationStructureKHR				_topLevelAccelerationStructure;
+	std::vector<VkAccelerationStructureKHR> _bottomLevelAccelerationStructures;
+	Buffer									_accStructInstancesBuffer;
+	DeviceMemory							_accStructInstancesMemory;
 };

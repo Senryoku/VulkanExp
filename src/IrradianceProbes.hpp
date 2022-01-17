@@ -18,7 +18,7 @@ class IrradianceProbes {
 	void createPipeline();
 	void destroyPipeline();
 	void createShaderBindingTable();
-	void writeDescriptorSet(const Scene& scene, VkAccelerationStructureKHR tlas, const Buffer& lightBuffer);
+	void writeDescriptorSet(const Scene& scene, const Buffer& lightBuffer);
 	void updateUniforms();
 	void update(const Scene& scene, VkQueue queue);
 	void destroy();

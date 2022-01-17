@@ -25,15 +25,14 @@ inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 }
 
 // Writes all the necessary descriptors for ray tracing
-inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const Scene& scene, const VkAccelerationStructureKHR& accelerationStructure,
-										   const IrradianceProbes& irradianceProbes, const Buffer& lightBuffer) {
+inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const Scene& scene, const IrradianceProbes& irradianceProbes, const Buffer& lightBuffer) {
 	DescriptorSetWriter dsw(descSet);
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
 	dsw.add(0, {
 				   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 				   .accelerationStructureCount = 1,
-				   .pAccelerationStructures = &accelerationStructure, // &scene.getTLAS(), // FIXME: Should be part of the Scene?
+				   .pAccelerationStructures = &scene.getTLAS(), // &scene.getTLAS(), // FIXME: Should be part of the Scene?
 			   });
 
 	// Bind all textures used in the scene.
