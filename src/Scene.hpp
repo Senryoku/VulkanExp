@@ -88,7 +88,8 @@ class Scene {
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 
 	inline void markDirty(Node* node) { _dirtyNodes.push_back(node); }
-	bool		update();
+	bool		update(const Device& device);
+	void		updateTLAS(const Device& device);
 
 	// Returns a dummy node with stands for the current scene (since it can have multiple children).
 	inline const Node& getRoot() const { return _root; }
@@ -148,12 +149,13 @@ class Scene {
 
 	Bounds _bounds;
 
-	Buffer									_staticBLASBuffer;
-	DeviceMemory							_staticBLASMemory;
-	Buffer									_tlasBuffer;
-	DeviceMemory							_tlasMemory;
-	VkAccelerationStructureKHR				_topLevelAccelerationStructure;
-	std::vector<VkAccelerationStructureKHR> _bottomLevelAccelerationStructures;
-	Buffer									_accStructInstancesBuffer;
-	DeviceMemory							_accStructInstancesMemory;
+	Buffer											_staticBLASBuffer;
+	DeviceMemory									_staticBLASMemory;
+	Buffer											_tlasBuffer;
+	DeviceMemory									_tlasMemory;
+	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
+	std::vector<VkAccelerationStructureKHR>			_bottomLevelAccelerationStructures;
+	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
+	Buffer											_accStructInstancesBuffer;
+	DeviceMemory									_accStructInstancesMemory;
 };

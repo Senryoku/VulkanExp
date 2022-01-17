@@ -95,7 +95,7 @@ void Application::mainLoop() {
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
 
-		const auto updates = _scene.update();
+		const auto updates = _scene.update(_device);
 		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
