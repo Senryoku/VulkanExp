@@ -15,14 +15,14 @@ float gaussian(float stdDev, float dist) {
 const float maxDev = 32.0;
 
 // FIXME: Surfaces close to the camera are black (related to the depth used in stdDev)
-// TODO: Use Depth from the Occlusion pass (not only the gbuffer) to drive the stdDev? (similar to roughness usage in reflections).
+// TODO: Use Depth from the Occlusion pass (not only the gbuffer) to drive the stdDev, or, even better, the variance (from a history buffer)? (similar to roughness usage in reflections).
 
 void main()
 {
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
     vec4 final = vec4(0);
     float depth = imageLoad(positionDepth, coords).w;
-    float stdDev = max(1, maxDev / (depth / 10.0)); // FIXME: This is arbitrary.
+    float stdDev = 1 + max(1, maxDev / (max(1, depth / 1.0))); // FIXME: This is arbitrary.
     float depthStdDev = 1.0;                        // FIXME: Also arbitrary.
     int window = int(clamp(ceil(sqrt(-2 * stdDev * stdDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev + 1));
     
@@ -51,9 +51,9 @@ void main()
     else final = vec4(0);
 #endif
     #ifdef DIRECTION_X
-            imageStore(outImage, coords, vec4(final.rgb, 1.0));
+            imageStore(outImage, coords, vec4(final.rgb, depth));
     #else
-            imageStore(outImage, coords, vec4(final.rgb, 1.0));
+            imageStore(outImage, coords, vec4(clamp(final.rgb, 0, 1), 1.0));
     #endif
 #endif
 }
