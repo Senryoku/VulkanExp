@@ -39,12 +39,24 @@ class Scene {
 		std::vector<uint32_t> nodes; // Indices in _nodes
 	};
 
+	using NodeIndex = uint32_t;
+	static const NodeIndex InvalidNodeIndex = -1;
+	using MeshIndex = uint32_t;
+	static const MeshIndex InvalidMeshIndex = -1;
+
 	struct Node {
-		std::string			  name = "Unamed Node";
-		glm::mat4			  transform = glm::mat4(1.0); // Relative to parent
-		std::vector<uint32_t> children;					  // Indices in _nodes
-		uint32_t			  mesh = -1;				  // Index in global mesh array
+		std::string			   name = "Unamed Node";
+		glm::mat4			   transform = glm::mat4(1.0); // Relative to parent
+		NodeIndex			   parent = InvalidNodeIndex;
+		std::vector<NodeIndex> children;				// Indices in _nodes
+		MeshIndex			   mesh = InvalidMeshIndex; // Index in global mesh array
 	};
+
+	void addChild(NodeIndex parent, NodeIndex child) {
+		assert(_nodes[child].parent == InvalidNodeIndex);
+		_nodes[parent].children.push_back(child);
+		_nodes[child].parent = parent;
+	}
 
 	struct Primitive {
 		RenderingMode mode;
@@ -72,6 +84,9 @@ class Scene {
 	inline const std::vector<SubScene>& getScenes() const { return _scenes; }
 	inline const std::vector<Node>&		getNodes() const { return _nodes; }
 
+	inline void markDirty(Node* node) { _dirtyNodes.push_back(node); }
+	bool		update();
+
 	// Returns a dummy node with stands for the current scene (since it can have multiple children).
 	inline const Node& getRoot() const { return _root; }
 
@@ -84,7 +99,7 @@ class Scene {
 			   transform = transform * n.transform;
 			   for(const auto& c : n.children)
 				   visitNode(_nodes[c], transform);
-			   if(n.mesh != -1)
+			   if(n.mesh != InvalidMeshIndex)
 				   if(!init) {
 					   _bounds = transform * _meshes[n.mesh].computeBounds();
 					   init = true;
@@ -125,6 +140,8 @@ class Scene {
 	std::vector<Mesh>	  _meshes;
 	std::vector<SubScene> _scenes;
 	std::vector<Node>	  _nodes;
+
+	std::vector<Node*> _dirtyNodes;
 
 	Bounds _bounds;
 };

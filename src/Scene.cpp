@@ -290,6 +290,12 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			n.mesh += meshOffset;
 		_nodes.push_back(n);
 	}
+	// Assign parent indices
+	for(NodeIndex i = 0; i < _nodes.size(); ++i)
+		for(auto& c : _nodes[i].children) {
+			assert(_nodes[c].parent == -1);
+			_nodes[c].parent = i;
+		}
 
 	switch(loadOp) {
 		case LoadOperation::AllScenes: {
@@ -314,18 +320,20 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 		case LoadOperation::AppendToCurrentScene: {
 			Node root; // Dummy root node for all the scenes.
 			root.name = "Appended glTF file";
+			_nodes.push_back(root);
+			NodeIndex rootIndex = _nodes.size() - 1;
 			for(const auto& scene : object["scenes"]) {
 				Node n; // Dummy root node for this scene
 				n.name = scene("name", std::string("Unamed Scene"));
+				_nodes.push_back(n);
+				NodeIndex idx = _nodes.size() - 1;
 				if(scene.contains("nodes")) {
 					for(const auto& c : scene["nodes"]) {
-						n.children.push_back(nodesOffset + c.as<int>());
+						addChild(idx, nodesOffset + c.as<int>());
 					}
 				}
-				_nodes.push_back(n);
-				root.children.push_back(_nodes.size() - 1);
+				addChild(rootIndex, idx);
 			}
-			_nodes.push_back(root);
 			_scenes[_defaultScene].nodes.push_back(_nodes.size() - 1);
 			_root.children = _scenes[_defaultScene].nodes;
 			//_nodes[_scenes[_defaultScene].nodes[0]].children.push_back(_nodes.size() - 1);
@@ -403,6 +411,15 @@ void Scene::allocateMeshes(const Device& device) {
 	auto queue = device.getQueue(device.getPhysicalDevice().getTransfertQueueFamilyIndex(), 0);
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 	VK_CHECK(vkQueueWaitIdle(queue));
+}
+
+bool Scene::update() {
+	if(_dirtyNodes.empty())
+		return false;
+
+	// TODO: TLAS/BLAS
+	_dirtyNodes.clear();
+	return true;
 }
 
 void Scene::free() {

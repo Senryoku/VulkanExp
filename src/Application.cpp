@@ -1,5 +1,6 @@
 #include "Application.hpp"
 
+#include <ImGuizmo.h>
 #include <vulkan/Extension.hpp>
 
 void Application::initWindow() {
@@ -29,11 +30,11 @@ void Application::run() {
 	{
 		QuickTimer qt("glTF load");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		//_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
-		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
+		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
+		_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
 		//_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.loadglTF("./data/models/postwar_city_-_exterior_scene/scene.gltf");
-		_scene.loadglTF("./data/models/sea_keep_lonely_watcher/scene.gltf");
+		//_scene.loadglTF("./data/models/sea_keep_lonely_watcher/scene.gltf");
 	}
 	_probeMesh.loadglTF("./data/models/sphere.gltf");
 	{
@@ -79,6 +80,7 @@ void Application::mainLoop() {
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		ImGuizmo::BeginFrame();
 		ImGui::DockSpaceOverViewport(nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
 		drawUI();
 		ImGui::Render();
@@ -93,7 +95,8 @@ void Application::mainLoop() {
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
 
-		if(_outdatedCommandBuffers) {
+		const auto updates = _scene.update();
+		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
 			for(const auto& fence : _inFlightFences)
