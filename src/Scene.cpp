@@ -286,7 +286,7 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			}
 		}
 		n.mesh = node("mesh", -1);
-		if(n.mesh >= 0)
+		if(n.mesh != -1)
 			n.mesh += meshOffset;
 		_nodes.push_back(n);
 	}
