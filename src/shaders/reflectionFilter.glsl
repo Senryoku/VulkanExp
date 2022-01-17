@@ -6,7 +6,7 @@ layout(set = 0, binding = 2, rgba32f) uniform image2D outImage;
 
 //#define DISABLE
 
-// TODO: Also use a depth-awer kernel? (See directLightFilter)
+// TODO: Also use a depth-aware kernel? (See directLightFilter)
 
 void main()
 {
