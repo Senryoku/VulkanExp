@@ -51,9 +51,12 @@ void main()
         }
     }
     
-    if(!affectGeometry || backfaceHits > 0.5 * grid.raysPerProbe) {
+    if(backfaceHits > 0.5 * grid.raysPerProbe) {
         Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 0; // OFF
     } else {
-        Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 1; // ON
+        if(!affectGeometry)
+            Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 8; // ON
+        else
+            Probes[probeLinearIndex(ivec3(gl_LaunchIDEXT.xyz), grid)] = 1; // ON
     }
 }
