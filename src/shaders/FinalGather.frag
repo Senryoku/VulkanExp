@@ -52,8 +52,9 @@ void main() {
 	if(depth <= 0) {
 		color.rgb = sky(origin, (inverse(ubo.view) * vec4(normalize(vec3(inverse(ubo.proj) * vec4(2.0 * fragPosition - 1.0, 0.0, 1.0))), 0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
 	} else {
+		vec3 view = normalize(origin - position);
 		// Direct Light
-		color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, normalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
+		color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, view, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
 	
 		vec3 f0 = vec3(0.04);
 		vec3 diffuseColor = albedo.rgb * (1.0 - f0);
@@ -64,8 +65,7 @@ void main() {
 		color.rgb += specularColor * reflection.rgb;
 	
 		// Indirect Light (Radiance from probes)
-		vec3 view = normalize(position - origin);
-		vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;
+		vec3 indirectLight = sampleProbes(position, normal, view, grid, irradianceColor, irradianceDepth).rgb;
 		color.rgb += indirectLight * diffuseColor;
 	}
 }
