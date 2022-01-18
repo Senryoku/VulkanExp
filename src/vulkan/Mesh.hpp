@@ -3,35 +3,11 @@
 #include <filesystem>
 #include <vector>
 
+#include "Bounds.hpp"
 #include "Buffer.hpp"
 #include "DeviceMemory.hpp"
 #include "Material.hpp"
 #include "Vertex.hpp"
-
-struct Bounds {
-	glm::vec3 min;
-	glm::vec3 max;
-
-	inline Bounds& operator+=(const Bounds& o) {
-		min = glm::min(min, o.min);
-		max = glm::max(max, o.max);
-		return *this;
-	}
-
-	inline Bounds operator+(const Bounds& o) {
-		return {
-			.min = glm::min(min, o.min),
-			.max = glm::max(max, o.max),
-		};
-	}
-};
-
-inline Bounds operator*(const glm::mat4& transform, const Bounds& b) {
-	return {
-		.min = glm::vec3(transform * glm::vec4(b.min, 1.0f)),
-		.max = glm::vec3(transform * glm::vec4(b.max, 1.0f)),
-	};
-}
 
 class SubMesh {
   public:

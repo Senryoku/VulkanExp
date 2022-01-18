@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "vulkan/Mesh.hpp"
+#include <Raytracing.hpp>
 
 // TODO: Move this :)
 inline std::vector<Material> Materials;
@@ -93,6 +94,9 @@ class Scene {
 
 	// Returns a dummy node with stands for the current scene (since it can have multiple children).
 	inline const Node& getRoot() const { return _root; }
+	inline Node&	   getRoot() { return _root; }
+
+	Node* intersectNodes(Ray& ray);
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }

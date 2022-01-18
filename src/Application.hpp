@@ -259,6 +259,8 @@ class Application {
 	Camera _camera{glm::vec3(-380.0f, 650.0f, 120.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double _mouse_x = 0, _mouse_y = 0;
 
+	Scene::Node* _selectedNode = nullptr;
+
 	void createInstance();
 	void createSwapChain();
 	void initSwapChain();
@@ -271,6 +273,7 @@ class Application {
 	void uiOnSwapChainReady();
 	void recordUICommandBuffer(size_t index);
 	void uploadMaterials();
+	void trySelectNode();
 
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
@@ -294,7 +297,10 @@ class Application {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-		if(button == GLFW_MOUSE_BUTTON_RIGHT) {
+		if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
+			app->trySelectNode();
+		} else if(button == GLFW_MOUSE_BUTTON_RIGHT) {
 			app->_controlCamera = action == GLFW_PRESS;
 			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
 			glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);

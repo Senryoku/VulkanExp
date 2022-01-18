@@ -1,5 +1,5 @@
 #include "Application.hpp"
-#include <Raytracing.hpp>
+#include <RaytracingDescriptors.hpp>
 
 void Application::createDirectLightPipeline() {
 	Shader raygenShader(_device, "./shaders_spv/directLight.rgen.spv");

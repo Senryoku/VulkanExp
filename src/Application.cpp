@@ -1,6 +1,8 @@
 #include "Application.hpp"
 
 #include <ImGuizmo.h>
+#include <Raytracing.hpp>
+#include <RaytracingDescriptors.hpp>
 #include <vulkan/Extension.hpp>
 
 void Application::initWindow() {
@@ -208,6 +210,17 @@ void Application::cameraControl(float dt) {
 		glfwGetCursorPos(_window, &_mouse_x, &_mouse_y);
 		if(_mouse_x != mx || _mouse_y != my)
 			_camera.look(glm::vec2(_mouse_x - mx, my - _mouse_y));
+	}
+}
+
+void Application::trySelectNode() {
+	auto ratio = static_cast<float>(_height) / _width;
+	auto d = glm::normalize(static_cast<float>((2.0f * _mouse_x) / _width - 1.0f) * _camera.getRight() +
+							-ratio * static_cast<float>((2.0f * _mouse_y) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
+	Ray	 r{.origin = _camera.getPosition(), .direction = d};
+	auto node = _scene.intersectNodes(r);
+	if(node != nullptr) {
+		_selectedNode = node;
 	}
 }
 

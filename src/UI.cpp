@@ -21,8 +21,6 @@ struct DebugTexture {
 };
 static std::vector<DebugTexture> DebugTextureIDs;
 
-static Scene::Node* SelectedNode = nullptr;
-
 void Application::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -256,7 +254,7 @@ void Application::drawUI() {
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
 			if(ImGui::IsItemClicked())
-				SelectedNode = &nodes[n];
+				_selectedNode = &nodes[n];
 			if(open) {
 				for(const auto& c : nodes[n].children) {
 					displayNode(c);
@@ -293,17 +291,17 @@ void Application::drawUI() {
 	glm::vec3				   snap{1.0};
 
 	if(ImGui::Begin("Node")) {
-		if(SelectedNode) {
+		if(_selectedNode) {
 			bool dirtyMaterials = false;
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
 				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-				ImGui::Matrix("Local Transform", SelectedNode->transform);
-				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&SelectedNode->transform), matrixTranslation, matrixRotation, matrixScale);
+				ImGui::Matrix("Local Transform", _selectedNode->transform);
+				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&_selectedNode->transform), matrixTranslation, matrixRotation, matrixScale);
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
 				if(updatedTransform)
-					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&SelectedNode->transform));
+					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&_selectedNode->transform));
 
 				if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -342,8 +340,8 @@ void Application::drawUI() {
 
 				ImGui::TreePop();
 			}
-			if(SelectedNode->mesh != -1) {
-				auto&& mesh = _scene.getMeshes()[SelectedNode->mesh];
+			if(_selectedNode->mesh != -1) {
+				auto&& mesh = _scene.getMeshes()[_selectedNode->mesh];
 				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
 						auto&& submesh = mesh.SubMeshes[i];
@@ -397,14 +395,44 @@ void Application::drawUI() {
 	ImGui::End();
 
 	// On screen gizmos
-	if(SelectedNode) {
-		glm::mat4		 worldTransform = SelectedNode->transform;
+	if(_selectedNode) {
+		glm::mat4		 worldTransform = _selectedNode->transform;
 		glm::mat4		 parentTransform{1.0f};
-		Scene::NodeIndex parentNode = SelectedNode->parent;
+		Scene::NodeIndex parentNode = _selectedNode->parent;
 		while(parentNode != Scene::InvalidNodeIndex) {
 			worldTransform = _scene.getNodes()[parentNode].transform * worldTransform;
 			parentTransform = _scene.getNodes()[parentNode].transform * parentTransform;
 			parentNode = _scene.getNodes()[parentNode].parent;
+		}
+
+		// Dummy Window for "on field" widgets
+		ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2{static_cast<float>(_width), static_cast<float>(_height)});
+		ImGui::SetNextWindowBgAlpha(0.0);
+		ImGui::Begin("SelectedObject", nullptr,
+					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
+
+		if(_selectedNode->mesh != Scene::InvalidMeshIndex) {
+			auto				  aabb = _scene.getMeshes()[_selectedNode->mesh].getBounds().getPoints();
+			auto				  winpos = ImGui::GetMainViewport()->Pos;
+			glm::vec2			  glmwinpos{winpos.x, winpos.y};
+			std::array<ImVec2, 8> screen_aabb;
+			for(int i = 0; i < 8; ++i) {
+				auto t = _camera.getViewMatrix() * worldTransform * glm::vec4(aabb[i], 1.0);
+				if(t.z > 0.0) // Truncate is point is behind camera
+					t.z = 0.0;
+				t = _camera.getProjectionMatrix() * t;
+				auto r = glm::vec2{t.x, -t.y} / t.w;
+				r = 0.5f * (r + 1.0f);
+				r.x *= _width;
+				r.y *= _height;
+				screen_aabb[i] = r + glmwinpos;
+			}
+			// Bounding Box Gizmo
+			constexpr std::array<size_t, 24> segments{0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7};
+			ImDrawList*						 drawlist = ImGui::GetWindowDrawList();
+			for(int i = 0; i < 24; i += 2)
+				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
 		}
 
 		if(ImGui::IsKeyPressed(GLFW_KEY_T) || ImGui::IsKeyPressed(GLFW_KEY_Z))
@@ -422,13 +450,15 @@ void Application::drawUI() {
 			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), mCurrentGizmoOperation,
 								 mCurrentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), useSnap ? &snap.x : nullptr);
 		if(gizmoUpdated) {
-			SelectedNode->transform = glm::inverse(parentTransform) * worldTransform;
+			_selectedNode->transform = glm::inverse(parentTransform) * worldTransform;
 		}
 		updatedTransform = gizmoUpdated || updatedTransform;
+
+		ImGui::End(); // Dummy Window
 	}
 
-	if(SelectedNode && updatedTransform) {
-		_scene.markDirty(SelectedNode);
+	if(_selectedNode && updatedTransform) {
+		_scene.markDirty(_selectedNode);
 	}
 
 	if(ImGui::Begin("Rendering Settings")) {

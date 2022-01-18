@@ -1,6 +1,6 @@
 #include "Application.hpp"
 
-#include "Raytracing.hpp"
+#include "RaytracingDescriptors.hpp"
 
 void Application::createStorageImage() {
 	_rayTraceStorageImages.resize(_swapChainImages.size());

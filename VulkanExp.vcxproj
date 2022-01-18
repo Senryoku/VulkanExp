@@ -82,7 +82,9 @@
     <ClInclude Include="ext\implot\implot_internal.h" />
     <ClInclude Include="ext\stb_image.h" />
     <ClInclude Include="src\Application.hpp" />
+    <ClInclude Include="src\Bounds.hpp" />
     <ClInclude Include="src\Camera.hpp" />
+    <ClInclude Include="src\RaytracingDescriptors.hpp" />
     <ClInclude Include="src\Scene.hpp" />
     <ClInclude Include="src\ImGuiExtensions.hpp" />
     <ClInclude Include="src\Light.hpp" />

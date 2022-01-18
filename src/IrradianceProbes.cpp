@@ -1,6 +1,6 @@
 #include "IrradianceProbes.hpp"
 
-#include <Raytracing.hpp>
+#include <RaytracingDescriptors.hpp>
 #include <Shader.hpp>
 
 struct PushConstant {

@@ -237,6 +237,9 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			} else {
 				submesh.computeBounds();
 			}
+			if(!submesh.getBounds().isValid())
+				submesh.computeBounds();
+			assert(submesh.getBounds().isValid());
 
 			const auto& indicesAccessor = object["accessors"][p["indices"].as<int>()];
 			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
@@ -762,4 +765,25 @@ void Scene::updateTLAS(const Device& device) {
 
 	device.immediateSubmitCompute(
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
+}
+
+Scene::Node* Scene::intersectNodes(Ray& ray) {
+	Hit												   best;
+	Node*											   bestNode = nullptr;
+	const auto&										   meshes = getMeshes();
+	const std::function<void(Scene::Node&, glm::mat4)> visitNode = [&](Scene::Node& n, glm::mat4 transform) {
+		transform = transform * n.transform;
+		for(const auto& c : n.children)
+			visitNode(getNodes()[c], transform);
+		if(n.mesh != -1) {
+			auto hit = intersect(ray, transform * meshes[n.mesh].getBounds());
+			if(hit.hit && hit.depth < best.depth) {
+				// TODO: Test against the actual mesh.
+				best = hit;
+				bestNode = &n;
+			}
+		}
+	};
+	visitNode(getRoot(), glm::mat4(1.0f));
+	return bestNode;
 }
