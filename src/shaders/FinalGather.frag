@@ -31,6 +31,7 @@ layout(location = 0) in vec2 fragPosition;
 layout(location = 0) out vec4 color;
 
 #include "pbrMetallicRoughness.glsl"
+#include "sky.glsl"
 
 void main() {
 	color = vec4(0.0, 0.0, 0.0, 1.0);
@@ -38,6 +39,7 @@ void main() {
 	vec3 origin = (inverse(ubo.view) * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	vec4 positionDepth = subpassLoad(inputPositionDepth);
 	vec3 position = positionDepth.xyz;
+	float depth = positionDepth.w;
 	vec4 normalMetalness = subpassLoad(inputNormalMetalness);
 	vec3 normal = normalize(normalMetalness.xyz);
 	float metalness = normalMetalness.w;
@@ -46,19 +48,24 @@ void main() {
 	float roughness = albedoRoughness.a;
 	vec4 reflection = texture(inputReflection, fragPosition); 
 
-	// Direct Light
-	color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, normalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
+	// Miss: Display the environment map.
+	if(depth <= 0) {
+		color.rgb = sky(origin, (inverse(ubo.view) * vec4(normalize(vec3(inverse(ubo.proj) * vec4(2.0 * fragPosition - 1.0, 0.0, 1.0))), 0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
+	} else {
+		// Direct Light
+		color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, normalize(origin), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
 	
-	vec3 f0 = vec3(0.04);
-	vec3 diffuseColor = albedo.rgb * (1.0 - f0);
-	diffuseColor *= (1.0 - metalness);
+		vec3 f0 = vec3(0.04);
+		vec3 diffuseColor = albedo.rgb * (1.0 - f0);
+		diffuseColor *= (1.0 - metalness);
 
-	// Specular (???)
-	vec3 specularColor = mix(f0, albedo.rgb, metalness);
-	color.rgb += specularColor * reflection.rgb;
+		// Specular (???)
+		vec3 specularColor = mix(f0, albedo.rgb, metalness);
+		color.rgb += specularColor * reflection.rgb;
 	
-	// Indirect Light (Radiance from probes)
-	vec3 view = normalize(position - origin);
-	vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;
-	color.rgb += indirectLight * diffuseColor;
+		// Indirect Light (Radiance from probes)
+		vec3 view = normalize(position - origin);
+		vec3 indirectLight = sampleProbes(position, normal, -view, grid, irradianceColor, irradianceDepth).rgb;
+		color.rgb += indirectLight * diffuseColor;
+	}
 }
