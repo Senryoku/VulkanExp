@@ -156,7 +156,7 @@ void Application::initVulkan() {
 	for(size_t i = 0; i < 64; ++i) {
 		_blueNoiseTextures[i] = &_engineTextures.emplace_back();
 		_blueNoiseTextures[i]->source = fmt::format("data/BlueNoise/64_64/LDR_RGBA_{}.png", i);
-		_blueNoiseTextures[i]->format = VK_FORMAT_R8G8B8A8_UNORM;
+		_blueNoiseTextures[i]->format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		_blueNoiseTextures[i]->sampler =
 			getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0);
 	}

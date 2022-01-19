@@ -18,8 +18,7 @@ void Device::submit(PhysicalDevice::QueueFamilyIndex queueFamilyIndex, std::func
 		.commandBufferCount = 1,
 		.pCommandBuffers = stagingCommands.getBuffersHandles().data(),
 	};
-	VkQueue queue;
-	vkGetDeviceQueue(_handle, queueFamilyIndex, 0, &queue);
+	auto queue = getQueue(queueFamilyIndex);
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 	VK_CHECK(vkQueueWaitIdle(queue));
 }

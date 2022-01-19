@@ -12,16 +12,22 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 32;
+const int maxDev = 16; // FIXME: This is arbitrary.
 
 void main()
 {
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+    
+#ifdef DISABLE
+    imageStore(outImage, coords, imageLoad(inImage, coords));
+    return;
+#endif
+
     vec4 final = vec4(0);
     float depth = imageLoad(positionDepth, coords).w;
     float roughness = imageLoad(inImage, coords).w;
     float stdDev = max(1, maxDev * roughness / max(1, (depth / 2.0))); // FIXME: This is arbitrary.
-    float depthStdDev = 1.0;                        // FIXME: Also arbitrary.
+    float depthStdDev = 1.0;                                           // FIXME: Also arbitrary.
     float sqrDev = stdDev * stdDev;
     int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev));
     float totalFactor = 0;
@@ -45,13 +51,10 @@ void main()
         final /= totalFactor;
     else final = vec4(0);
 #endif
-#ifdef DISABLE
-    imageStore(outImage, coords, imageLoad(inImage, coords));
+
+#ifdef DIRECTION_X
+        imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
 #else
-    #ifdef DIRECTION_X
-            imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
-    #else
-            imageStore(outImage, coords, vec4(final.rgb, 1.0));
-    #endif
+        imageStore(outImage, coords, vec4(final.rgb, 1.0));
 #endif
 }

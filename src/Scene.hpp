@@ -162,4 +162,8 @@ class Scene {
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
 	DeviceMemory									_accStructInstancesMemory;
+
+	// Reusable temp buffer(s)
+	Buffer		 _tlasScratchBuffer;
+	DeviceMemory _tlasScratchMemory;
 };

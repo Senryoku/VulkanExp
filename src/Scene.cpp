@@ -442,6 +442,8 @@ void Scene::free(const Device& device) {
 	_tlasMemory.free();
 	_accStructInstancesBuffer.destroy();
 	_accStructInstancesMemory.free();
+	_tlasScratchBuffer.destroy();
+	_tlasScratchMemory.free();
 
 	for(auto& m : getMeshes())
 		m.destroy();
@@ -672,14 +674,12 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 	VK_CHECK(vkCreateAccelerationStructureKHR(device, &TLASCreateInfo, nullptr, &_topLevelAccelerationStructure));
 
-	Buffer		 scratchBuffer;
-	DeviceMemory scratchMemory;
-	scratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
-	scratchMemory.allocate(device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+	_tlasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
+	_tlasScratchMemory.allocate(device, _tlasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 
 	TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
-	TLASBuildGeometryInfo.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()};
+	TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
 
 	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
 		.primitiveCount = TBLAPrimitiveCount,
@@ -698,7 +698,7 @@ void Scene::updateTLAS(const Device& device) {
 	// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
 	QuickTimer qt("TLAS update");
 
-	std::vector<VkTransformMatrixKHR>						 transforms;
+	uint32_t												 index = 0;
 	const auto&												 meshes = getMeshes();
 	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
 		transform = transform * n.transform;
@@ -707,17 +707,17 @@ void Scene::updateTLAS(const Device& device) {
 		// This is a leaf
 		if(n.mesh != -1) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i)
-				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
+			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+				_accStructInstances[index].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform);
+				++index;
+			}
 		}
 	};
 	visitNode(getRoot(), glm::mat4(1.0f));
-
-	for(auto i = 0; i < _bottomLevelAccelerationStructures.size(); ++i)
-		_accStructInstances[i].transform = transforms[i];
 	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
 
-	VkAccelerationStructureGeometryKHR TLASGeometry{
+	// FIXME: All of this is marked as static for now because we have no reason to update these structs, this may change.
+	static VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
 		.geometry =
@@ -731,37 +731,25 @@ void Scene::updateTLAS(const Device& device) {
 			},
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
 	};
-
-	VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
+	static VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR,
+		.srcAccelerationStructure = _topLevelAccelerationStructure,
+		.dstAccelerationStructure = _topLevelAccelerationStructure,
 		.geometryCount = 1,
 		.pGeometries = &TLASGeometry,
+		.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()},
 	};
-
-	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
-	VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
-
-	// FIXME: Keep it around?
-	Buffer		 scratchBuffer;
-	DeviceMemory scratchMemory;
-	scratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
-	scratchMemory.allocate(device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
-
-	TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-	TLASBuildGeometryInfo.srcAccelerationStructure = _topLevelAccelerationStructure;
-	TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
-	TLASBuildGeometryInfo.scratchData = {.deviceAddress = scratchBuffer.getDeviceAddress()};
-
-	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
+	static const uint32_t							TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
+	static VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
 		.primitiveCount = TBLAPrimitiveCount,
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0,
 	};
-	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
+	static std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
 
 	device.immediateSubmitCompute(
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });

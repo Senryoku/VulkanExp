@@ -57,7 +57,19 @@ void Image::allocate(VkMemoryPropertyFlags properties) {
 
 void Image::upload(VkCommandBuffer commandBuffer, const Buffer& stagingBuffer, const STBImage& image, VkFormat format) {
 	// Copy image data to the staging buffer
-	stagingBuffer.getMemory().fill(image.getData(), image.byteSize());
+	uint32_t bytesPerChannel = 1;
+	// Special case for float formats (TODO: Handle more formats)
+	if(format == VK_FORMAT_R32G32B32A32_SFLOAT) {
+		bytesPerChannel = 4;
+		// Convert to float
+		float* tmp = new float[image.byteSize()];
+		for(uint32_t i = 0; i < image.byteSize(); ++i)
+			tmp[i] = static_cast<float>(image.getData()[i]) / 255.0;
+		stagingBuffer.getMemory().fill(tmp, image.byteSize());
+		delete[] tmp;
+	} else {
+		stagingBuffer.getMemory().fill(image.getData(), bytesPerChannel * image.byteSize());
+	}
 
 	create(getDevice(), static_cast<uint32_t>(image.getWidth()), static_cast<uint32_t>(image.getHeight()), format, VK_IMAGE_TILING_OPTIMAL,
 		   VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, true);
@@ -101,10 +113,15 @@ void Image::upload(VkCommandBuffer commandBuffer, const Buffer& stagingBuffer, c
 }
 
 void Image::upload(const STBImage& image, uint32_t queueFamilyIndex, VkFormat format) {
+	uint32_t bytesPerChannel = 1;
+	// TODO: Handle more formats correctly
+	if(format == VK_FORMAT_R32G32B32A32_SFLOAT) {
+		bytesPerChannel = 4;
+	}
 	// Prepare staging buffer
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
-	stagingBuffer.create(getDevice(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, image.byteSize());
+	stagingBuffer.create(getDevice(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, bytesPerChannel * image.byteSize());
 	stagingMemory.allocate(getDevice(), stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// Copy to the actual device memory
@@ -161,9 +178,7 @@ void Image::setLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayou
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; break;
 		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; break;
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; break;
-		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			barrier.dstAccessMask = barrier.srcAccessMask == 0 ? VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_TRANSFER_READ_BIT;
-			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; break;
 		case VK_IMAGE_LAYOUT_GENERAL: barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT; break; // Is it?
 		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; break;
 		default: throw std::invalid_argument("Unsupported layout transition!");
