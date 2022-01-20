@@ -135,12 +135,13 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 #extension GL_EXT_debug_printf : enable
 
 #define LINEAR_BLENDING
+//#define USE_FALLBACK
 
 vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
     vec3 gridCoords = (position - grid.extentMin) / gridCellSize;
-    vec3 biasVector = (0.2 * normal + 0.8 * toCamera) * 0.75 * min(min(gridCellSize.x, gridCellSize.y), gridCellSize.z) * grid.shadowBias;
+    vec3 biasVector = (normal + 3.0 * toCamera) * grid.shadowBias;
     vec3 biasedPosition = position + biasVector;
     ivec3 firstProbeIdx = ivec3(gridCoords);
     vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / gridCellSize, vec3(0), vec3(1));
@@ -177,17 +178,17 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         // But the real solution is probably to nudge the probes out of walls, or disable the problematic ones...
 
         float fallbackWeight = weight;
-
+#if 1
         // Moment visibility test
-        vec2 depth = textureLod(depthTex, depthUV, 0).xy;
-        float mean = depth.x;
-        float variance = abs(depth.x * depth.x - depth.y);
+        vec2 depth = textureLod(depthTex, depthUV, 0).rg;
+        float mean = depth.r;
+        float variance = abs(depth.r * depth.r - depth.g);
         float biasedDistToProbe = length(probePosition - biasedPosition);
         float chebyshevWeight = variance / (variance + max(biasedDistToProbe - mean, 0.0) * max(biasedDistToProbe - mean, 0.0));
         chebyshevWeight = max(pow(chebyshevWeight, 3.0), 0.0);
         weight *= (biasedDistToProbe <= mean) ? 1.0 : chebyshevWeight;
         // I really feel like there's something wrong with my implementation here.
-
+#endif
         weight = max(0.000001, weight);
 
         const float crushThreshold = 0.2;
@@ -211,17 +212,22 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         totalFallbackWeight += fallbackWeight;
     }
     if(totalWeight == 0) return vec3(0);
+    
+    if(totalWeight > 1e-3) 
+        finalColor *= 1.0 / totalWeight;
+    if(totalFallbackWeight > 1e-3) 
+        fallbackColor *= 1.0 / totalFallbackWeight;
 
-    #ifdef LINEAR_BLENDING
-    finalColor *= 1.0 / totalWeight;
-    fallbackColor *= 1.0 / totalFallbackWeight;
-    return mix(fallbackColor, finalColor, clamp(totalWeight, 0, 1));
-    #else
-    // Undo the sqrt
+#ifndef LINEAR_BLENDING
     finalColor *= finalColor;
     fallbackColor *= fallbackColor;
-    return mix((1.0f / totalFallbackWeight) * fallbackColor, (1.0f / totalWeight) * finalColor, clamp(totalWeight, 0, 1));
-    #endif
-   }
+#endif
+
+#ifdef USE_FALLBACK
+    return mix(fallbackColor, finalColor, clamp(totalWeight, 0, 1));
+#else
+    return finalColor;
+#endif
+}
 
 #endif
