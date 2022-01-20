@@ -51,6 +51,13 @@ class JSON {
 				return static_cast<float>(_value.as_int);
 		}
 
+		int toInteger() const {
+			if(_type == Type::integer)
+				return _value.as_int;
+			else
+				return static_cast<int>(_value.as_float);
+		}
+
 	  private:
 		enum class Type
 		{
@@ -217,7 +224,24 @@ class JSON {
 		T to() const;
 
 		template<>
+		int to<int>() const {
+			if(_type == Type::string) {
+				auto str = asString();
+				int	 i;
+				std::from_chars(str.c_str(), str.c_str() + str.size(), i);
+				return i;
+			}
+			return asNumber().toInteger();
+		}
+
+		template<>
 		float to<float>() const {
+			if(_type == Type::string) {
+				auto  str = asString();
+				float f;
+				std::from_chars(str.c_str(), str.c_str() + str.size(), f);
+				return f;
+			}
 			return asNumber().toReal();
 		}
 
