@@ -66,7 +66,7 @@ void main()
         result += vec4(weight * rayData.rgb, weight);
 #else
         float weight = pow(max(0.0, dot(texelDirection, direction)), grid.depthSharpness);
-        result += vec4(weight * rayData.w, weight * weight * rayData.w, 0.0, weight);
+        result += vec4(weight * rayData.w, weight * rayData.w * rayData.w, 0.0, weight);
 #endif
     }
 
