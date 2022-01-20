@@ -88,12 +88,12 @@ ivec2 irradianceCopiesSrc[28] = {
 
 
 ivec2 depthCopiesDst[4 + 4 * 14] = {
-    // Borders
+    // Corners
     ivec2(0,  0),
     ivec2(0,  15),
     ivec2(15, 0),
     ivec2(15, 15),
-    // Rows
+    // Cols
     ivec2(0, 1),
     ivec2(0, 2),
     ivec2(0, 3),
@@ -122,7 +122,7 @@ ivec2 depthCopiesDst[4 + 4 * 14] = {
     ivec2(15, 12),
     ivec2(15, 13),
     ivec2(15, 14),
-    // Cols
+    // Rows
     ivec2(1, 0),
     ivec2(2, 0),
     ivec2(3, 0),
