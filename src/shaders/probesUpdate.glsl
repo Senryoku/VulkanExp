@@ -52,7 +52,7 @@ void main()
     ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     ivec2 localFragCoord = ivec2(gl_LocalInvocationID.yz);
 
-    float gridCellSize = max3((grid.extentMax - grid.extentMin) / grid.resolution);
+    float gridCellSize = length((grid.extentMax - grid.extentMin) / grid.resolution);
 
     vec4 result = vec4(0);
     vec3 texelDirection = octDecode(specializedNormalizeLocalTexelCoord(localFragCoord));
@@ -65,8 +65,10 @@ void main()
         float weight = max(0.0, dot(texelDirection, direction));
         result += vec4(weight * rayData.rgb, weight);
 #else
+        float depth = min(gridCellSize, rayData.w);
+        if(depth < 0) depth = gridCellSize;
         float weight = pow(max(0.0, dot(texelDirection, direction)), grid.depthSharpness);
-        result += vec4(weight * rayData.w, weight * rayData.w * rayData.w, 0.0, weight);
+        result += vec4(weight * depth, weight * depth * depth, 0.0, weight);
 #endif
     }
 
