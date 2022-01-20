@@ -236,5 +236,10 @@ void main()
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 1], value);
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 2]);
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 2], value);
+    } else if(gl_LocalInvocationID.x == 23) {
+        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 0]);
+        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 0], value);
+        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 1]);
+        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 1], value);
     }
 }
