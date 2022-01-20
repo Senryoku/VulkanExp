@@ -23,25 +23,39 @@ layout(location = 0) out vec4 outColor;
 const int colorRes = 8; // FIXME
 const int depthRes = 16; // FIXME
 
-#define TYPE 2
+#define TYPE 0
 
 void main() {
     #if TYPE == 0
-    vec2 localUV = (float(colorRes - 2) / colorRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
-    vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
-    vec3 c = textureLod(colorTex, uv, 0).xyz;
-    outColor = vec4(c, 1.0);
+
+    if(state == 0)
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    else {
+        vec2 localUV = (float(colorRes - 2) / colorRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
+        vec2 uv = (probeUVOffset  + ivec2(1, 1)) / uvScaling / colorRes + localUV;
+        vec3 c = textureLod(colorTex, uv, 0).xyz;
+        outColor = vec4(c, 1.0);
+    }
+
     #elif TYPE == 1
-    vec2 localUV = (float(depthRes - 2) / depthRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
-    vec2 uv = (probeDepthUVOffset  + ivec2(1, 1)) / uvScaling / depthRes + localUV;
-    vec3 c = textureLod(depthTex, uv, 0).xyz;
-    outColor = vec4(0.0, c.x / gridCellLength, 0.0, 1.0);
+
+    if(state == 0)
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    else {
+        vec2 localUV = (float(depthRes - 2) / depthRes) * spherePointToOctohedralUV(normalize(normal)) / uvScaling;
+        vec2 uv = (probeDepthUVOffset  + ivec2(1, 1)) / uvScaling / depthRes + localUV;
+        vec3 c = textureLod(depthTex, uv, 0).xyz;
+        outColor = vec4(0.0, c.x / gridCellLength, abs(c.x * c.x - c.y) / gridCellLength, 1.0);
+    }
+
     #else
+
     if(state == 0)
         outColor = vec4(1.0, 0.0, 0.0, 1.0);
     else if(state == 1)
         outColor = vec4(1.0);
     else 
         outColor = vec4(0.0, 1.0 - state / 8.0, state / 8.0, 1.0);
+
     #endif
 }
