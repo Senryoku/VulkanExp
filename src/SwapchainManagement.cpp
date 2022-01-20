@@ -552,10 +552,14 @@ void Application::recordCommandBuffers() {
 				if(n.mesh != -1) {
 					GBufferPushConstant pc{transform, 0, 0};
 					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-						pc.metalness = submesh.material->metallicFactor;
-						pc.roughness = submesh.material->roughnessFactor;
-						vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
-												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
+						if(submesh.material) {
+							pc.metalness = submesh.material->metallicFactor;
+							pc.roughness = submesh.material->roughnessFactor;
+							vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
+													&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
+						} else
+							warn("Application::recordCommandBuffers: Submesh '{}' (Mesh '{}', Node '{}') doesn't have a material.\n", submesh.name, _scene.getMeshes()[n.mesh].name,
+								 n.name);
 						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GBufferPushConstant), &pc);
 						b.bind<1>({submesh.getVertexBuffer()});
 						vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
