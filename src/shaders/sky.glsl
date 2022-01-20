@@ -78,8 +78,9 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 		if(height > InnerRadius) {
 			float planetDistance = traceSphereOutside(vec3(0), InnerRadius, position, rayDirection);
 			if(planetDistance >= 0) return max(0.1, dot(lightDir, normalize(position + planetDistance * rayDirection))) * vec3(0.1);
-		} else { // We're inside the planet, just display something to help orient ourself :D
-			return dot(vec3(0, 1, 0), rayDirection) * vec3(0.25, 0, 0) + dot(vec3(0, -1, 0), rayDirection) * vec3(0, 0.25, 0);
+		} else { // We're inside the planet, just display something to help orient ourself (or nothing) :D
+			//return dot(vec3(0, 1, 0), rayDirection) * vec3(0.25, 0, 0) + dot(vec3(0, -1, 0), rayDirection) * vec3(0, 0.25, 0);
+			return vec3(0);
 		}
 
 		float rayDepth = traceSphereInside(vec3(0), OuterRadius, position, rayDirection);
