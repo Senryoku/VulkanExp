@@ -161,9 +161,9 @@ void main()
 	vec4 texColor = m.albedoTexture != -1 ? textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw) : vec4(1.0);
 	
 	// If the material has a normal texture, "bend" the normal according to the normal map
+	vec4 tangentData = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
+	vec3 tangent = normalize(vec3(tangentData.xyz * gl_WorldToObjectEXT)); // To world space
 	if(m.normalTexture != -1) {
-		vec4 tangentData = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
-		vec3 tangent = normalize(vec3(tangentData.xyz * gl_WorldToObjectEXT)); // To world space
 		float tangentHandedness = tangentData.w;
 		vec3 bitangent = cross(normal, tangent) * tangentHandedness;
 	
@@ -204,10 +204,17 @@ void main()
 		vec3 prefilteredColor = vec3(0.0);     
 		for(uint i = 0u; i < SAMPLE_COUNT; ++i)
 		{
-			vec2 Xi = texture(sampler2D(blueNoiseTextures[(SAMPLE_COUNT * ubo.frameIndex + i) % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0)).xy;
+		#if 0
+			vec2 Xi = Hammersley(i, SAMPLE_COUNT);
 			vec3 H  = ImportanceSampleGGX(Xi, normal, roughness);
 			vec3 L  = normalize(2.0 * dot(-gl_WorldRayDirectionEXT, H) * H + gl_WorldRayDirectionEXT);
-
+		#else
+			vec2 noise = texture(sampler2D(blueNoiseTextures[(SAMPLE_COUNT * ubo.frameIndex + i) % 64], blueNoiseSampler), vec2((gl_LaunchIDEXT.xy + ubo.frameIndex / (SAMPLE_COUNT * 64)) / 64.0)).xy;
+			float theta = roughness * (noise.x - 0.5) * pi;
+			float phi = (noise.y - 0.5) * 2.0f * pi;
+			vec3 L = rotateAxis(reflectDir, tangent, theta);
+			L = rotateAxis(L, reflectDir, phi);
+		#endif
 			float NdotL = max(dot(normal, L), 0.0);
 			if(NdotL > 0.0)
 			{
