@@ -10,6 +10,10 @@ JSON::JSON(const std::filesystem::path& path) {
 
 bool JSON::parse(const std::filesystem::path& path) {
 	std::ifstream file{path, std::ios::in};
+	if(!file) {
+		error("JSON Parsing error: Could not open ''{}'.\n", path);
+		return false;
+	}
 	return parse(file);
 }
 
