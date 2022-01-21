@@ -41,6 +41,8 @@ function Show-Notification {
     $Notifier.Show($Toast);
 }
 
+$errored = $false
+
 Foreach($shader in $shaders)
 {
 	$name = [System.IO.Path]::GetFileNameWithoutExtension($shader)
@@ -69,7 +71,7 @@ Foreach($shader in $shaders)
 			Write-Host "' failed ('" -NoNewLine
 			Write-Host "$filename.spv" -ForegroundColor Cyan -NoNewLine
 			Write-Host "' was not created/updated)."
-			Show-Notification -ToastTitle "Shader Compilation Error" -ToastText "[$filename] Compilation failed."
+			$errored = $true
 		} Else {
 			$now = Get-Date -Format "HH:mm:ss"
 			Write-Host "[$now] " -ForegroundColor DarkGray -NoNewLine
@@ -82,4 +84,8 @@ Foreach($shader in $shaders)
 	} Else {
 		#Write-Output "Skiping $filename ($d < $d2)"
 	}
+}
+
+If($errored) {
+	Show-Notification -ToastTitle "Shader Compilation Error" -ToastText "At least one shader compilation failed."
 }
