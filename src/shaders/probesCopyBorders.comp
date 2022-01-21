@@ -229,14 +229,14 @@ void main()
     vec4 value;
     value = imageLoad(irradiance, globalIrradianceFragOffset + irradianceCopiesSrc[gl_LocalInvocationID.x]);
     imageStore(irradiance, globalIrradianceFragOffset + irradianceCopiesDst[gl_LocalInvocationID.x], value);
-    if(gl_LocalInvocationID.x < (4 + 4 * 16) / 3) {
+    if(gl_LocalInvocationID.x < (4 + 4 * 16) / 3 - 1) {
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 0]);
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 0], value);
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 1]);
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 1], value);
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 2]);
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 2], value);
-    } else if(gl_LocalInvocationID.x == 23) {
+    } else if(gl_LocalInvocationID.x == 22) {
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 0]);
         imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 0], value);
         value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 1]);
