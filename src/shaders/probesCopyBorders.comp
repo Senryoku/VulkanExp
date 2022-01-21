@@ -219,27 +219,28 @@ ivec2 depthCopiesSrc[4 + 4 * 14] = {
     ivec2(1,  14),
 };
 
+
+ivec2 globalDepthFragOffset;
+
+void depthCopy(uint index) {
+    vec4 value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[index]);
+    imageStore(depth, globalDepthFragOffset + depthCopiesDst[index], value);
+}
+
 void main()
 {
     uint linearIndex = indices[gl_WorkGroupID.x];
     ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     ivec2 globalIrradianceFragOffset = probeIndexToColorUVOffset(probeIndex, grid);
-    ivec2 globalDepthFragOffset = probeIndexToDepthUVOffset(probeIndex, grid);
+    globalDepthFragOffset = probeIndexToDepthUVOffset(probeIndex, grid);
 
-    vec4 value;
-    value = imageLoad(irradiance, globalIrradianceFragOffset + irradianceCopiesSrc[gl_LocalInvocationID.x]);
+    vec4 value = imageLoad(irradiance, globalIrradianceFragOffset + irradianceCopiesSrc[gl_LocalInvocationID.x]);
     imageStore(irradiance, globalIrradianceFragOffset + irradianceCopiesDst[gl_LocalInvocationID.x], value);
-    if(gl_LocalInvocationID.x < (4 + 4 * 16) / 3 - 1) {
-        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 0]);
-        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 0], value);
-        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 1]);
-        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 1], value);
-        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 2]);
-        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 2], value);
-    } else if(gl_LocalInvocationID.x == 22) {
-        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 0]);
-        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 0], value);
-        value = imageLoad(depth, globalDepthFragOffset + depthCopiesSrc[3 * gl_LocalInvocationID.x + 1]);
-        imageStore(depth, globalDepthFragOffset + depthCopiesDst[3 * gl_LocalInvocationID.x + 1], value);
+
+    // We're lucky that 4 + 4 * 14 = 60 is a multiple of 3
+    if(gl_LocalInvocationID.x < (4 + 4 * 14) / 3) {
+        depthCopy(3 * gl_LocalInvocationID.x + 0);
+        depthCopy(3 * gl_LocalInvocationID.x + 1);
+        depthCopy(3 * gl_LocalInvocationID.x + 2);
     }
 }
