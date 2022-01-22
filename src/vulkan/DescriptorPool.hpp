@@ -124,14 +124,15 @@ class DescriptorSetWriter {
 		assert(_imageInfos.size() < MaxImages + 1 - infos.size());
 		for(const auto& i : infos)
 			_imageInfos.push_back(i);
-		writeDescriptorSets.push_back({
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = _descriptorSet,
-			.dstBinding = binding,
-			.descriptorCount = static_cast<uint32_t>(infos.size()),
-			.descriptorType = type,
-			.pImageInfo = &_imageInfos[_imageInfos.size() - infos.size()],
-		});
+		if(infos.size() > 0)
+			writeDescriptorSets.push_back({
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = _descriptorSet,
+				.dstBinding = binding,
+				.descriptorCount = static_cast<uint32_t>(infos.size()),
+				.descriptorType = type,
+				.pImageInfo = &_imageInfos[_imageInfos.size() - infos.size()],
+			});
 		return *this;
 	}
 

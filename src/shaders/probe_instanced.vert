@@ -33,7 +33,7 @@ layout(location = 8) out uint state;
 layout(location = 9) out float gridCellLength;
 
 vec3 gridCellSize = abs((grid.extentMax - grid.extentMin) / grid.resolution);
-float ProbeSize = 0.2 * min(gridCellSize.x, min(gridCellSize.y, gridCellSize.z));
+float ProbeSize = 0.15 * min(gridCellSize.x, min(gridCellSize.y, gridCellSize.z));
 
 void main() {
     vec3 probePosition = probeIndexToWorldPosition(gl_InstanceIndex, grid);

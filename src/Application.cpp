@@ -33,7 +33,13 @@ void Application::run() {
 		QuickTimer qt("glTF load");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
-		_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
+		//_scene.loadglTF("./data/models/sanmiguel/sanmiguel.gltf");
+		//_scene.loadglTF("./data/models/livingroom/livingroom.gltf");
+		//_scene.loadglTF("./data/models/gallery/gallery.gltf"); // Crashes
+		//_scene.loadglTF("./data/models/Home/HomeTest.gltf");
+		//_scene.loadglTF("./data/models/Home/ConvertedWithBlendergltf.gltf");
+		//_scene.loadglTF("./data/models/Home/untitled.gltf");
+		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
 		//_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
 		//_scene.loadglTF("./data/models/postwar_city_-_exterior_scene/scene.gltf");
 		//_scene.loadglTF("./data/models/sea_keep_lonely_watcher/scene.gltf");
