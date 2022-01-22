@@ -18,7 +18,6 @@ class SubMesh {
 	std::string name;
 	uint32_t	indexIntoOffsetTable = -1;
 	size_t		materialIndex = 0;
-	Material*	material = nullptr; // FIXME: Probably only use the index?
 
 	void init(const Device& device) {
 		const auto indexDataSize = getIndexByteSize();
@@ -58,7 +57,6 @@ class SubMesh {
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
 	void				 computeBounds();
 
-	bool loadOBJ(const std::filesystem::path& path);
 	void normalizeVertices();
 	void computeVertexNormals();
 
@@ -82,7 +80,6 @@ class Mesh {
 	std::vector<SubMesh> SubMeshes;
 
 	void destroy() { SubMeshes.clear(); }
-
 	~Mesh() { destroy(); }
 
 	inline const Bounds& getBounds() const { return _bounds; }

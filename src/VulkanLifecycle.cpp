@@ -105,10 +105,10 @@ void Application::initVulkan() {
 		stagingBufferSize = std::max(stagingBufferSize, buffSize);
 	}
 	// Materials
-	std::vector<Material::GPUData> materialGpu;
+	std::vector<Material::Properties> materialGpu;
 	for(const auto& material : Materials)
-		materialGpu.push_back(material.getGPUData());
-	stagingBufferSize = std::max(stagingBufferSize, materialGpu.size() * sizeof(Material::GPUData));
+		materialGpu.push_back(material.properties);
+	stagingBufferSize = std::max(stagingBufferSize, materialGpu.size() * sizeof(Material::Properties));
 	// Textures, they're not loaded yet, we could, but we'll just take an upper bound for now
 	stagingBufferSize = std::max(stagingBufferSize, static_cast<size_t>(4 * 16384 * 16384)); // FIXME
 
@@ -130,10 +130,10 @@ void Application::initVulkan() {
 	}
 
 	MaterialBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-						  materialGpu.size() * sizeof(Material::GPUData));
+						  materialGpu.size() * sizeof(Material::Properties));
 	MaterialMemory.allocate(_device, MaterialBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	stagingMemory.fill(materialGpu.data(), materialGpu.size());
-	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _transfertQueue);
+	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::Properties), _transfertQueue);
 
 	{
 		for(auto& m : _probeMesh.getMeshes())
@@ -196,15 +196,15 @@ void Application::initVulkan() {
 }
 
 void Application::uploadMaterials() {
-	std::vector<Material::GPUData> materialGpu;
+	std::vector<Material::Properties> materialGpu;
 	for(const auto& material : Materials)
-		materialGpu.push_back(material.getGPUData());
+		materialGpu.push_back(material.properties);
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
-	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, materialGpu.size() * sizeof(Material::GPUData));
+	stagingBuffer.create(_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, materialGpu.size() * sizeof(Material::Properties));
 	stagingMemory.allocate(_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	stagingMemory.fill(materialGpu.data(), materialGpu.size());
-	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::GPUData), _transfertQueue);
+	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, stagingBuffer, materialGpu.size() * sizeof(Material::Properties), _transfertQueue);
 }
 
 void Application::createInstance() {

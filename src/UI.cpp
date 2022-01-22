@@ -249,7 +249,7 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
-	if(ImGui::Begin("Scenes")) {
+	if(ImGui::Begin("Scene")) {
 		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
@@ -262,15 +262,7 @@ void Application::drawUI() {
 				ImGui::TreePop();
 			}
 		};
-
-		for(const auto& s : _scene.getScenes()) {
-			if(ImGui::TreeNode(makeUnique(s.name).c_str())) {
-				for(const auto& n : s.nodes) {
-					displayNode(n);
-				}
-				ImGui::TreePop();
-			}
-		}
+		displayNode(0);
 
 		if(ImGui::TreeNode("Loaded Textures")) {
 			for(const auto& texture : SceneUITextureIDs) {
@@ -360,17 +352,17 @@ void Application::drawUI() {
 									if(*index != -1)
 										ImGui::Image(SceneUITextureIDs[*index].imID, ImVec2(100, 100));
 								};
-								texInput("Albedo Texture", &mat.albedoTexture);
-								texInput("Normal Texture", &mat.normalTexture);
-								texInput("Metallic Roughness Texture", &mat.metallicRoughnessTexture);
-								texInput("Emissive Texture", &mat.emissiveTexture);
-								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.emissiveFactor))) {
+								texInput("Albedo Texture", &mat.properties.albedoTexture);
+								texInput("Normal Texture", &mat.properties.normalTexture);
+								texInput("Metallic Roughness Texture", &mat.properties.metallicRoughnessTexture);
+								texInput("Emissive Texture", &mat.properties.emissiveTexture);
+								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.properties.emissiveFactor))) {
 									dirtyMaterials = true;
 								}
-								if(ImGui::SliderFloat("Metallic Factor", &mat.metallicFactor, 0.0f, 1.0f)) {
+								if(ImGui::SliderFloat("Metallic Factor", &mat.properties.metallicFactor, 0.0f, 1.0f)) {
 									dirtyMaterials = true;
 								}
-								if(ImGui::SliderFloat("Roughness Factor", &mat.roughnessFactor, 0.0f, 1.0f)) {
+								if(ImGui::SliderFloat("Roughness Factor", &mat.properties.roughnessFactor, 0.0f, 1.0f)) {
 									dirtyMaterials = true;
 								}
 								ImGui::TreePop();

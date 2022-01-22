@@ -29,10 +29,15 @@ void Application::initWindow() {
 void Application::run() {
 	// Make sure shaders are up-to-date
 	system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
+
+	// Default Material
+	Materials.push_back(Material{.name = "Default Material"});
+
 	{
-		QuickTimer qt("glTF load");
+		QuickTimer qt("Scene loading");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
+		_scene.loadOBJ("./data/models/lucy.obj");
 		//_scene.loadglTF("./data/models/sanmiguel/sanmiguel.gltf");
 		//_scene.loadglTF("./data/models/livingroom/livingroom.gltf");
 		//_scene.loadglTF("./data/models/gallery/gallery.gltf"); // Crashes

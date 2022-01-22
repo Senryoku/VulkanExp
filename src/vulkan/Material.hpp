@@ -10,30 +10,21 @@
 
 #include <JSON.hpp>
 
-class Material {
-  public:
-	std::string name;
-	glm::vec4	baseColorFactor{1.0};
-	float		metallicFactor = 1.0;
-	float		roughnessFactor = 1.0;
-	glm::vec3	emissiveFactor{0.0f};
-	uint32_t	albedoTexture = -1;
-	uint32_t	normalTexture = -1;
-	uint32_t	metallicRoughnessTexture = -1;
-	uint32_t	emissiveTexture = -1;
+struct Material {
+	using TextureIndex = uint32_t;
+	static const TextureIndex InvalidTextureIndex = -1;
 
-	// TODO: Move this (to a Scene class?)
-	struct GPUData {
+	struct Properties {
+		// glm::vec4 baseColorFactor{1.0};
 		float	  metallicFactor = 1.0;
 		float	  roughnessFactor = 1.0;
 		glm::vec3 emissiveFactor{0.0f};
-		uint32_t  albedoTexture = -1;
-		uint32_t  normalTexture = -1;
-		uint32_t  metallicRoughnessTexture = -1;
-		uint32_t  emissiveTexture = -1;
+		TextureIndex albedoTexture = InvalidTextureIndex;
+		TextureIndex normalTexture = InvalidTextureIndex;
+		TextureIndex metallicRoughnessTexture = InvalidTextureIndex;
+		TextureIndex emissiveTexture = InvalidTextureIndex;
 	};
 
-	GPUData getGPUData() const { return GPUData{metallicFactor, roughnessFactor, emissiveFactor, albedoTexture, normalTexture, metallicRoughnessTexture, emissiveTexture}; }
-
-  private:
+	std::string name;
+	Properties	properties;
 };

@@ -74,7 +74,7 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 			{
 				.buffer = MaterialBuffer,
 				.offset = 0,
-				.range = sizeof(Material::GPUData) * Materials.size(),
+				.range = VK_WHOLE_SIZE,
 			});
 	dsw.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			{

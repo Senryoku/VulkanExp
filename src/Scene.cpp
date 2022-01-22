@@ -63,6 +63,10 @@ glm::mat4 JSON::value::to<glm::mat4>() const {
 	};
 }
 
+Scene::Scene() {
+	_nodes.push_back({.name = "Root"});
+}
+
 Scene::Scene(std::filesystem::path path, LoadOperation loadOp) {
 	loadglTF(path, loadOp);
 }
@@ -71,7 +75,7 @@ Scene::~Scene() {
 	// free();
 }
 
-void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
+void Scene::loadglTF(const std::filesystem::path& path, LoadOperation loadOp) {
 	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
 	JSON		json{path};
 	const auto& object = json.getRoot();
@@ -114,28 +118,28 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			Material material;
 			material.name = mat("name", std::string("NoName"));
 			if(mat.contains("pbrMetallicRoughness")) {
-				material.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-				material.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-				material.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
+				// material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+				material.properties.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
+				material.properties.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
 				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
-					material.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+					material.properties.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
 				}
 				if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-					material.metallicRoughnessTexture = textureOffset + mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
+					material.properties.metallicRoughnessTexture = textureOffset + mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
 					// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
-					if(material.metallicRoughnessTexture < Textures.size())
-						Textures[material.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+					if(material.properties.metallicRoughnessTexture < Textures.size())
+						Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
 				}
 			}
-			material.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
+			material.properties.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
 			if(mat.contains("emissiveTexture")) {
-				material.emissiveTexture = textureOffset + mat["emissiveTexture"]["index"].as<int>();
+				material.properties.emissiveTexture = textureOffset + mat["emissiveTexture"]["index"].as<int>();
 			}
 			if(mat.contains("normalTexture")) {
-				material.normalTexture = textureOffset + mat["normalTexture"]["index"].as<int>();
+				material.properties.normalTexture = textureOffset + mat["normalTexture"]["index"].as<int>();
 				// Change the default format of this texture now that we know it will be used as a normal map
-				if(material.normalTexture < Textures.size())
-					Textures[material.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+				if(material.properties.normalTexture < Textures.size())
+					Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
 			}
 			Materials.push_back(material);
 		}
@@ -150,7 +154,6 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			submesh.name = m("name", std::string("NoName"));
 			if(p.asObject().contains("material")) {
 				submesh.materialIndex = materialOffset + p["material"].as<int>();
-				submesh.material = &Materials[submesh.materialIndex];
 			}
 
 			if(p.contains("mode"))
@@ -305,49 +308,81 @@ void Scene::loadglTF(std::filesystem::path path, LoadOperation loadOp) {
 			_nodes[c].parent = i;
 		}
 
-	switch(loadOp) {
-		case LoadOperation::AllScenes: {
-			const auto scenesOffset = _scenes.size();
-			for(const auto& scene : object["scenes"]) {
-				SubScene s;
-				s.name = scene("name", std::string("Unamed Scene"));
-				if(scene.contains("nodes")) {
-					for(const auto& n : scene["nodes"]) {
-						s.nodes.push_back(nodesOffset + n.as<int>());
-					}
-				}
-				_scenes.push_back(s);
+	for(const auto& scene : object["scenes"]) {
+		Node& rootNode = _nodes.emplace_back(Node{.name = scene("name", std::string("Unamed Scene"))});
+		addChild(0, _nodes.size() - 1);
+		if(scene.contains("nodes")) {
+			for(const auto& n : scene["nodes"]) {
+				addChild(_nodes.size() - 1, nodesOffset + n.as<int>());
 			}
+		}
+	}
+}
 
-			_defaultScene = object("scene", 0) + scenesOffset;
-			_root.name = "Dummy Node";
-			_root.transform = glm::mat4(1.0);
-			_root.children = _scenes[_defaultScene].nodes;
-			break;
-		}
-		case LoadOperation::AppendToCurrentScene: {
-			Node root; // Dummy root node for all the scenes.
-			root.name = "Appended glTF file";
-			_nodes.push_back(root);
-			NodeIndex rootIndex = _nodes.size() - 1;
-			for(const auto& scene : object["scenes"]) {
-				Node n; // Dummy root node for this scene
-				n.name = scene("name", std::string("Unamed Scene"));
-				_nodes.push_back(n);
-				NodeIndex idx = _nodes.size() - 1;
-				if(scene.contains("nodes")) {
-					for(const auto& c : scene["nodes"]) {
-						addChild(idx, nodesOffset + c.as<int>());
-					}
-				}
-				addChild(rootIndex, idx);
-			}
-			_scenes[_defaultScene].nodes.push_back(_nodes.size() - 1);
-			_root.children = _scenes[_defaultScene].nodes;
-			//_nodes[_scenes[_defaultScene].nodes[0]].children.push_back(_nodes.size() - 1);
-			break;
-		}
+bool Scene::loadOBJ(const std::filesystem::path& path) {
+	std::ifstream file{path};
+	if(!file) {
+		error("Scene::loadOBJ Error: Couldn't open '{}'.\n", path);
+		return false;
+	}
+
+	Mesh*	 m = nullptr;
+	SubMesh* sm = nullptr;
+
+	Node&	  rootNode = _nodes.emplace_back(Node{.name = path.string()});
+	NodeIndex rootIndex = _nodes.size() - 1;
+	addChild(0, rootIndex);
+
+	const auto nextMesh = [&]() {
+		_meshes.emplace_back();
+		m = &_meshes.back();
+
+		_nodes.emplace_back(Node{.mesh = static_cast<MeshIndex>(_meshes.size() - 1)});
+		addChild(rootIndex, _nodes.size() - 1);
+
+		m->SubMeshes.push_back({});
+		sm = &m->SubMeshes.back();
+		sm->materialIndex = 0;
 	};
+	const auto nextSubMesh = [&]() {
+		m->SubMeshes.push_back({});
+		sm = &m->SubMeshes.back();
+		sm->materialIndex = 0;
+	};
+
+	nextMesh();
+
+	std::string line;
+	Vertex		v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
+	while(std::getline(file, line)) {
+		// Ignore empty lines and comments
+		if(line.empty() || line[line.find_first_not_of(" \t")] == '#')
+			continue;
+		if(line[0] == 'v') {
+			char* cur = line.data() + 2;
+			for(size_t i = 0; i < 3; ++i)
+				v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
+			sm->getVertices().push_back(v);
+		} else if(line[0] == 'f') {
+			char* cur = line.data() + 2;
+			for(size_t i = 0; i < 3; ++i)														   // Supports only triangles.
+				sm->getIndices().push_back(static_cast<uint32_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
+		} else if(line[0] == 'o') {
+			// Next Mesh
+			if(sm->getVertices().size() > 0)
+				nextMesh();
+		} else if(line[0] == 'g') {
+			// Next SubMesh
+			if(sm->getVertices().size() > 0) {
+				sm->computeVertexNormals();
+				nextSubMesh();
+			}
+		} else {
+			warn("Unsupported OBJ command: '{}' (Full line: '{}')\n", line[0], line);
+		}
+	}
+	sm->computeVertexNormals();
+	return true;
 }
 
 void Scene::allocateMeshes(const Device& device) {

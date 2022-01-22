@@ -44,6 +44,8 @@ class Scene {
 	static const NodeIndex InvalidNodeIndex = -1;
 	using MeshIndex = uint32_t;
 	static const MeshIndex InvalidMeshIndex = -1;
+	using MaterialIndex = uint32_t;
+	static const MaterialIndex InvalidMaterialIndex = -1;
 
 	struct Node {
 		std::string			   name = "Unamed Node";
@@ -72,19 +74,18 @@ class Scene {
 		AppendToCurrentScene
 	};
 
-	Scene() = default;
+	Scene();
 	Scene(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
 	~Scene();
 
-	void loadglTF(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
+	void loadglTF(const std::filesystem::path& path, LoadOperation loadOp = LoadOperation::AllScenes);
+	bool loadOBJ(const std::filesystem::path& path);
 
 	void createAccelerationStructure(const Device& device);
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
-	inline std::vector<SubScene>&			 getScenes() { return _scenes; }
 	inline std::vector<Node>&				 getNodes() { return _nodes; }
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
-	inline const std::vector<SubScene>&		 getScenes() const { return _scenes; }
 	inline const std::vector<Node>&			 getNodes() const { return _nodes; }
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 
@@ -93,8 +94,8 @@ class Scene {
 	void		updateTLAS(const Device& device);
 
 	// Returns a dummy node with stands for the current scene (since it can have multiple children).
-	inline const Node& getRoot() const { return _root; }
-	inline Node&	   getRoot() { return _root; }
+	inline const Node& getRoot() const { return _nodes[0]; }
+	inline Node&	   getRoot() { return _nodes[0]; }
 
 	Node* intersectNodes(Ray& ray);
 
@@ -143,11 +144,8 @@ class Scene {
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:
-	uint32_t			  _defaultScene = 0;
-	Node				  _root;
-	std::vector<Mesh>	  _meshes;
-	std::vector<SubScene> _scenes;
-	std::vector<Node>	  _nodes;
+	std::vector<Mesh> _meshes;
+	std::vector<Node> _nodes;
 
 	std::vector<Node*> _dirtyNodes;
 

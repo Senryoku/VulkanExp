@@ -552,9 +552,9 @@ void Application::recordCommandBuffers() {
 				if(n.mesh != -1) {
 					GBufferPushConstant pc{transform, 0, 0};
 					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-						if(submesh.material) {
-							pc.metalness = submesh.material->metallicFactor;
-							pc.roughness = submesh.material->roughnessFactor;
+						if(submesh.materialIndex != Scene::InvalidMaterialIndex) {
+							pc.metalness = Materials[submesh.materialIndex].properties.metallicFactor;
+							pc.roughness = Materials[submesh.materialIndex].properties.roughnessFactor;
 							vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
 													&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
 						} else
