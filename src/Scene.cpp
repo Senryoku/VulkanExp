@@ -67,15 +67,26 @@ Scene::Scene() {
 	_nodes.push_back({.name = "Root"});
 }
 
-Scene::Scene(std::filesystem::path path, LoadOperation loadOp) {
-	loadglTF(path, loadOp);
+Scene::Scene(const std::filesystem::path& path) {
+	load(path);
 }
 
 Scene::~Scene() {
 	// free();
 }
 
-void Scene::loadglTF(const std::filesystem::path& path, LoadOperation loadOp) {
+bool Scene::load(const std::filesystem::path& path) {
+	const auto ext = path.extension();
+	if(ext == ".obj")
+		return loadOBJ(path);
+	else if(ext == ".gltf")
+		return loadglTF(path);
+	else
+		warn("Scene::load: File extension {} is not supported ('{}').", ext, path.string());
+	return false;
+}
+
+bool Scene::loadglTF(const std::filesystem::path& path) {
 	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
 	JSON		json{path};
 	const auto& object = json.getRoot();
@@ -92,11 +103,11 @@ void Scene::loadglTF(const std::filesystem::path& path, LoadOperation loadOp) {
 			buffer.resize(length);
 			if(!buffer_file.read(buffer.data(), length)) {
 				error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
-				return;
+				return false;
 			}
 		} else {
 			error("Could not open '{}'.", filepath);
-			return;
+			return false;
 		}
 	}
 
@@ -302,7 +313,7 @@ void Scene::loadglTF(const std::filesystem::path& path, LoadOperation loadOp) {
 		_nodes.push_back(n);
 	}
 	// Assign parent indices
-	for(NodeIndex i = 0; i < _nodes.size(); ++i)
+	for(NodeIndex i = nodesOffset; i < _nodes.size(); ++i)
 		for(auto& c : _nodes[i].children) {
 			assert(_nodes[c].parent == -1);
 			_nodes[c].parent = i;
@@ -317,6 +328,8 @@ void Scene::loadglTF(const std::filesystem::path& path, LoadOperation loadOp) {
 			}
 		}
 	}
+
+	return true;
 }
 
 bool Scene::loadOBJ(const std::filesystem::path& path) {
@@ -356,7 +369,10 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	Vertex		v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
 	while(std::getline(file, line)) {
 		// Ignore empty lines and comments
-		if(line.empty() || line[line.find_first_not_of(" \t")] == '#')
+		if(line.empty())
+			continue;
+		auto it = line.find_first_not_of(" \t");
+		if(it == std::string::npos || line[it] == '#')
 			continue;
 		if(line[0] == 'v') {
 			char* cur = line.data() + 2;
@@ -375,6 +391,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 			// Next SubMesh
 			if(sm->getVertices().size() > 0) {
 				sm->computeVertexNormals();
+				sm->computeBounds();
 				nextSubMesh();
 			}
 		} else {
@@ -382,12 +399,25 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		}
 	}
 	sm->computeVertexNormals();
+	sm->computeBounds();
 	return true;
 }
 
 void Scene::allocateMeshes(const Device& device) {
-	uint32_t						  totalVertexSize = 0;
-	uint32_t						  totalIndexSize = 0;
+	if(VertexBuffer) {
+		VertexBuffer.destroy();
+		IndexBuffer.destroy();
+		OffsetTableBuffer.destroy();
+		VertexMemory.free();
+		IndexMemory.free();
+		OffsetTableMemory.free();
+
+		NextVertexMemoryOffset = 0;
+		NextIndexMemoryOffset = 0;
+	}
+
+	size_t							  totalVertexSize = 0;
+	size_t							  totalIndexSize = 0;
 	std::vector<VkMemoryRequirements> memReqs;
 	std::vector<OffsetEntry>		  offsetTable;
 	for(auto& m : getMeshes()) {
@@ -397,10 +427,10 @@ void Scene::allocateMeshes(const Device& device) {
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
 			sm.indexIntoOffsetTable = offsetTable.size();
-			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), totalVertexSize / static_cast<uint32_t>(sizeof(Vertex)),
-											  totalIndexSize / static_cast<uint32_t>(sizeof(uint32_t))});
-			totalVertexSize += static_cast<uint32_t>(vertexBufferMemReq.size);
-			totalIndexSize += static_cast<uint32_t>(indexBufferMemReq.size);
+			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+											  static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+			totalVertexSize += vertexBufferMemReq.size;
+			totalIndexSize += indexBufferMemReq.size;
 		}
 	}
 	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
@@ -466,8 +496,9 @@ bool Scene::update(const Device& device) {
 	return true;
 }
 
-void Scene::free(const Device& device) {
+void Scene::destroyAccelerationStructure(const Device& device) {
 	vkDestroyAccelerationStructureKHR(device, _topLevelAccelerationStructure, nullptr);
+	_topLevelAccelerationStructure = VK_NULL_HANDLE;
 	for(const auto& blas : _bottomLevelAccelerationStructures)
 		vkDestroyAccelerationStructureKHR(device, blas, nullptr);
 	_staticBLASBuffer.destroy();
@@ -475,10 +506,15 @@ void Scene::free(const Device& device) {
 	_bottomLevelAccelerationStructures.clear();
 	_tlasBuffer.destroy();
 	_tlasMemory.free();
+	_accStructInstances.clear();
 	_accStructInstancesBuffer.destroy();
 	_accStructInstancesMemory.free();
 	_tlasScratchBuffer.destroy();
 	_tlasScratchMemory.free();
+}
+
+void Scene::free(const Device& device) {
+	destroyAccelerationStructure(device);
 
 	for(auto& m : getMeshes())
 		m.destroy();
@@ -492,6 +528,10 @@ void Scene::free(const Device& device) {
 }
 
 void Scene::createAccelerationStructure(const Device& device) {
+	if(_topLevelAccelerationStructure) {
+		destroyAccelerationStructure(device);
+	}
+
 	VkFormatProperties2 formatProperties{
 		.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
 	};
@@ -751,8 +791,7 @@ void Scene::updateTLAS(const Device& device) {
 	visitNode(getRoot(), glm::mat4(1.0f));
 	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
 
-	// FIXME: All of this is marked as static for now because we have no reason to update these structs, this may change.
-	static VkAccelerationStructureGeometryKHR TLASGeometry{
+	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
 		.geometry =
@@ -766,7 +805,7 @@ void Scene::updateTLAS(const Device& device) {
 			},
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
 	};
-	static VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
+	VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
 		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
 		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
@@ -777,14 +816,14 @@ void Scene::updateTLAS(const Device& device) {
 		.pGeometries = &TLASGeometry,
 		.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()},
 	};
-	static const uint32_t							TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
-	static VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
+	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
+	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
 		.primitiveCount = TBLAPrimitiveCount,
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0,
 	};
-	static std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
+	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
 
 	device.immediateSubmitCompute(
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });

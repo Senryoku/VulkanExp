@@ -20,6 +20,11 @@ class SubMesh {
 	size_t		materialIndex = 0;
 
 	void init(const Device& device) {
+		if(_indexBuffer && _vertexBuffer) {
+			_indexBuffer.destroy();
+			_vertexBuffer.destroy();
+		}
+
 		const auto indexDataSize = getIndexByteSize();
 		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | usageBitsForRayTracing, indexDataSize);

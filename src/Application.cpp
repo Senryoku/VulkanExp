@@ -22,8 +22,9 @@ void Application::initWindow() {
 	// Setup GLFW Callbacks
 	glfwSetWindowUserPointer(_window, this); // Allow access to our Application instance in callbacks
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
-	glfwSetMouseButtonCallback(_window, mouse_button_callback);
-	glfwSetScrollCallback(_window, scroll_callback);
+	glfwSetMouseButtonCallback(_window, sMouseButtonCallback);
+	glfwSetScrollCallback(_window, sScrollCallback);
+	glfwSetDropCallback(_window, sDropCallback);
 }
 
 void Application::run() {
@@ -36,8 +37,9 @@ void Application::run() {
 	{
 		QuickTimer qt("Scene loading");
 		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		_scene.loadglTF("./data/models/Sponza/Sponza.gltf");
-		_scene.loadOBJ("./data/models/lucy.obj");
+		_scene.load("./data/models/Sponza/Sponza.gltf");
+		_scene.load("./data/models/lucy.obj");
+		_scene.load("./data/models/Helmet/DamagedHelmet.gltf");
 		//_scene.loadglTF("./data/models/sanmiguel/sanmiguel.gltf");
 		//_scene.loadglTF("./data/models/livingroom/livingroom.gltf");
 		//_scene.loadglTF("./data/models/gallery/gallery.gltf"); // Crashes

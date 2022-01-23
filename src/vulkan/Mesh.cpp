@@ -38,7 +38,8 @@ void SubMesh::computeVertexNormals() {
 	}
 	// Average norms
 	for(auto& v : _vertices) {
-		v.normal = glm::normalize(v.normal);
+		v.normal = v.normal / v.tangent.w;
+		// FIXME: Use UVs when available to properly compute tangents
 		v.tangent = glm::vec4{glm::vec3{v.tangent} / v.tangent.w, 1.0f};
 	}
 }

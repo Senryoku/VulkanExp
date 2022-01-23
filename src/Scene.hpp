@@ -67,21 +67,16 @@ class Scene {
 		size_t		  material;
 	};
 
-	// FIXME: Loading multiple glTF successively is completly broken
-	enum class LoadOperation
-	{
-		AllScenes,
-		AppendToCurrentScene
-	};
-
 	Scene();
-	Scene(std::filesystem::path path, LoadOperation loadOp = LoadOperation::AllScenes);
+	Scene(const std::filesystem::path& path);
 	~Scene();
 
-	void loadglTF(const std::filesystem::path& path, LoadOperation loadOp = LoadOperation::AllScenes);
+	bool load(const std::filesystem::path& path);
+	bool loadglTF(const std::filesystem::path& path);
 	bool loadOBJ(const std::filesystem::path& path);
 
 	void createAccelerationStructure(const Device& device);
+	void destroyAccelerationStructure(const Device& device);
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
 	inline std::vector<Node>&				 getNodes() { return _nodes; }

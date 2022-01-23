@@ -121,6 +121,9 @@ class Application {
 	RollingBuffer<float>	 _reflectionFilterTimes;
 	RollingBuffer<float>	 _gatherTimes;
 
+	Buffer		 _stagingBuffer;
+	DeviceMemory _stagingMemory;
+
 	std::vector<Texture> _engineTextures;
 	Texture*			 _blankTexture = nullptr;
 	Texture*			 _blueNoiseTextures[64]{nullptr};
@@ -272,6 +275,7 @@ class Application {
 	void createImGuiRenderPass();
 	void uiOnSwapChainReady();
 	void recordUICommandBuffer(size_t index);
+	void uploadScene();
 	void uploadMaterials();
 	void trySelectNode();
 
@@ -283,7 +287,7 @@ class Application {
 		recreateSwapChain();
 	}
 
-	static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	static void sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
@@ -293,7 +297,7 @@ class Application {
 			app->_camera.speed *= (1.f / 1.1f);
 	};
 
-	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	static void sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
@@ -305,6 +309,17 @@ class Application {
 			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
 			glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 		}
+	}
+
+	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]) {
+		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		for(int i = 0; i < pathCount; ++i) {
+			print("Received path '{}'.\n", paths[i]);
+			app->_scene.load(paths[i]);
+		}
+		// FIXME: This is way overkill
+		app->uploadScene();
+		app->recreateSwapChain();
 	}
 
 	bool checkValidationLayerSupport() {
