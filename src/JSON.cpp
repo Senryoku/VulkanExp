@@ -25,7 +25,7 @@ bool JSON::parse(std::ifstream& file) {
 	else if(byte == '[')
 		_root = value{parseArray(file)};
 	else {
-		error("JSON Parsing error: Expected '\\{' or '[', got '{}'\n", byte);
+		error("JSON Parsing error: Expected '{{' or '[', got '{}'\n", byte);
 	}
 
 	return true;

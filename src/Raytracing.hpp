@@ -9,6 +9,13 @@ struct Ray {
 	inline glm::vec3 operator()(float depth) const { return origin + depth * direction; }
 };
 
+inline Ray operator*(const glm::mat4& transform, const Ray& r) {
+	return {
+		.origin = glm::vec3(transform * glm::vec4(r.origin, 1.0f)),
+		.direction = glm::normalize(glm::mat3(transform) * r.direction),
+	};
+}
+
 struct Hit {
 	bool  hit = false;
 	float depth = std::numeric_limits<float>::max();
@@ -31,4 +38,28 @@ inline Hit intersect(const Ray& r, const Bounds& b) {
 	}
 	// TODO: Handle being inside the bounds.
 	return {.hit = tmax >= glm::max(tmin, 0.0f), .depth = tmin > 0 ? tmin : tmax};
+}
+
+#include <Mesh.hpp>
+#include <glm/gtx/intersect.hpp>
+
+inline Hit intersect(const Ray& r, const Mesh& m) {
+	Hit hit;
+	for(const auto& sm : m.SubMeshes) {
+		if(intersect(r, sm.getBounds()).hit)
+			for(size_t i = 0; i < sm.getIndices().size(); i += 3) {
+				glm::vec2		 bary{0.0f};
+				float			 distance;
+				const glm::vec3& v0 = sm.getVertices()[sm.getIndices()[i]].pos;
+				const glm::vec3& v1 = sm.getVertices()[sm.getIndices()[i + 1]].pos;
+				const glm::vec3& v2 = sm.getVertices()[sm.getIndices()[i + 2]].pos;
+				if(glm::intersectRayTriangle(r.origin, r.direction, v0, v1, v2, bary, distance)) {
+					if(distance > 0 && distance < hit.depth) {
+						hit.hit = true;
+						hit.depth = distance;
+					}
+				}
+			}
+	}
+	return hit;
 }

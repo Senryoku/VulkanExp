@@ -15,7 +15,7 @@ uint probeLinearIndex(ivec3 index, ProbeGrid grid) {
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
-    return index * gridCellSize + grid.extentMin; // + 0.5 * gridCellSize;
+    return index * gridCellSize + grid.extentMin;
 }
 
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
@@ -140,11 +140,11 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
     vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
-    vec3 gridCoords = (position - grid.extentMin) / gridCellSize;
+    vec3 gridCoords = (position - grid.extentMin) / abs(gridCellSize);
     vec3 biasVector = (normal + toCamera) * grid.shadowBias;
     vec3 biasedPosition = position + biasVector;
     ivec3 firstProbeIdx = ivec3(gridCoords);
-    vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / gridCellSize, vec3(0), vec3(1));
+    vec3 alpha = clamp((position - probeIndexToWorldPosition(firstProbeIdx, grid)) / abs(gridCellSize), vec3(0), vec3(1));
     
     vec3 finalColor = vec3(0.0);
     float totalWeight = 0.0;
@@ -185,10 +185,8 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         float variance = abs(depth.r * depth.r - depth.g);
         float biasedDistToProbe = length(probePosition - biasedPosition);
         float chebyshevWeight = variance / (variance + max(biasedDistToProbe - mean, 0.0001) * max(biasedDistToProbe - mean, 0.0001));
-        if(!isnan(chebyshevWeight) && !isinf(chebyshevWeight)) {
-            chebyshevWeight = max(pow(chebyshevWeight, 3.0), 0.0);
-            weight *= (biasedDistToProbe <= mean) ? 1.0 : chebyshevWeight;
-        } else return vec3(1.0, 0.0, .0);
+        chebyshevWeight = max(pow(chebyshevWeight, 3.0), 0.0);
+        weight *= (biasedDistToProbe <= mean) ? 1.0 : chebyshevWeight;
         // I really feel like there's something wrong with my implementation here.
 #endif
         weight = max(0.000001, weight);
@@ -213,6 +211,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
         fallbackColor += fallbackWeight * color;
         totalFallbackWeight += fallbackWeight;
     }
+    //return vec3(totalWeight);
     
     if(totalWeight > 1e-3) 
         finalColor *= 1.0 / totalWeight;
@@ -225,11 +224,10 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
 #endif
 
 #ifdef USE_FALLBACK
-    //if(totalWeight == 0) return fallbackColor;
-    return mix(fallbackColor, finalColor, clamp(totalWeight, 0, 1));
-#else
-    return finalColor;
+    //if(totalWeight <= 1e-3) return fallbackColor;
+    return mix(fallbackColor, finalColor, 8.0 * clamp(totalWeight, 0, 1.0/8.0));
 #endif
+    return finalColor;
 }
 
 #endif

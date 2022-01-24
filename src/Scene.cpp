@@ -398,6 +398,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 			warn("Unsupported OBJ command: '{}' (Full line: '{}')\n", line[0], line);
 		}
 	}
+	// FIXME: Something's broken (see Raytracing debug view: Almost all black)
 	sm->computeVertexNormals();
 	sm->computeBounds();
 	return true;
@@ -840,9 +841,13 @@ Scene::Node* Scene::intersectNodes(Ray& ray) {
 		if(n.mesh != -1) {
 			auto hit = intersect(ray, transform * meshes[n.mesh].getBounds());
 			if(hit.hit && hit.depth < best.depth) {
-				// TODO: Test against the actual mesh.
-				best = hit;
-				bestNode = &n;
+				Ray localRay = glm::inverse(transform) * ray;
+				hit = intersect(localRay, meshes[n.mesh]);
+				hit.depth = glm::length(glm::vec3(transform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - ray.origin);
+				if(hit.hit && hit.depth < best.depth) {
+					best = hit;
+					bestNode = &n;
+				}
 			}
 		}
 	};

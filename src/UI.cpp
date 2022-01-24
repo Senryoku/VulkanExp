@@ -469,11 +469,11 @@ void Application::drawUI() {
 			if(ImGui::DragFloat("Camera FoV", &fov, 1.f, 30.f, 120.f))
 				_camera.setFoV(fov);
 			float fnear = _camera.getNear();
-			if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 30.f, 120.f))
-				_camera.setFoV(fnear);
+			if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 0.f, 100.f))
+				_camera.setNear(fnear);
 			float ffar = _camera.getFar();
-			if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 30.f, 120.f))
-				_camera.setFoV(ffar);
+			if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 100.f, 40000.f))
+				_camera.setFar(ffar);
 			ImGui::TreePop();
 		}
 		if(ImGui::TreeNodeEx("Light & Environment", ImGuiTreeNodeFlags_DefaultOpen)) {

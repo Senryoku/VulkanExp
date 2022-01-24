@@ -35,8 +35,10 @@ struct Bounds {
 };
 
 inline Bounds operator*(const glm::mat4& transform, const Bounds& b) {
-	return {
+	Bounds tmp{
 		.min = glm::vec3(transform * glm::vec4(b.min, 1.0f)),
 		.max = glm::vec3(transform * glm::vec4(b.max, 1.0f)),
 	};
+	// Transform may inverse min and max on each axis.
+	return {.min = glm::min(tmp.min, tmp.max), .max = glm::max(tmp.min, tmp.max)};
 }
