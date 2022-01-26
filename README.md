@@ -6,9 +6,9 @@
   - Probably a lot.
 
 ### Major Features
- - Rewrite probe update using a (or multiple) compute shader: Try to improve ray cast scheduling to gain some perfomance.
+ - Move Temporal filter completly AFTER the spatial one? (right now it's done in the raygen shader, using the previously spatial filtered result, but before the current spatial filter)
+ - Do the same thing fot the direct light buffer.
  - Scene
- - - Import model(s) INTO a scene;
  - - Save
  - - Select Nodes
  - - - Edit Material
