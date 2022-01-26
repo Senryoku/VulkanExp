@@ -508,7 +508,7 @@ void Application::drawUI() {
 			uniformNeedsUpdate = ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f) || uniformNeedsUpdate;
 			ImGui::SliderFloat("Target Hysteresis", &_irradianceProbes.TargetHysteresis, 0.0f, 1.0f);
 			uniformNeedsUpdate = ImGui::SliderFloat("Hysteresis", &_irradianceProbes.GridParameters.hysteresis, 0.0f, 1.0f) || uniformNeedsUpdate;
-			uniformNeedsUpdate = ImGui::SliderFloat("Shadow Bias", &_irradianceProbes.GridParameters.shadowBias, 0.0f, 1.0f) || uniformNeedsUpdate;
+			uniformNeedsUpdate = ImGui::SliderFloat("Shadow Bias", &_irradianceProbes.GridParameters.shadowBias, 0.0f, 100.0f) || uniformNeedsUpdate;
 			int rays = _irradianceProbes.GridParameters.raysPerProbe;
 			if(ImGui::SliderInt("Rays Per Probe", &rays, 1, IrradianceProbes::MaxRaysPerProbe)) {
 				_irradianceProbes.GridParameters.raysPerProbe = rays;

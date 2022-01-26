@@ -1,8 +1,15 @@
 layout (local_size_x = 32, local_size_y = 32) in;
 
-layout(set = 0, binding = 0, rgba32f) uniform image2D positionDepth;
+layout(set = 0, binding = 0, rgba32f) uniform image2D positionDepthTex;
 layout(set = 0, binding = 1, rgba32f) uniform image2D inImage;
 layout(set = 0, binding = 2, rgba32f) uniform image2D outImage;
+layout(set = 0, binding = 3) uniform PrevUBOBlock
+{
+    mat4 view;
+    mat4 proj;
+	uint frameIndex;
+} prevUBO;
+layout(set = 0, binding = 4, rgba32f) uniform image2D prevReflection;
 
 //#define DISABLE
 
@@ -12,7 +19,7 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 3; // FIXME: This is arbitrary.
+const int maxDev = 5; // FIXME: This is arbitrary.
 
 void main()
 {
@@ -24,10 +31,12 @@ void main()
 #endif
 
     vec4 final = vec4(0);
-    float depth = imageLoad(positionDepth, coords).w;
+    vec4 positionDepth = imageLoad(positionDepthTex, coords);
+    vec3 position = positionDepth.xyz;
+    float depth = positionDepth.w;
     float roughness = imageLoad(inImage, coords).w;
-    float stdDev = max(0, maxDev * roughness / max(1, (depth / 200.0))); // FIXME: This is arbitrary.
-    if(stdDev == 0) { // Skip filter entirely if roughness == 0
+    float stdDev = max(0, maxDev * roughness / max(1, (depth / 20.0))); // FIXME: This is arbitrary.
+    if(stdDev == 0) { // Skip filter entirely if roughness == 0 since we only need a single sample anyway.
         imageStore(outImage, coords, imageLoad(inImage, coords)); 
         return;
     }
@@ -43,7 +52,7 @@ void main()
         ivec2 offset = ivec2(0, i);
 #endif
 #ifdef EDGE_PRESERVING
-        float factor = gaussian(stdDev, i) * gaussian(depthStdDev, abs(depth - imageLoad(positionDepth, coords + offset).w));
+        float factor = gaussian(stdDev, i) * gaussian(depthStdDev, abs(depth - imageLoad(positionDepthTex, coords + offset).w));
         totalFactor += factor;
 #else
         float factor = gaussian(stdDev, i);
@@ -59,6 +68,22 @@ void main()
 #ifdef DIRECTION_X
         imageStore(outImage, coords, vec4(final.rgb, roughness)); // This will be used as input in the next pass, also store the roughness.
 #else
-        imageStore(outImage, coords, vec4(final.rgb, 1.0));
+		// Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
+		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
+		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
+        ivec2 launchSize = imageSize(inImage); //ivec2(gl_WorkGroupSize.xy * gl_NumWorkGroups.xy); // WRONG
+		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
+		prevCoords.xy /= prevCoords.w;
+		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
+		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
+		vec4 previousValue = vec4(0);
+		float hysteresis = 0.99;
+		if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
+			hysteresis = 0.0f;
+		else
+			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
+		float cameraMotion = length(vec2(prevCoords.xy - coords) / launchSize.xy);
+		hysteresis *= (1.0 - sqrt(cameraMotion)); // Reduce hysteresis for larger camera movements. Completly arbitrary and barely tested.
+	    imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, 1.0));
 #endif
 }

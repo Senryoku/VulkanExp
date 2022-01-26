@@ -6,8 +6,7 @@
   - Probably a lot.
 
 ### Major Features
- - Move Temporal filter completly AFTER the spatial one? (right now it's done in the raygen shader, using the previously spatial filtered result, but before the current spatial filter)
- - Do the same thing fot the direct light buffer.
+ - Temporal filter for the direct light buffer.
  - Scene
  - - Save
  - - Select Nodes
