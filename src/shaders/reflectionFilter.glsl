@@ -12,7 +12,7 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 7; // FIXME: This is arbitrary.
+const int maxDev = 3; // FIXME: This is arbitrary.
 
 void main()
 {

@@ -36,8 +36,8 @@ void Application::run() {
 
 	{
 		QuickTimer qt("Scene loading");
-		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		_scene.load("./data/models/Sponza/Sponza.gltf");
+		_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
 		_scene.load("./data/models/lucy.obj");
 		_scene.load("./data/models/Helmet/DamagedHelmet.gltf");
 		//_scene.loadglTF("./data/models/sanmiguel/sanmiguel.gltf");

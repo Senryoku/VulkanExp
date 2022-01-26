@@ -90,7 +90,9 @@ vec3 reinhard(vec3 v)
 
 // Avoid really high spots
 vec3 colorCompression(vec3 v) {
+	// This is pretty aggressive.
 	return reinhard(v);
+	//return v;
 }
 
 void main() 
@@ -186,7 +188,7 @@ void main()
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * gl_LaunchSizeEXT.xy;
 		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
 		vec4 previousValue = vec4(0);
-		float hysteresis = 0.99;
+		float hysteresis = 0.94;
 		if(prevCoords.x > gl_LaunchSizeEXT.x || prevCoords.x < 0 || prevCoords.y > gl_LaunchSizeEXT.y || prevCoords.y < 0) // Discard history if out-of-bounds
 			hysteresis = 0.0f;
 		else
