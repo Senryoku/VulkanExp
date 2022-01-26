@@ -162,7 +162,8 @@ void main()
 	#else
 		// Single sample, Blue noise and importance sampling.
 		// With proper denoising (or at least some form of temporal accumulation - 'simply' TAA?) this would be better than the above solution, but right now it is way too distracting :(
-		vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy) / 64.0).xy;
+		vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(ivec2(ubo.frameIndex / 64, ubo.frameIndex / 64 / 64) +  gl_LaunchIDEXT.xy) / 64.0).xy;
+		//vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy) / 64.0).xy;
 		vec3 reflectDir = normalize(reflect(-toOrigin, normal));			
 		float theta = roughness * (noise.x - 0.5) * pi;
 		float phi = (noise.y - 0.5) * 2.0f * pi;
@@ -177,20 +178,25 @@ void main()
 		payload.raydx = rotateAxis(direction, normal, 0.001);
 		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
-		// Re-project position to previous frame pixel coords.
-		// TODO: Reprojecting reflections is actually harder than this :(
+		// Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
+		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
+		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
 		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
 		prevCoords.xy /= prevCoords.w;
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * gl_LaunchSizeEXT.xy;
-		// TODO: Discard if mismatching (using previous position/depth?)
+		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
 		vec4 previousValue = vec4(0);
-		float hysteresis = 0.9;
-		if(prevCoords.x > gl_LaunchSizeEXT.x || prevCoords.x < 0 || prevCoords.y > gl_LaunchSizeEXT.y || prevCoords.y < 0) {
+		float hysteresis = 0.99;
+		if(prevCoords.x > gl_LaunchSizeEXT.x || prevCoords.x < 0 || prevCoords.y > gl_LaunchSizeEXT.y || prevCoords.y < 0) // Discard history if out-of-bounds
 			hysteresis = 0.0f;
-		} else
+		else
 			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
-		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * colorCompression(payload.color.rgb), roughness));
-		//imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
+		float cameraMotion = length(vec2(prevCoords.xy - gl_LaunchIDEXT.xy) / gl_LaunchSizeEXT.xy);
+		hysteresis *= (1.0 - sqrt(cameraMotion)); // Reduce hysteresis for larger camera movements. Completly arbitrary and barely tested.
+		if(roughness > 0)
+			imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * colorCompression(payload.color.rgb), roughness));
+		else // Skip filter entirely if roughness == 0 since we only need a single sample anyway.s
+			imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
 	#endif
 	} else {
 		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(0));

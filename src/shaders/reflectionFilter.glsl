@@ -12,7 +12,7 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 32; // FIXME: This is arbitrary.
+const int maxDev = 7; // FIXME: This is arbitrary.
 
 void main()
 {
@@ -26,7 +26,11 @@ void main()
     vec4 final = vec4(0);
     float depth = imageLoad(positionDepth, coords).w;
     float roughness = imageLoad(inImage, coords).w;
-    float stdDev = max(1, maxDev * roughness / max(1, (depth / 200.0))); // FIXME: This is arbitrary.
+    float stdDev = max(0, maxDev * roughness / max(1, (depth / 200.0))); // FIXME: This is arbitrary.
+    if(stdDev == 0) { // Skip filter entirely if roughness == 0
+        imageStore(outImage, coords, imageLoad(inImage, coords)); 
+        return;
+    }
     float depthStdDev = 1.0;                                           // FIXME: Also arbitrary.
     float sqrDev = stdDev * stdDev;
     int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev));
