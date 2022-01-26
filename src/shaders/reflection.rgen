@@ -20,6 +20,13 @@ layout(binding = 13, set = 0, rgba32f) uniform image2D normalMetalnessTex;
 layout(binding = 14, set = 0, rgba32f) uniform image2D albedoRoughnessTex;
 
 layout(binding = 15, set = 0, rgba32f) uniform image2D reflectionOut;
+layout(binding = 16, set = 0) uniform PrevUBOBlock
+{
+    mat4 view;
+    mat4 proj;
+	uint frameIndex;
+} prevUBO;
+layout(binding = 17, set = 0, rgba32f) uniform image2D prevReflection;
 
 layout(set = 1, binding = 0) uniform sampler blueNoiseSampler;
 layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
@@ -151,6 +158,7 @@ void main()
 		payload.raydx = rotateAxis(direction, normal, 0.001);
 		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
+		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
 	#else
 		// Single sample, Blue noise and importance sampling.
 		// With proper denoising (or at least some form of temporal accumulation - 'simply' TAA?) this would be better than the above solution, but right now it is way too distracting :(
@@ -169,8 +177,21 @@ void main()
 		payload.raydx = rotateAxis(direction, normal, 0.001);
 		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
+		// Re-project position to previous frame pixel coords.
+		// TODO: Reprojecting reflections is actually harder than this :(
+		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
+		prevCoords.xy /= prevCoords.w;
+		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * gl_LaunchSizeEXT.xy;
+		// TODO: Discard if mismatching (using previous position/depth?)
+		vec4 previousValue = vec4(0);
+		float hysteresis = 0.9;
+		if(prevCoords.x > gl_LaunchSizeEXT.x || prevCoords.x < 0 || prevCoords.y > gl_LaunchSizeEXT.y || prevCoords.y < 0) {
+			hysteresis = 0.0f;
+		} else
+			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
+		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * colorCompression(payload.color.rgb), roughness));
+		//imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
 	#endif
-		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
 	} else {
 		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(0));
 	}

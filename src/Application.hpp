@@ -120,6 +120,7 @@ class Application {
 	RollingBuffer<float>	 _reflectionDirectLightTimes;
 	RollingBuffer<float>	 _reflectionFilterTimes;
 	RollingBuffer<float>	 _gatherTimes;
+	RollingBuffer<float>	 _presentTimes;
 
 	Buffer		 _stagingBuffer;
 	DeviceMemory _stagingMemory;
@@ -184,6 +185,7 @@ class Application {
 	Pipeline						 _gatherPipeline;
 	CommandPool						 _commandPool;
 	CommandBuffers					 _commandBuffers;
+	CommandBuffers					 _copyCommandBuffers;
 	std::vector<Semaphore>			 _renderFinishedSemaphore;
 	std::vector<Semaphore>			 _imageAvailableSemaphore;
 	std::vector<Fence>				 _inFlightFences;

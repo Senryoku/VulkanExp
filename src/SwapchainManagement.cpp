@@ -110,8 +110,8 @@ void Application::createSwapChain() {
 	_directLightImageViews.resize(_swapChainImages.size());
 	_directLightIntermediateFilterImages.resize(_swapChainImages.size());
 	_directLightIntermediateFilterImageViews.resize(_swapChainImages.size());
-	_reflectionImages.resize(_swapChainImages.size());
-	_reflectionImageViews.resize(_swapChainImages.size());
+	_reflectionImages.resize(2 * _swapChainImages.size());
+	_reflectionImageViews.resize(2 * _swapChainImages.size());
 	_reflectionIntermediateFilterImages.resize(_swapChainImages.size());
 	_reflectionIntermediateFilterImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
@@ -133,6 +133,14 @@ void Application::createSwapChain() {
 		// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
 		_reflectionImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
 											  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		// Temp copies of previous frame
+		_reflectionImages[_swapChainImages.size() + i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+															  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		_reflectionImages[_swapChainImages.size() + i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_reflectionImageViews[_swapChainImages.size() + i].create(_device, _reflectionImages[_swapChainImages.size() + i], VK_FORMAT_R32G32B32A32_SFLOAT,
+																  VK_IMAGE_ASPECT_COLOR_BIT);
+		_reflectionImages[_swapChainImages.size() + i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT,
+																		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 		// FIXME: Review usage bits
 		_directLightIntermediateFilterImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
@@ -173,17 +181,18 @@ void Application::createSwapChain() {
 
 void Application::initUniformBuffers() {
 	{
+		// Enough buffers for current and previous frame value and each swapchain image.
 		VkDeviceSize bufferSize = sizeof(CameraBuffer);
-		_cameraUniformBuffers.resize(_swapChainImages.size());
-		for(size_t i = 0; i < _swapChainImages.size(); i++)
+		_cameraUniformBuffers.resize(2 * _swapChainImages.size());
+		for(size_t i = 0; i < 2 * _swapChainImages.size(); i++)
 			_cameraUniformBuffers[i].create(_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, bufferSize);
 		auto   memReq = _cameraUniformBuffers[0].getMemoryRequirements();
-		size_t memSize = _swapChainImages.size() * memReq.size; // (_swapChainImages.size() * (1 + bufferSize / memReq.alignment)) * memReq.alignment;
+		size_t memSize = _cameraUniformBuffers.size() * memReq.size; // (_swapChainImages.size() * (1 + bufferSize / memReq.alignment)) * memReq.alignment;
 		_cameraUniformBuffersMemory.allocate(
 			_device, _physicalDevice.findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), memSize);
 		size_t offset = 0;
 		_uboStride = (1 + bufferSize / memReq.alignment) * memReq.alignment;
-		for(size_t i = 0; i < _swapChainImages.size(); i++) {
+		for(size_t i = 0; i < _cameraUniformBuffers.size(); i++) {
 			vkBindBufferMemory(_device, _cameraUniformBuffers[i], _cameraUniformBuffersMemory, offset);
 			offset += _uboStride;
 		}
@@ -504,6 +513,7 @@ void Application::initSwapChain() {
 	createReflectionPipeline();
 
 	_commandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
+	_copyCommandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
 
 	_imagesInFlight.resize(_swapChainImages.size());
 
@@ -584,15 +594,18 @@ void Application::recordCommandBuffers() {
 			.layerCount = 1,
 		};
 
-		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
 		{
+			// Wait on copy from another command buffer (reflections from previous frame)
+			_reflectionImages[i + _swapChainImages.size()].barrier(b, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT,
+																   VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
 			const auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
 			vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
 							  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
 		}
-		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, wholeImage);
+		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+									  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		{
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
 			const auto descriptors = {_directLightDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
@@ -604,24 +617,16 @@ void Application::recordCommandBuffers() {
 
 		// Filter Direct Light & Reflections (Not physically based)
 		const auto groupSize = 32;
-
 		_directLightFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+									  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+		_directLightIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
+														VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineX.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 0],
 								0, 0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
-		// Memory Barrier
-		VkImageMemoryBarrier barrier{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.newLayout = VK_IMAGE_LAYOUT_GENERAL,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = _directLightIntermediateFilterImages[i],
-			.subresourceRange = wholeImage,
-		};
-		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		_directLightIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+														VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 		_directLightFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineY.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1],
 								0, 0);
@@ -631,15 +636,17 @@ void Application::recordCommandBuffers() {
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0,
 								0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
-		barrier.image = _reflectionIntermediateFilterImages[i];
-		vkCmdPipelineBarrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		_reflectionIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+													   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 		_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0,
 								0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
 
-		Image::setLayout(b, _reflectionImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, wholeImage);
-		Image::setLayout(b, _directLightImages[i], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, wholeImage);
+		_reflectionImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+									 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+									  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		// Gather
 		{
@@ -735,6 +742,7 @@ void Application::cleanupSwapChain() {
 
 	// Only free up the command buffer, not the command pool
 	_commandBuffers.free();
+	_copyCommandBuffers.free();
 
 	_gbufferPipeline.destroy();
 	_directLightPipeline.destroy();

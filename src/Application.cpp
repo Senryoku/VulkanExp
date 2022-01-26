@@ -87,6 +87,14 @@ void Application::mainLoop() {
 					_reflectionFilterTimes.add(0.000001f * (results[4].result - results[3].result));
 					_gatherTimes.add(0.000001f * (results[5].result - results[4].result));
 					pool.newSampleFlag = false;
+					static auto lastPresentTime = results[5].result;
+					if(results[5].result < lastPresentTime) {
+						// Queries are out of order? (Or frames?!) Not sure what's going on :(
+						_presentTimes.add(0.000001f * (lastPresentTime - results[5].result));
+					} else {
+						_presentTimes.add(0.000001f * (results[5].result - lastPresentTime));
+						lastPresentTime = results[5].result;
+					}
 				}
 			}
 		}
@@ -156,18 +164,55 @@ void Application::drawFrame() {
 	auto commandBuffer = _raytracingDebug ? _rayTraceCommandBuffers.getBuffers()[imageIndex].getHandle() : _commandBuffers.getBuffers()[imageIndex].getHandle();
 	recordUICommandBuffer(imageIndex);
 
-	// Submit both command buffers
-	VkCommandBuffer cmdbuff[2]{commandBuffer, _imguiCommandBuffers.getBuffers()[imageIndex].getHandle()};
-	VkSubmitInfo	submitInfo{
-		   .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		   .waitSemaphoreCount = 1,
-		   .pWaitSemaphores = waitSemaphores,
-		   .pWaitDstStageMask = waitStages,
-		   .commandBufferCount = 2,
-		   .pCommandBuffers = cmdbuff,
-		   .signalSemaphoreCount = 1,
-		   .pSignalSemaphores = signalSemaphores,
-	   };
+	// Record copy operations
+	if(!_framebufferResized) { // FIXME: This is a workaround; When the window is resized _width and _height are not valid anymore until recreateSwapChain is called and recreating
+							   // the copy command buffer with wrong values will crash the application.
+		auto& copyCmdBuff = _copyCommandBuffers.getBuffers()[imageIndex];
+		copyCmdBuff.begin();
+		VkImageCopy copy{
+			.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.srcOffset = {0, 0, 0},
+			.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+			.dstOffset = {0, 0, 0},
+			.extent = {_width, _height, 1},
+		};
+		// Copy previous reflection to a temporary image
+		auto& srcImage = _reflectionImages[_lastImageIndex];					  // Latest computed reflection buffer
+		auto& dstImage = _reflectionImages[imageIndex + _swapChainImages.size()]; // Temporary buffer associated to the current main command buffer
+		dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+						 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		srcImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+						 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		vkCmdCopyImage(copyCmdBuff, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+		srcImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+						 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+						 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+		_copyCommandBuffers.getBuffers()[imageIndex].end();
+	}
+
+	// Submit all command buffers at once
+	VkCommandBuffer cmdbuff[3]{
+		_copyCommandBuffers.getBuffers()[imageIndex].getHandle(),
+		commandBuffer,
+		_imguiCommandBuffers.getBuffers()[imageIndex].getHandle(),
+	};
+
+	if(_raytracingDebug) { // Skip reflection copies for raytracing debug display
+		cmdbuff[0] = commandBuffer;
+		cmdbuff[1] = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
+	}
+
+	VkSubmitInfo submitInfo{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = waitSemaphores,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = _raytracingDebug ? 2u : 3u,
+		.pCommandBuffers = cmdbuff,
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = signalSemaphores,
+	};
 	VK_CHECK(vkResetFences(_device, 1, &currentFence));
 	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence));
 	if(!_raytracingDebug)
@@ -248,7 +293,17 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 	float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
 	lastTime = currentTime;
 
+	static CameraBuffer previousUBO;
 	{
+		// Copy current to previous
+		{
+			void*  data;
+			size_t offset = static_cast<size_t>(_swapChainImages.size() + currentImage) * _uboStride;
+			VK_CHECK(vkMapMemory(_device, _cameraUniformBuffersMemory, offset, sizeof(previousUBO), 0, &data));
+			memcpy(data, &previousUBO, sizeof(previousUBO));
+			vkUnmapMemory(_device, _cameraUniformBuffersMemory);
+		}
+
 		cameraControl(time);
 
 		_camera.updateView();
@@ -262,10 +317,12 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 		ubo.proj[1][1] *= -1;
 
 		void*  data;
-		size_t offset = static_cast<size_t>(currentImage) * _uboStride; // FIXME: 256 is the alignment (> sizeof(ubo)), should be correctly saved somewhere
+		size_t offset = static_cast<size_t>(currentImage) * _uboStride;
 		VK_CHECK(vkMapMemory(_device, _cameraUniformBuffersMemory, offset, sizeof(ubo), 0, &data));
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(_device, _cameraUniformBuffersMemory);
+
+		previousUBO = ubo;
 	}
 
 	{

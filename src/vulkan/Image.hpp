@@ -44,8 +44,32 @@ class Image : public HandleWrapper<VkImage> {
 	void generateMipmaps(VkCommandBuffer commandBuffer, int32_t width, int32_t height, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 						 VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageLayout mipmapsInitialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+	void barrier(VkCommandBuffer cmdBuff, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+				 VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange range = RangeColorMip0) {
+		VkImageMemoryBarrier barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = srcAccessMask,
+			.dstAccessMask = dstAccessMask,
+			.oldLayout = oldLayout,
+			.newLayout = newLayout,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = _handle,
+			.subresourceRange = range,
+		};
+		vkCmdPipelineBarrier(cmdBuff, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	}
+
 	static void setLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange subSourceRange,
 						  VkPipelineStageFlags srcMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+	inline static const VkImageSubresourceRange RangeColorMip0{
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1,
+	};
 
   private:
 	const Device* _device = nullptr;

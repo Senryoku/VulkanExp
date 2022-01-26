@@ -1,6 +1,6 @@
 #khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT
 #khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT 
-khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT
-#khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT 
+#khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT
+khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT 
 khronos_validation.printf_to_stdout = true
 khronos_validation.printf_buffer_size = 16384
