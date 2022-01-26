@@ -138,7 +138,6 @@ void Application::drawFrame() {
 
 	uint32_t imageIndex;
 	auto	 result = vkAcquireNextImageKHR(_device, _swapChain, UINT64_MAX, _imageAvailableSemaphore[_currentFrame], VK_NULL_HANDLE, &imageIndex);
-	_lastImageIndex = imageIndex;
 
 	if(result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreateSwapChain();
@@ -238,6 +237,7 @@ void Application::drawFrame() {
 		throw std::runtime_error(fmt::format("Failed to present swap chain image. (Error: {})", toString(result)));
 	}
 
+	_lastImageIndex = imageIndex;
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	++_frameIndex;
 }
