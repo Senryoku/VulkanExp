@@ -66,7 +66,7 @@ void main()
 		float tmax = 10000.0;
 		vec3 direction = normalize(DirectionalLight.direction.xyz);
 		// Take a single sample on the disk
-		float angle = 0.01; // Angle diameter of our primary light source (rad)
+		float angle = 0.02; // Angle diameter of our primary light source (rad)
 		vec4 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0));
 		vec3 temp = rotateAxis(direction, normalize(cross(normal, direction)), 2 * (noise.x - 0.5) * angle); // FIXME: The distribution is probably biased here, but I don't think it should matter that much for such small angles.
 		direction = rotateAxis(temp, direction, 2.0 * pi * noise.y);

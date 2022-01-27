@@ -41,8 +41,8 @@ void Application::createGatherPipeline() {
 			.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-			.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 		})
 		.add({
 			.format = _swapChainImageFormat,
@@ -64,7 +64,7 @@ void Application::createGatherPipeline() {
 						{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 						{1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 						{2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-						{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, // Direct Light
+						{3, VK_IMAGE_LAYOUT_GENERAL}, // Direct Light
 					},
 					{},
 					// Depth
@@ -262,14 +262,14 @@ void Application::createGatherPipeline() {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					 .imageView = _directLightImageViews[i],
-					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				 })
 			.add(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
 					 .imageView = _reflectionImageViews[i],
-					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				 })
 			.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				 {

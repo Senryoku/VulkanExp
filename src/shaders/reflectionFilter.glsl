@@ -71,7 +71,7 @@ void main()
 		// Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
 		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
 		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
-        ivec2 launchSize = imageSize(inImage); //ivec2(gl_WorkGroupSize.xy * gl_NumWorkGroups.xy); // WRONG
+        ivec2 launchSize = imageSize(inImage);
 		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
 		prevCoords.xy /= prevCoords.w;
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;

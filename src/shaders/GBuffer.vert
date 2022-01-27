@@ -27,6 +27,7 @@ layout(location = 3) out vec3 bitangent;
 layout(location = 4) out vec2 texCoord;
 layout(location = 5) out float metalnessFactor;
 layout(location = 6) out float roughnessFactor;
+layout(location = 7) out flat vec3 origin;
 
 void main() {
     vec4 worldPosition = PushConstants.model * vec4(inPosition, 1.0);
@@ -39,4 +40,5 @@ void main() {
     texCoord = inTexCoord;
     metalnessFactor = PushConstants.metalnessFactor;
     roughnessFactor = PushConstants.roughnessFactor;
+    origin = (inverse(ubo.view) * vec4(0,0,0,1)).xyz;
 }

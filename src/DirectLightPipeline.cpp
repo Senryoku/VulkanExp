@@ -127,7 +127,9 @@ void Application::createDirectLightPipeline() {
 	DescriptorSetLayoutBuilder filterDSLB;
 	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Previous Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT); // 4 Previous Result
 	_directLightFilterDescriptorSetLayout = filterDSLB.build(_device);
 	_directLightFilterPipelineX.getLayout().create(_device, {_directLightFilterDescriptorSetLayout});
 	Shader						filterShaderX(_device, "./shaders_spv/directLightFilterX.comp.spv");
@@ -176,6 +178,17 @@ void Application::createDirectLightPipeline() {
 						 .imageView = _directLightIntermediateFilterImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
+				.add(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					 {
+						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
+						 .offset = 0,
+						 .range = sizeof(CameraBuffer),
+					 })
+				.add(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightImageViews[_swapChainImages.size() + i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
 				.update(_device);
 			// Y
 			DescriptorSetWriter writer2(_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1]);
@@ -193,6 +206,17 @@ void Application::createDirectLightPipeline() {
 				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _directLightImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					 {
+						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
+						 .offset = 0,
+						 .range = sizeof(CameraBuffer),
+					 })
+				.add(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
+						 .imageView = _directLightImageViews[_swapChainImages.size() + i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.update(_device);

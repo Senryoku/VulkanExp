@@ -45,7 +45,7 @@ class Image : public HandleWrapper<VkImage> {
 						 VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageLayout mipmapsInitialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 	void barrier(VkCommandBuffer cmdBuff, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
-				 VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange range = RangeColorMip0) {
+				 VkImageLayout oldLayout, VkImageLayout newLayout, VkImageSubresourceRange range = RangeColorMip0) const {
 		VkImageMemoryBarrier barrier{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			.srcAccessMask = srcAccessMask,

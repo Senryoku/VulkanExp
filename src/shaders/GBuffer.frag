@@ -13,6 +13,7 @@ layout(location = 3) in vec3 bitangent;
 layout(location = 4) in vec2 texCoord;
 layout(location = 5) in float metalnessFactor;
 layout(location = 6) in float roughnessFactor;
+layout(location = 7) in flat vec3 origin;
 
 layout(location = 0) out vec4 outPositionDepth;
 layout(location = 1) out vec4 outNormalMetalness;
@@ -35,7 +36,7 @@ void main() {
     metalness *= metalRoughMap.b;
     roughness *= metalRoughMap.g;
 
-    outPositionDepth = vec4(position, gl_FragCoord.z / gl_FragCoord.w);
+    outPositionDepth = vec4(position, length(position - origin));
     outNormalMetalness = vec4(finalNormal, metalness);
     outAlbedoRoughness = vec4(texColor.rgb, roughness);
 }
