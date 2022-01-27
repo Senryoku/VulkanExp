@@ -77,13 +77,20 @@ void main()
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
 		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
 		vec4 previousValue = vec4(0);
-		float hysteresis = 0.99;
+		float hysteresis = 0.9;
 		if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
 			hysteresis = 0.0f;
-		else
+		else {
 			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
-		float cameraMotion = length(vec2(prevCoords.xy - coords) / launchSize.xy);
-		hysteresis *= (1.0 - sqrt(cameraMotion)); // Reduce hysteresis for larger camera movements. Completly arbitrary and barely tested.
-	    imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, 1.0));
+            // Discard history if the previous position is too different from the current one (i.e. the pixel probably doesn't map to the same object anymore).
+            vec3 previousOrigin = (inverse(prevUBO.view) * vec4(0, 0, 0, 1)).xyz;
+            // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
+            vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
+            float diff = length(position - previousPosition);
+            if(diff < 1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
+            float factor = 0.1 * length(position - previousPosition);
+            hysteresis *= 1.0 - clamp(factor, 0, 1);
+        }
+	    imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, depth));
 #endif
 }
