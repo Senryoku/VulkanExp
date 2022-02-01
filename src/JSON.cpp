@@ -17,7 +17,7 @@ bool JSON::parse(const std::filesystem::path& path) {
 	return parse(file);
 }
 
-bool JSON::parse(std::ifstream& file) {
+bool JSON::parse(std::istream& file) {
 	char byte;
 	byte = skipWhitespace(file);
 	if(byte == '{')
@@ -26,12 +26,13 @@ bool JSON::parse(std::ifstream& file) {
 		_root = value{parseArray(file)};
 	else {
 		error("JSON Parsing error: Expected '{{' or '[', got '{}'\n", byte);
+		return false;
 	}
 
 	return true;
 }
 
-bool JSON::expectImmediate(char c, std::ifstream& file) {
+bool JSON::expectImmediate(char c, std::istream& file) {
 	char byte;
 	file.get(byte);
 	if(byte != c) {
@@ -41,7 +42,7 @@ bool JSON::expectImmediate(char c, std::ifstream& file) {
 	return true;
 }
 
-bool JSON::expect(char c, std::ifstream& file) {
+bool JSON::expect(char c, std::istream& file) {
 	char byte = skipWhitespace(file);
 	if(byte != c) {
 		error("JSON Parsing error: Expected '{}', got '{}'\n", c, byte);
@@ -50,7 +51,7 @@ bool JSON::expect(char c, std::ifstream& file) {
 	return true;
 }
 
-JSON::object JSON::parseObject(std::ifstream& file) {
+JSON::object JSON::parseObject(std::istream& file) {
 	object o;
 	while(file) {
 		char byte = skipWhitespace(file);
@@ -71,7 +72,7 @@ JSON::object JSON::parseObject(std::ifstream& file) {
 	return o;
 }
 
-JSON::array JSON::parseArray(std::ifstream& file) {
+JSON::array JSON::parseArray(std::istream& file) {
 	array a;
 	while(file) {
 		char byte = skipWhitespace(file);
@@ -87,7 +88,7 @@ JSON::array JSON::parseArray(std::ifstream& file) {
 	return a;
 }
 
-JSON::string JSON::parseString(std::ifstream& file) {
+JSON::string JSON::parseString(std::istream& file) {
 	// We assume the leading '"' has already been consumed.
 	string s;
 	bool   escapeNext = false;
@@ -120,7 +121,7 @@ JSON::string JSON::parseString(std::ifstream& file) {
 	return s;
 }
 
-JSON::number JSON::parseNumber(std::ifstream& file) {
+JSON::number JSON::parseNumber(std::istream& file) {
 	char   byte;
 	char   buffer[32];
 	size_t size = 0;
@@ -147,7 +148,7 @@ JSON::number JSON::parseNumber(std::ifstream& file) {
 	}
 }
 
-bool JSON::parseBoolean(std::ifstream& file) {
+bool JSON::parseBoolean(std::istream& file) {
 	char byte;
 	file.get(byte);
 	if(byte == 't') {
@@ -166,7 +167,7 @@ bool JSON::parseBoolean(std::ifstream& file) {
 	return false;
 }
 
-JSON::null_t JSON::parseNull(std::ifstream& file) {
+JSON::null_t JSON::parseNull(std::istream& file) {
 	expectImmediate('n', file);
 	expectImmediate('u', file);
 	expectImmediate('l', file);
@@ -174,7 +175,7 @@ JSON::null_t JSON::parseNull(std::ifstream& file) {
 	return JSON::null_t{};
 }
 
-JSON::value JSON::parseValue(std::ifstream& file) {
+JSON::value JSON::parseValue(std::istream& file) {
 	char byte = skipWhitespace(file);
 	switch(byte) {
 		case '"': return value{parseString(file)}; break;

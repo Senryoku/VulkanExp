@@ -540,16 +540,17 @@ class JSON {
 		return s;
 	}
 
+	JSON() = default;
 	JSON(const std::filesystem::path&);
 
 	bool parse(const std::filesystem::path&);
-	bool parse(std::ifstream&);
+	bool parse(std::istream&);
 
 	const value& getRoot() const { return _root; };
 
   private:
 	inline static bool isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
-	inline static char skipWhitespace(std::ifstream& file) {
+	inline static char skipWhitespace(std::istream& file) {
 		char byte;
 		do
 			file.get(byte);
@@ -557,16 +558,16 @@ class JSON {
 		return byte;
 	}
 
-	static object parseObject(std::ifstream&);
-	static array  parseArray(std::ifstream&);
-	static string parseString(std::ifstream&);
-	static number parseNumber(std::ifstream&);
-	static bool	  parseBoolean(std::ifstream&);
-	static null_t parseNull(std::ifstream&);
-	static value  parseValue(std::ifstream&);
+	static object parseObject(std::istream&);
+	static array  parseArray(std::istream&);
+	static string parseString(std::istream&);
+	static number parseNumber(std::istream&);
+	static bool	  parseBoolean(std::istream&);
+	static null_t parseNull(std::istream&);
+	static value  parseValue(std::istream&);
 
-	static bool expectImmediate(char c, std::ifstream&);
-	static bool expect(char c, std::ifstream&);
+	static bool expectImmediate(char c, std::istream&);
+	static bool expect(char c, std::istream&);
 
 	value _root;
 };

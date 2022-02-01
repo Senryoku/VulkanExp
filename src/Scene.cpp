@@ -80,7 +80,7 @@ bool Scene::load(const std::filesystem::path& path) {
 	const auto ext = path.extension();
 	if(ext == ".obj")
 		return loadOBJ(path);
-	else if(ext == ".gltf")
+	else if(ext == ".gltf" || ext == ".glb")
 		return loadglTF(path);
 	else
 		warn("Scene::load: File extension {} is not supported ('{}').", ext, path.string());
@@ -157,43 +157,102 @@ std::vector<char> decode_b64(const std::string_view& str) {
 	return result;
 }
 
-bool Scene::loadglTF(const std::filesystem::path& path) {
-	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
-	JSON		json{path};
-	const auto& object = json.getRoot();
+struct GLBHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t length;
+};
 
-	// Load Buffers
+struct GLBChunk {
+	uint32_t length;
+	uint32_t type;
+	char*	 data;
+};
+
+template<typename char_type>
+struct istreambuf : public std::basic_streambuf<char_type, std::char_traits<char_type>> {
+	istreambuf(char_type* buffer, std::streamsize bufferLength) {
+		// Set the "get" pointer to the start of the buffer, the next item, and record its length.
+		this->setg(buffer, buffer, buffer + bufferLength);
+		// set the "put" pointer the start of the buffer and record it's length.
+		this->setp(buffer, buffer + bufferLength);
+	}
+};
+
+bool Scene::loadglTF(const std::filesystem::path& path) {
+	JSON						   json;
 	std::vector<std::vector<char>> buffers;
-	for(const auto& bufferDesc : object["buffers"]) {
-		buffers.push_back({});
-		auto&	   buffer = buffers.back();
-		size_t	   length = bufferDesc["byteLength"].as<int>();
-		const auto uri = bufferDesc["uri"].asString();
-		if(uri.starts_with("data:")) {
-			// Inlined data
-			if(uri.starts_with("data:application/octet-stream;base64,")) {
-				const auto data = std::string_view(uri).substr(std::string("data:application/octet-stream;base64,").size());
-				buffer = std::move(decode_b64(data));
-			} else {
-				warn("Scene::loadglTF: Unsupported data format ('{}'...)\n", uri.substr(0, 64));
-				return false;
-			}
-		} else {
-			// Load from file
-			auto		  filepath = path.parent_path() / uri;
-			std::ifstream buffer_file{filepath, std::ifstream::binary};
-			if(buffer_file) {
-				buffer.resize(length);
-				if(!buffer_file.read(buffer.data(), length)) {
-					error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
+
+	if(path.extension() == ".gltf") {
+		json.parse(path);
+		// Load Buffers
+		for(const auto& bufferDesc : json.getRoot()["buffers"]) {
+			buffers.push_back({});
+			auto&	   buffer = buffers.back();
+			size_t	   length = bufferDesc["byteLength"].as<int>();
+			const auto uri = bufferDesc["uri"].asString();
+			if(uri.starts_with("data:")) {
+				// Inlined data
+				if(uri.starts_with("data:application/octet-stream;base64,")) {
+					const auto data = std::string_view(uri).substr(std::string("data:application/octet-stream;base64,").size());
+					buffer = std::move(decode_b64(data));
+				} else {
+					warn("Scene::loadglTF: Unsupported data format ('{}'...)\n", uri.substr(0, 64));
 					return false;
 				}
 			} else {
-				error("Could not open '{}'.", filepath);
-				return false;
+				// Load from file
+				auto		  filepath = path.parent_path() / uri;
+				std::ifstream buffer_file{filepath, std::ifstream::binary};
+				if(buffer_file) {
+					buffer.resize(length);
+					if(!buffer_file.read(buffer.data(), length)) {
+						error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
+						return false;
+					}
+				} else {
+					error("Could not open '{}'.", filepath);
+					return false;
+				}
 			}
 		}
+	} else if(path.extension() == ".glb") {
+		std::ifstream	file(path, std::ios::binary | std::ios::ate);
+		std::streamsize size = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		std::vector<char> buffer(size);
+		if(file.read(buffer.data(), size)) {
+			GLBHeader header = *reinterpret_cast<GLBHeader*>(buffer.data());
+			assert(header.magic == 0x46546C67);
+			GLBChunk jsonChunk = *reinterpret_cast<GLBChunk*>(buffer.data() + sizeof(GLBHeader));
+			assert(jsonChunk.type == 0x4E4F534A);
+			jsonChunk.data = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data);
+			/*
+			I'd like to do the following, but pubsetbuf is not implemented ('correctly'?) in Visual Studio. Yay.
+				std::stringstream stream;
+				stream.rdbuf()->pubsetbuf(jsonChunk.data, jsonChunk.length);
+			*/
+			istreambuf<char> streambuf(jsonChunk.data, jsonChunk.length);
+			std::istream	 stream(&streambuf);
+			if(!json.parse(stream)) {
+				error("Scene::loadglTF: GLB ('{}') JSON chunk could not be parsed.\n", path.string());
+				return false;
+			}
+			char* offset = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data) + jsonChunk.length;
+			while(offset - buffer.data() < header.length) {
+				GLBChunk chunk = *reinterpret_cast<GLBChunk*>(offset);
+				assert(chunk.type == 0x004E4942);
+				chunk.data = offset + offsetof(GLBChunk, data);
+				offset += offsetof(GLBChunk, data) + chunk.length;
+				buffers.emplace_back().assign(chunk.data, chunk.data + chunk.length);
+			}
+		}
+	} else {
+		warn("Scene::loadglTF: Extension '{}' not supported (filepath: '{}').", path.extension(), path.string());
+		return false;
 	}
+	const auto& object = json.getRoot();
 
 	const auto textureOffset = Textures.size();
 
