@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 
 #include <fstream>
+#include <string_view>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -86,6 +87,76 @@ bool Scene::load(const std::filesystem::path& path) {
 	return false;
 }
 
+char decode_b64(char c) {
+	if(c >= 'A' && c <= 'Z')
+		return c - 'A';
+	if(c >= 'a' && c <= 'z')
+		return 26 + c - 'a';
+	if(c >= '0' && c <= '9')
+		return 52 + c - '0';
+	if(c == '+')
+		return 62;
+	if(c == '/')
+		return 63;
+	assert(false);
+}
+
+std::vector<char> decode_b64(const std::string_view& str) {
+	assert(str.size() % 4 == 0); // We only support padded string for now.
+	std::vector<char> result;
+	result.reserve(str.size() / 4 * 3);
+	for(size_t i = 0; i < str.size() / 4 - 1; ++i) {
+		std::array<char, 4> d{
+			decode_b64(str[4 * i + 0]),
+			decode_b64(str[4 * i + 1]),
+			decode_b64(str[4 * i + 2]),
+			decode_b64(str[4 * i + 3]),
+		};
+		int32_t data = (d[0] << 18) | (d[1] << 12) | (d[2] << 6) | d[3];
+		result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
+		result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
+		result.push_back(static_cast<char>((data >> 0 * 8) & 0xFF));
+	}
+	// Last quadruplet may contain padding
+	if(str.size() % 4 != 0) {
+		// TODO
+	} else {
+		const auto i = str.size() / 4 - 1;
+		// May contain padding character(s)
+		if(str[str.size() - 1] == '=') {
+			if(str[str.size() - 2] == '=') {
+				std::array<char, 2> d{
+					decode_b64(str[4 * i + 0]),
+					decode_b64(str[4 * i + 1]),
+				};
+				int32_t data = (d[0] << 18) | ((d[1] << 12) & 0b110000);
+				result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
+			} else {
+				std::array<char, 3> d{
+					decode_b64(str[4 * i + 0]),
+					decode_b64(str[4 * i + 1]),
+					decode_b64(str[4 * i + 2]),
+				};
+				int32_t data = (d[0] << 18) | (d[1] << 12) | ((d[2] << 6) & 0b111100);
+				result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
+				result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
+			}
+		} else {
+			std::array<char, 4> d{
+				decode_b64(str[4 * i + 0]),
+				decode_b64(str[4 * i + 1]),
+				decode_b64(str[4 * i + 2]),
+				decode_b64(str[4 * i + 3]),
+			};
+			int32_t data = (d[0] << 18) | (d[1] << 12) | (d[2] << 6) | d[3];
+			result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
+			result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
+			result.push_back(static_cast<char>((data >> 0 * 8) & 0xFF));
+		}
+	}
+	return result;
+}
+
 bool Scene::loadglTF(const std::filesystem::path& path) {
 	// TODO: Check for file extension (.gltf (json/ascii) or .glb)
 	JSON		json{path};
@@ -95,19 +166,32 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	std::vector<std::vector<char>> buffers;
 	for(const auto& bufferDesc : object["buffers"]) {
 		buffers.push_back({});
-		auto&		  buffer = buffers.back();
-		auto		  filepath = path.parent_path() / bufferDesc["uri"].asString();
-		size_t		  length = bufferDesc["byteLength"].as<int>();
-		std::ifstream buffer_file{filepath, std::ifstream::binary};
-		if(buffer_file) {
-			buffer.resize(length);
-			if(!buffer_file.read(buffer.data(), length)) {
-				error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
+		auto&	   buffer = buffers.back();
+		size_t	   length = bufferDesc["byteLength"].as<int>();
+		const auto uri = bufferDesc["uri"].asString();
+		if(uri.starts_with("data:")) {
+			// Inlined data
+			if(uri.starts_with("data:application/octet-stream;base64,")) {
+				const auto data = std::string_view(uri).substr(std::string("data:application/octet-stream;base64,").size());
+				buffer = std::move(decode_b64(data));
+			} else {
+				warn("Scene::loadglTF: Unsupported data format ('{}'...)\n", uri.substr(0, 64));
 				return false;
 			}
 		} else {
-			error("Could not open '{}'.", filepath);
-			return false;
+			// Load from file
+			auto		  filepath = path.parent_path() / uri;
+			std::ifstream buffer_file{filepath, std::ifstream::binary};
+			if(buffer_file) {
+				buffer.resize(length);
+				if(!buffer_file.read(buffer.data(), length)) {
+					error("Error while reading '{}' (rdstate: {}, size: {} bytes).\n", filepath, buffer_file.rdstate(), length);
+					return false;
+				}
+			} else {
+				error("Could not open '{}'.", filepath);
+				return false;
+			}
 		}
 	}
 
@@ -346,6 +430,10 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	NodeIndex rootIndex = _nodes.size() - 1;
 	addChild(0, rootIndex);
 
+	std::vector<glm::vec2> uvs;
+	std::vector<glm::vec3> normals;
+	uint32_t			   vertexOffset = 0;
+
 	const auto nextMesh = [&]() {
 		_meshes.emplace_back();
 		m = &_meshes.back();
@@ -358,6 +446,8 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		sm->materialIndex = 0;
 	};
 	const auto nextSubMesh = [&]() {
+		if(sm)
+			vertexOffset += sm->getVertices().size();
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
 		sm->materialIndex = 0;
@@ -375,14 +465,51 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		if(it == std::string::npos || line[it] == '#')
 			continue;
 		if(line[0] == 'v') {
-			char* cur = line.data() + 2;
-			for(size_t i = 0; i < 3; ++i)
-				v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
-			sm->getVertices().push_back(v);
+			if(line[1] == 't') {
+				// Texture Coordinates
+				char*	  cur = line.data() + 3;
+				glm::vec2 uv;
+				for(size_t i = 0; i < 2; ++i)
+					uv[i] = static_cast<float>(std::strtof(cur, &cur));
+				uvs.push_back(uv);
+			} else if(line[1] == 'n') {
+				// Normals
+				char*	  cur = line.data() + 3;
+				glm::vec3 n;
+				for(size_t i = 0; i < 3; ++i)
+					n[i] = static_cast<float>(std::strtof(cur, &cur));
+				normals.push_back(glm::normalize(n));
+			} else {
+				// Vertices
+				char* cur = line.data() + 2;
+				for(size_t i = 0; i < 3; ++i)
+					v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
+				sm->getVertices().push_back(v);
+			}
 		} else if(line[0] == 'f') {
 			char* cur = line.data() + 2;
-			for(size_t i = 0; i < 3; ++i)														   // Supports only triangles.
-				sm->getIndices().push_back(static_cast<uint32_t>(std::strtol(cur, &cur, 10) - 1)); // Indices starts at 1 in .obj
+			for(size_t i = 0; i < 3; ++i) { // Supports only triangles.
+				auto vertexIndex = static_cast<uint32_t>(std::strtol(cur, &cur, 10));
+				assert(vertexIndex > 0 && vertexIndex != std::numeric_limits<long int>::max());
+				vertexIndex -= 1;			 // Indices starts at 1 in .obj
+				vertexIndex -= vertexOffset; // Indices are absolutes in the obj file, we're relative to the current submesh
+				sm->getIndices().push_back(vertexIndex);
+				// Assuming vertices, uvs and normals have already been defined.
+				if(*cur == '/') {
+					++cur;
+					// Texture coordinate index
+					auto uvIndex = std::strtol(cur, &cur, 10);
+					if(uvIndex > 0 && uvIndex != std::numeric_limits<long int>::max())
+						sm->getVertices()[vertexIndex].texCoord = uvs[uvIndex - 1];
+					// Normal index
+					if(*cur == '/') {
+						++cur;
+						auto normalIndex = std::strtol(cur, &cur, 10);
+						if(normalIndex > 0 && normalIndex != std::numeric_limits<long int>::max())
+							sm->getVertices()[vertexIndex].normal = normals[normalIndex - 1];
+					}
+				}
+			}
 		} else if(line[0] == 'o') {
 			// Next Mesh
 			if(sm->getVertices().size() > 0)

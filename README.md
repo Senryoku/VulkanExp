@@ -25,6 +25,7 @@
  
 ### Improvements 
 - Correctly reproject reflections for temporal filtering (See http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html)
+- Emissive textures in the raster path.
 - Many
 
 ### Nice to have
