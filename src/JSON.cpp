@@ -134,6 +134,8 @@ JSON::number JSON::parseNumber(std::ifstream& file) {
 			isFloat = true;
 		file.get(byte);
 	} while(file && (byte == '-' || byte == '+' || (byte >= '0' && byte <= '9') || byte == '.' || byte == 'e' || byte == 'E'));
+	if(file) // We've gone past the number
+		file.putback(byte);
 	if(isFloat) {
 		float f;
 		std::from_chars(buffer + 0, buffer + size, f);
