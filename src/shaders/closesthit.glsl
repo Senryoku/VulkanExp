@@ -157,8 +157,12 @@ void main()
 	vec3 tangentSpaceNormal = normalize(v0.normal * barycentricCoords.x + v1.normal * barycentricCoords.y + v2.normal * barycentricCoords.z);
 	vec3 normal = normalize(vec3(tangentSpaceNormal * gl_WorldToObjectEXT)); // To world space
 		
-	vec4 grad = texDerivative(position, v0, v1, v2, payload.raydx, payload.raydy); 
-	vec4 texColor = m.albedoTexture != -1 ? textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw) : vec4(1.0);
+	vec4 grad = texDerivative(position, v0, v1, v2, payload.raydx, payload.raydy);
+	vec4 albedo = vec4(m.baseColorFactor, 1.0);
+	if(m.albedoTexture != -1) {
+		 vec4 texColor = textureGrad(textures[m.albedoTexture], texCoord, grad.xy, grad.zw);
+		 albedo *= texColor;
+	 }
 	
 	// If the material has a normal texture, "bend" the normal according to the normal map
 	vec4 tangentData = v0.tangent * barycentricCoords.x + v1.tangent * barycentricCoords.y + v2.tangent * barycentricCoords.z;
@@ -189,11 +193,11 @@ void main()
 	vec3 color = vec3(0) + emissiveLight;
 		
 	vec3 f0 = vec3(0.04);
-	vec3 diffuseColor = texColor.rgb * (1.0 - f0);
+	vec3 diffuseColor = albedo.rgb * (1.0 - f0);
 	diffuseColor *= (1.0 - metalness);
 
 	// Specular (Use irradiance from prbes as a crude approximation on secondary rays)
-	vec3 specularColor = mix(f0, texColor.rgb, metalness);
+	vec3 specularColor = mix(f0, albedo.rgb, metalness);
 	vec3 reflectDir = reflect(gl_WorldRayDirectionEXT, normal);
 	vec3 reflection;
 #ifndef NO_REFLECTION
@@ -274,8 +278,8 @@ void main()
 	);
 	if(!isShadowed) {
 		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, texColor, metalness, roughness).rgb;
+		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
 	}
 
-	payload.color = vec4(color, texColor.a);
+	payload.color = vec4(color, albedo.a);
 }

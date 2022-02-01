@@ -10,6 +10,7 @@ layout(binding = 0) uniform UniformBufferObject {
 layout(push_constant) uniform constants
 {
 	mat4 model;
+    vec4 baseColorFactor;
     float metalnessFactor;
     float roughnessFactor;
 } PushConstants;
@@ -28,6 +29,7 @@ layout(location = 4) out vec2 texCoord;
 layout(location = 5) out float metalnessFactor;
 layout(location = 6) out float roughnessFactor;
 layout(location = 7) out flat vec3 origin;
+layout(location = 8) out vec3 color;
 
 void main() {
     vec4 worldPosition = PushConstants.model * vec4(inPosition, 1.0);
@@ -41,4 +43,5 @@ void main() {
     metalnessFactor = PushConstants.metalnessFactor;
     roughnessFactor = PushConstants.roughnessFactor;
     origin = (inverse(ubo.view) * vec4(0,0,0,1)).xyz;
+    color = PushConstants.baseColorFactor.rgb * inColor;
 }

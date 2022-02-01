@@ -7,6 +7,7 @@
   - Probably a lot.
 
 ### Major Features
+ - Vertex color.
  - Scene
    - Save
    - Select Nodes

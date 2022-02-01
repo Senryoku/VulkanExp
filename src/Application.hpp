@@ -52,6 +52,7 @@ struct CameraBuffer {
 
 struct GBufferPushConstant {
 	glm::mat4 transform;
+	glm::vec4 baseColorFactor{1.0f};
 	float	  metalness;
 	float	  roughness;
 };

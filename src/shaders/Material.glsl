@@ -9,11 +9,12 @@ struct Material {
 	uint  normalTexture;
 	uint  metallicRoughnessTexture;
 	uint  emissiveTexture;
+	vec3  baseColorFactor;
 };
 
 // Expect an array named "Materials" to be accessible
 Material unpackMaterial(uint index) {
-	uint offset = index * 9;
+	uint offset = index * 12;
 	Material m;
 	m.metallicFactor = uintBitsToFloat(Materials[offset + 0]);
 	m.roughnessFactor = uintBitsToFloat(Materials[offset + 1]);
@@ -22,6 +23,7 @@ Material unpackMaterial(uint index) {
 	m.normalTexture = Materials[offset + 6];
 	m.metallicRoughnessTexture = Materials[offset + 7];
 	m.emissiveTexture = Materials[offset + 8];
+	m.baseColorFactor = vec3(uintBitsToFloat(Materials[offset + 9]), uintBitsToFloat(Materials[offset + 10]), uintBitsToFloat(Materials[offset + 11]));
 	return m;
 }
 

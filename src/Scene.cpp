@@ -272,7 +272,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			Material material;
 			material.name = mat("name", std::string("NoName"));
 			if(mat.contains("pbrMetallicRoughness")) {
-				// material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+				material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
 				material.properties.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
 				material.properties.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
 				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {

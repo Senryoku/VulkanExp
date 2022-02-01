@@ -351,6 +351,9 @@ void Application::drawUI() {
 									if(*index != -1)
 										ImGui::Image(SceneUITextureIDs[*index].imID, ImVec2(100, 100));
 								};
+								if(ImGui::ColorEdit3("Base Color", reinterpret_cast<float*>(&mat.properties.baseColorFactor))) {
+									dirtyMaterials = true;
+								}
 								texInput("Albedo Texture", &mat.properties.albedoTexture);
 								texInput("Normal Texture", &mat.properties.normalTexture);
 								texInput("Metallic Roughness Texture", &mat.properties.metallicRoughnessTexture);

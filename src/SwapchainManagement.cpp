@@ -568,9 +568,10 @@ void Application::recordCommandBuffers() {
 			const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
 				transform = transform * n.transform;
 				if(n.mesh != -1) {
-					GBufferPushConstant pc{transform, 0, 0};
+					GBufferPushConstant pc{transform, glm::vec4{1.0}, 0, 0};
 					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
 						if(submesh.materialIndex != Scene::InvalidMaterialIndex) {
+							pc.baseColorFactor = glm::vec4(Materials[submesh.materialIndex].properties.baseColorFactor, 1.0);
 							pc.metalness = Materials[submesh.materialIndex].properties.metallicFactor;
 							pc.roughness = Materials[submesh.materialIndex].properties.roughnessFactor;
 							vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
@@ -610,8 +611,8 @@ void Application::recordCommandBuffers() {
 							  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
 		}
 		{
-			//_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-			//							  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+			//_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+			// VK_ACCESS_SHADER_WRITE_BIT, 							  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
 			const auto descriptors = {_directLightDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
