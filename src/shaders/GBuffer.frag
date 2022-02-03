@@ -36,8 +36,8 @@ void main() {
     float metalness = metalnessFactor;
     float roughness = roughnessFactor;
     vec4 metalRoughMap = texture(metalRoughTexSampler, texCoord);
-    metalness *= metalRoughMap.b;
     roughness *= metalRoughMap.g;
+    metalness *= metalRoughMap.b;
 
     outPositionDepth = vec4(position, length(position - origin));
     outNormalMetalness = vec4(finalNormal, metalness);

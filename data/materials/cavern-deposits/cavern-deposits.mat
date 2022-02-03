@@ -1,0 +1,37 @@
+{
+	"materials": [{
+		"pbrMetallicRoughness": {
+			"baseColorFactor": [1.0, 1.0, 1.0, 1.0],
+			"metallicFactor": 1.0,
+			"roughnessFactor": 1.0,
+			"baseColorTexture": {
+				"index": 0
+			},
+			"metallicRoughnessTexture": {
+				"index": 2
+			}
+		},
+		"normalTexture": {
+			"index": 1
+		}
+	}],
+	"textures": [{
+		"source": 0,
+		"sampler": 0
+	}],
+	"images": [{
+			"uri": "cavern-deposits_albedo.png"
+		},
+		{
+			"uri": "cavern-deposits_normal-ogl.png"
+		}, {
+			"uri": "cavern-deposits_metallic_roughness.png"
+		}
+	],
+	"samplers": [{
+		"magFilter": 9729,
+		"minFilter": 9987,
+		"wrapS": 33648,
+		"wrapT": 33648
+	}]
+}

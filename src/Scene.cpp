@@ -256,47 +256,13 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 	const auto textureOffset = Textures.size();
 
-	if(object.contains("textures"))
-		for(const auto& texture : object["textures"]) {
-			Textures.push_back(Texture{
-				.source = path.parent_path() / object["images"][texture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_SRGB,
-				.samplerDescription = object["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
-			});
-		}
+	loadTextures(path, object);
 
 	const auto materialOffset = Materials.size();
 
 	if(object.contains("materials"))
-		for(const auto& mat : object["materials"]) {
-			Material material;
-			material.name = mat("name", std::string("NoName"));
-			if(mat.contains("pbrMetallicRoughness")) {
-				material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-				material.properties.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-				material.properties.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-				if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
-					material.properties.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
-				}
-				if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-					material.properties.metallicRoughnessTexture = textureOffset + mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
-					// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
-					if(material.properties.metallicRoughnessTexture < Textures.size())
-						Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
-				}
-			}
-			material.properties.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
-			if(mat.contains("emissiveTexture")) {
-				material.properties.emissiveTexture = textureOffset + mat["emissiveTexture"]["index"].as<int>();
-			}
-			if(mat.contains("normalTexture")) {
-				material.properties.normalTexture = textureOffset + mat["normalTexture"]["index"].as<int>();
-				// Change the default format of this texture now that we know it will be used as a normal map
-				if(material.properties.normalTexture < Textures.size())
-					Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
-			}
-			Materials.push_back(material);
-		}
+		for(const auto& mat : object["materials"])
+			loadMaterial(mat, textureOffset);
 
 	const auto meshOffset = _meshes.size();
 
@@ -590,6 +556,72 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	return true;
 }
 
+bool Scene::loadMaterial(const std::filesystem::path& path) {
+	if(path.extension() != ".mat") {
+		warn("Scene::loadMaterial: Extension '{}' not supported (filepath: '{}').", path.extension(), path.string());
+		return false;
+	}
+	JSON		json{path};
+	const auto& object = json.getRoot();
+
+	const auto textureOffset = Textures.size();
+
+	loadTextures(path, object);
+
+	const auto materialOffset = Materials.size();
+
+	if(object.contains("materials"))
+		for(const auto& mat : object["materials"])
+			loadMaterial(mat, textureOffset);
+
+	return true;
+}
+
+bool Scene::loadMaterial(const JSON::value& mat, uint32_t textureOffset) {
+	Material material;
+	material.name = mat("name", std::string("NoName"));
+	if(mat.contains("pbrMetallicRoughness")) {
+		material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
+		material.properties.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
+		material.properties.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
+		if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
+			material.properties.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
+		}
+		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
+			material.properties.metallicRoughnessTexture = textureOffset + mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
+			// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
+			if(material.properties.metallicRoughnessTexture < Textures.size())
+				Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+		}
+	}
+	material.properties.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
+	if(mat.contains("emissiveTexture")) {
+		material.properties.emissiveTexture = textureOffset + mat["emissiveTexture"]["index"].as<int>();
+	}
+	if(mat.contains("normalTexture")) {
+		material.properties.normalTexture = textureOffset + mat["normalTexture"]["index"].as<int>();
+		// Change the default format of this texture now that we know it will be used as a normal map
+		if(material.properties.normalTexture < Textures.size())
+			Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+	}
+	Materials.push_back(material);
+	return true;
+}
+
+bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& json) {
+	// FIXME: This causes a weird crash, simply inlining this code fixes the problem, this is probably a problem with the JSON implementation (the const_iterator? operator[]?)
+	// CHECK: const_iterator union destructor maybe?
+	if(json.contains("textures"))
+		for(const auto& texture : json["textures"]) {
+			Textures.push_back(Texture{
+				.source = path.parent_path() / json["images"][texture["source"].as<int>()]["uri"].asString(),
+				.format = VK_FORMAT_R8G8B8A8_SRGB,
+				.samplerDescription = json["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
+			});
+		}
+	return true;
+}
+
 void Scene::allocateMeshes(const Device& device) {
 	if(VertexBuffer) {
 		VertexBuffer.destroy();
@@ -679,6 +711,7 @@ bool Scene::update(const Device& device) {
 
 	// TODO: BLAS
 	updateTLAS(device);
+	computeBounds();
 	_dirtyNodes.clear();
 	return true;
 }

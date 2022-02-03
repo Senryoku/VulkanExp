@@ -74,6 +74,7 @@ class Scene {
 	bool load(const std::filesystem::path& path);
 	bool loadglTF(const std::filesystem::path& path);
 	bool loadOBJ(const std::filesystem::path& path);
+	bool loadMaterial(const std::filesystem::path& path);
 
 	void createAccelerationStructure(const Device& device);
 	void destroyAccelerationStructure(const Device& device);
@@ -159,4 +160,7 @@ class Scene {
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;
 	DeviceMemory _tlasScratchMemory;
+
+	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
+	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
 };
