@@ -276,6 +276,13 @@ class JSON {
 				_it.object_it = it;
 			}
 
+			~iterator() {
+				if(_type == Type::array)
+					_it.array_it.array::iterator::~iterator();
+				if(_type == Type::object)
+					_it.object_it.object::iterator::~iterator();
+			}
+
 			reference operator*() {
 				if(_type == Type::array)
 					return *_it.array_it;
@@ -352,6 +359,13 @@ class JSON {
 			const_iterator(object::const_iterator it) {
 				_type = Type::object;
 				_it.object_it = it;
+			}
+
+			~const_iterator() {
+				if(_type == Type::array)
+					_it.array_it.array::const_iterator::~const_iterator();
+				if(_type == Type::object)
+					_it.object_it.object::const_iterator::~const_iterator();
 			}
 
 			reference operator*() {
