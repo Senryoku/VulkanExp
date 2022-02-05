@@ -252,6 +252,27 @@ void Application::drawUI() {
 		auto&							  nodes = _scene.getNodes();
 		const std::function<void(size_t)> displayNode = [&](size_t n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
+			// Drag & Drop nodes to edit parent/children links
+			// TODO: Allow re-ordering between children (needs dummy ).
+			if(ImGui::BeginDragDropTarget()) {
+				auto payload = ImGui::AcceptDragDropPayload("NodeIndex");
+				if(payload) {
+					auto droppedNode = *static_cast<Scene::NodeIndex*>(payload->Data);
+					if(droppedNode != n) {
+						// Remove previous parent-child link
+						nodes[nodes[droppedNode].parent].children.erase(
+							std::find(nodes[nodes[droppedNode].parent].children.begin(), nodes[nodes[droppedNode].parent].children.end(), droppedNode));
+						nodes[droppedNode].parent = Scene::InvalidNodeIndex;
+						_scene.addChild(n, droppedNode);
+					}
+				}
+				ImGui::EndDragDropTarget();
+			}
+			if(ImGui::BeginDragDropSource()) {
+				ImGui::SetDragDropPayload("NodeIndex", &n, sizeof(n));
+				ImGui::EndDragDropSource();
+			}
+
 			if(ImGui::IsItemClicked())
 				_selectedNode = &nodes[n];
 			if(open) {
