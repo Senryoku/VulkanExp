@@ -526,6 +526,12 @@ void Application::drawUI() {
 				_irradianceProbes.initProbes(_computeQueue);
 			}
 			bool uniformNeedsUpdate = false;
+			if(ImGui::Button("Fit to Scene")) {
+				_scene.computeBounds();
+				_irradianceProbes.GridParameters.extentMin = _scene.getBounds().min;
+				_irradianceProbes.GridParameters.extentMax = _scene.getBounds().max;
+				uniformNeedsUpdate = true;
+			}
 			uniformNeedsUpdate = ImGui::InputFloat3("Extent Min", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMin)) || uniformNeedsUpdate;
 			uniformNeedsUpdate = ImGui::InputFloat3("Extent Max", reinterpret_cast<float*>(&_irradianceProbes.GridParameters.extentMax)) || uniformNeedsUpdate;
 			uniformNeedsUpdate = ImGui::SliderFloat("Depth Sharpness", &_irradianceProbes.GridParameters.depthSharpness, 1.0f, 100.0f) || uniformNeedsUpdate;
