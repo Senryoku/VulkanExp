@@ -52,7 +52,7 @@ void Application::run() {
 		_scene.getMeshes().emplace_back(generateMesh(chunk));
 		_scene.getMeshes().back().computeBounds();
 		_scene.getNodes().emplace_back(Scene::Node{.name = "Chunk", .mesh = static_cast<Scene::MeshIndex>(_scene.getMeshes().size() - 1)});
-		_scene.getRoot().children.push_back(static_cast<Scene::NodeIndex>(_scene.getNodes().size() - 1));
+		_scene.addChild(0, _scene.getNodes().size() - 1);
 		// TODO: Bounds are probably not correct
 
 		//_scene.load("./data/models/Sponza/Sponza.gltf");
