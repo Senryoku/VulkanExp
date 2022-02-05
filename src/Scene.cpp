@@ -789,6 +789,8 @@ void Scene::createAccelerationStructure(const Device& device) {
 		}
 
 		// This is a leaf
+		// FIXME: If a mesh is refered to multiple times in a scene, we'll currently create multiple geometries.
+		//        In this case, we should only create multiple instances refering to the same geometry (BLAS)
 		if(n.mesh != -1) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
@@ -905,6 +907,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 	QuickTimer qt("TLAS building");
 	uint32_t   customIndex = 0;
+	// FIXME: See note on BLAS creation
 	for(const auto& blas : _bottomLevelAccelerationStructures) {
 		// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 		VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
