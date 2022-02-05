@@ -264,7 +264,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 		for(const auto& mat : object["materials"])
 			loadMaterial(mat, textureOffset);
 
-	const auto meshOffset = _meshes.size();
+	const MeshIndex meshOffset{static_cast<MeshIndex::UnderlyingType>(_meshes.size())};
 
 	for(const auto& m : object["meshes"]) {
 		auto& mesh = _meshes.emplace_back();
@@ -397,7 +397,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 		}
 	}
 
-	const auto nodesOffset = _nodes.size();
+	const NodeIndex nodesOffset{static_cast<NodeIndex::UnderlyingType>(_nodes.size())};
 
 	for(const auto& node : object["nodes"]) {
 		Node n;
@@ -413,12 +413,12 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 		if(node.contains("children")) {
 			for(const auto& c : node["children"]) {
-				n.children.push_back(nodesOffset + c.as<int>());
+				n.children.push_back(NodeIndex{nodesOffset + c.as<int>()});
 			}
 		}
-		n.mesh = node("mesh", -1);
+		n.mesh = MeshIndex{static_cast<MeshIndex::UnderlyingType>(node("mesh", -1))};
 		if(n.mesh != -1)
-			n.mesh += meshOffset;
+			n.mesh = MeshIndex{n.mesh + meshOffset};
 		_nodes.push_back(n);
 	}
 	// Assign parent indices
@@ -430,10 +430,10 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 	for(const auto& scene : object["scenes"]) {
 		Node& rootNode = _nodes.emplace_back(Node{.name = scene("name", std::string("Unamed Scene"))});
-		addChild(0, _nodes.size() - 1);
+		addChild(NodeIndex{0}, NodeIndex(_nodes.size() - 1));
 		if(scene.contains("nodes")) {
 			for(const auto& n : scene["nodes"]) {
-				addChild(_nodes.size() - 1, nodesOffset + n.as<int>());
+				addChild(NodeIndex(_nodes.size() - 1), NodeIndex(nodesOffset + n.as<int>()));
 			}
 		}
 	}
@@ -452,8 +452,8 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	SubMesh* sm = nullptr;
 
 	Node&	  rootNode = _nodes.emplace_back(Node{.name = path.string()});
-	NodeIndex rootIndex = _nodes.size() - 1;
-	addChild(0, rootIndex);
+	NodeIndex rootIndex(_nodes.size() - 1);
+	addChild(NodeIndex{0u}, rootIndex);
 
 	std::vector<glm::vec2> uvs;
 	std::vector<glm::vec3> normals;
@@ -464,7 +464,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		m = &_meshes.back();
 
 		_nodes.emplace_back(Node{.mesh = static_cast<MeshIndex>(_meshes.size() - 1)});
-		addChild(rootIndex, _nodes.size() - 1);
+		addChild(rootIndex, NodeIndex(_nodes.size() - 1));
 
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
@@ -1052,7 +1052,7 @@ void Scene::updateTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-Scene::Node* Scene::intersectNodes(Ray& ray) {
+Scene::NodeIndex Scene::intersectNodes(Ray& ray) {
 	Hit												   best;
 	Node*											   bestNode = nullptr;
 	const auto&										   meshes = getMeshes();
@@ -1074,5 +1074,7 @@ Scene::Node* Scene::intersectNodes(Ray& ray) {
 		}
 	};
 	visitNode(getRoot(), glm::mat4(1.0f));
-	return bestNode;
+	if(!bestNode)
+		return InvalidNodeIndex;
+	return NodeIndex(bestNode - getNodes().data());
 }

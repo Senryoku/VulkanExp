@@ -52,7 +52,7 @@ void Application::run() {
 		_scene.getMeshes().emplace_back(generateMesh(chunk));
 		_scene.getMeshes().back().computeBounds();
 		_scene.getNodes().emplace_back(Scene::Node{.name = "Chunk", .mesh = static_cast<Scene::MeshIndex>(_scene.getMeshes().size() - 1)});
-		_scene.addChild(0, _scene.getNodes().size() - 1);
+		_scene.addChild(Scene::NodeIndex{0}, Scene::NodeIndex(_scene.getNodes().size() - 1));
 		// TODO: Bounds are probably not correct
 
 		//_scene.load("./data/models/Sponza/Sponza.gltf");
@@ -296,7 +296,7 @@ void Application::trySelectNode() {
 							-ratio * static_cast<float>((2.0f * _mouse_y) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
 	Ray	 r{.origin = _camera.getPosition(), .direction = d};
 	auto node = _scene.intersectNodes(r);
-	if(node != nullptr) {
+	if(node != Scene::InvalidNodeIndex) {
 		_selectedNode = node;
 	}
 }

@@ -4,6 +4,7 @@
 
 #include "vulkan/Mesh.hpp"
 #include <Raytracing.hpp>
+#include <TaggedType.hpp>
 
 // TODO: Move this :)
 inline std::vector<Material> Materials;
@@ -33,19 +34,16 @@ class Scene {
 		Double = 5130,
 	};
 
-	class Attributes {};
+	struct NodeIndexTag {};
+	struct MeshIndexTag {};
+	struct MaterialIndexTag {};
 
-	struct SubScene {
-		std::string			  name;
-		std::vector<uint32_t> nodes; // Indices in _nodes
-	};
-
-	using NodeIndex = uint32_t;
-	static const NodeIndex InvalidNodeIndex = -1;
-	using MeshIndex = uint32_t;
-	static const MeshIndex InvalidMeshIndex = -1;
-	using MaterialIndex = uint32_t;
-	static const MaterialIndex InvalidMaterialIndex = -1;
+	using NodeIndex = TaggedIndex<uint32_t, NodeIndexTag>;
+	inline static const NodeIndex InvalidNodeIndex{static_cast<uint32_t>(-1)};
+	using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
+	inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
+	using MaterialIndex = TaggedIndex<uint32_t, MaterialIndexTag>;
+	inline static const MaterialIndex InvalidMaterialIndex{static_cast<uint32_t>(-1)};
 
 	struct Node {
 		std::string			   name = "Unamed Node";
@@ -60,12 +58,6 @@ class Scene {
 		_nodes[parent].children.push_back(child);
 		_nodes[child].parent = parent;
 	}
-
-	struct Primitive {
-		RenderingMode mode;
-		Attributes	  attributes;
-		size_t		  material;
-	};
 
 	Scene();
 	Scene(const std::filesystem::path& path);
@@ -85,7 +77,7 @@ class Scene {
 	inline const std::vector<Node>&			 getNodes() const { return _nodes; }
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 
-	inline void markDirty(Node* node) { _dirtyNodes.push_back(node); }
+	inline void markDirty(NodeIndex node) { _dirtyNodes.push_back(node); }
 	bool		update(const Device& device);
 	void		updateTLAS(const Device& device);
 
@@ -93,7 +85,7 @@ class Scene {
 	inline const Node& getRoot() const { return _nodes[0]; }
 	inline Node&	   getRoot() { return _nodes[0]; }
 
-	Node* intersectNodes(Ray& ray);
+	NodeIndex intersectNodes(Ray& ray);
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
@@ -114,6 +106,25 @@ class Scene {
 		   visitNode(getRoot(), glm::mat4(1.0f));
 
 		   return _bounds;
+	}
+
+	Node& operator[](NodeIndex index) {
+		assert(index != InvalidNodeIndex);
+		return _nodes[index];
+	}
+
+	const Node& operator[](NodeIndex index) const {
+		assert(index != InvalidNodeIndex);
+		return _nodes[index];
+	}
+
+	Mesh& operator[](MeshIndex index) {
+		assert(index != InvalidMeshIndex);
+		return _meshes[index];
+	}
+	const Mesh& operator[](MeshIndex index) const {
+		assert(index != InvalidNodeIndex);
+		return _meshes[index];
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +154,7 @@ class Scene {
 	std::vector<Mesh> _meshes;
 	std::vector<Node> _nodes;
 
-	std::vector<Node*> _dirtyNodes;
+	std::vector<NodeIndex> _dirtyNodes;
 
 	Bounds _bounds;
 

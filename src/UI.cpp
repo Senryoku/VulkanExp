@@ -249,8 +249,8 @@ void Application::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Scene")) {
-		auto&							  nodes = _scene.getNodes();
-		const std::function<void(size_t)> displayNode = [&](size_t n) {
+		auto&										nodes = _scene.getNodes();
+		const std::function<void(Scene::NodeIndex)> displayNode = [&](Scene::NodeIndex n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
 			// Drag & Drop nodes to edit parent/children links
 			// TODO: Allow re-ordering between children (needs dummy ).
@@ -274,7 +274,7 @@ void Application::drawUI() {
 			}
 
 			if(ImGui::IsItemClicked())
-				_selectedNode = &nodes[n];
+				_selectedNode = n;
 			if(open) {
 				for(const auto& c : nodes[n].children) {
 					displayNode(c);
@@ -282,7 +282,7 @@ void Application::drawUI() {
 				ImGui::TreePop();
 			}
 		};
-		displayNode(0);
+		displayNode(Scene::NodeIndex{0});
 
 		if(ImGui::TreeNode("Loaded Textures")) {
 			for(const auto& texture : SceneUITextureIDs) {
@@ -303,17 +303,48 @@ void Application::drawUI() {
 	glm::vec3				   snap{1.0};
 
 	if(ImGui::Begin("Node")) {
-		if(_selectedNode) {
+		if(_selectedNode != Scene::InvalidNodeIndex) {
+			// TEMP Button
+			// TODO: Ctrl+D shortcut?
+			if(ImGui::Button("Duplicate")) {
+				std::function<Scene::NodeIndex(Scene::NodeIndex)> copyNode = [&](Scene::NodeIndex target) {
+					_scene.getNodes().push_back(_scene[target]);
+					auto&			 copy = _scene.getNodes().back();
+					Scene::NodeIndex index(_scene.getNodes().size() - 1);
+					copy.parent = Scene::InvalidNodeIndex;
+					copy.children.clear();
+					for(const auto& c : _scene[target].children) {
+						auto childIndex = copyNode(c);
+						_scene.addChild(index, childIndex);
+					}
+					return index;
+				};
+
+				auto parent = _scene[_selectedNode].parent;
+				_selectedNode = copyNode(_selectedNode);
+				_scene.addChild(parent, _selectedNode);
+
+				// Recreate Acceleration Structure
+				// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
+				vkDeviceWaitIdle(_device);
+				_scene.destroyAccelerationStructure(_device);
+				_scene.createAccelerationStructure(_device);
+				// We have to update the all descriptor sets referencing the acceleration structures.
+				// FIXME: This is way overkill
+				recreateSwapChain();
+				vkDeviceWaitIdle(_device);
+			}
+
 			bool dirtyMaterials = false;
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
 				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-				ImGui::Matrix("Local Transform", _selectedNode->transform);
-				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&_selectedNode->transform), matrixTranslation, matrixRotation, matrixScale);
+				ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
+				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&_scene[_selectedNode].transform), matrixTranslation, matrixRotation, matrixScale);
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
 				if(updatedTransform)
-					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&_selectedNode->transform));
+					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&_scene[_selectedNode].transform));
 
 				if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -352,8 +383,8 @@ void Application::drawUI() {
 
 				ImGui::TreePop();
 			}
-			if(_selectedNode->mesh != -1) {
-				auto&& mesh = _scene.getMeshes()[_selectedNode->mesh];
+			if(_scene[_selectedNode].mesh != Scene::InvalidMeshIndex) {
+				auto&& mesh = _scene[_scene[_selectedNode].mesh];
 				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
 						auto&& submesh = mesh.SubMeshes[i];
@@ -410,14 +441,14 @@ void Application::drawUI() {
 	ImGui::End();
 
 	// On screen gizmos
-	if(_selectedNode) {
-		glm::mat4		 worldTransform = _selectedNode->transform;
+	if(_selectedNode != Scene::InvalidNodeIndex) {
+		glm::mat4		 worldTransform = _scene[_selectedNode].transform;
 		glm::mat4		 parentTransform{1.0f};
-		Scene::NodeIndex parentNode = _selectedNode->parent;
+		Scene::NodeIndex parentNode = _scene[_selectedNode].parent;
 		while(parentNode != Scene::InvalidNodeIndex) {
-			worldTransform = _scene.getNodes()[parentNode].transform * worldTransform;
-			parentTransform = _scene.getNodes()[parentNode].transform * parentTransform;
-			parentNode = _scene.getNodes()[parentNode].parent;
+			worldTransform = _scene[parentNode].transform * worldTransform;
+			parentTransform = _scene[parentNode].transform * parentTransform;
+			parentNode = _scene[parentNode].parent;
 		}
 
 		// Dummy Window for "on field" widgets
@@ -427,8 +458,8 @@ void Application::drawUI() {
 		ImGui::Begin("SelectedObject", nullptr,
 					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
 
-		if(_selectedNode->mesh != Scene::InvalidMeshIndex) {
-			auto				  aabb = _scene.getMeshes()[_selectedNode->mesh].getBounds().getPoints();
+		if(_scene[_selectedNode].mesh != Scene::InvalidMeshIndex) {
+			auto				  aabb = _scene[_scene[_selectedNode].mesh].getBounds().getPoints();
 			auto				  winpos = ImGui::GetMainViewport()->Pos;
 			glm::vec2			  glmwinpos{winpos.x, winpos.y};
 			std::array<ImVec2, 8> screen_aabb;
@@ -465,14 +496,14 @@ void Application::drawUI() {
 			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), mCurrentGizmoOperation,
 								 mCurrentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), useSnap ? &snap.x : nullptr);
 		if(gizmoUpdated) {
-			_selectedNode->transform = glm::inverse(parentTransform) * worldTransform;
+			_scene[_selectedNode].transform = glm::inverse(parentTransform) * worldTransform;
 		}
 		updatedTransform = gizmoUpdated || updatedTransform;
 
 		ImGui::End(); // Dummy Window
 	}
 
-	if(_selectedNode && updatedTransform) {
+	if(_selectedNode != Scene::InvalidNodeIndex && updatedTransform) {
 		_scene.markDirty(_selectedNode);
 	}
 

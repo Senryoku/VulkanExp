@@ -265,7 +265,7 @@ class Application {
 	Camera _camera{glm::vec3(-380.0f, 650.0f, 120.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double _mouse_x = 0, _mouse_y = 0;
 
-	Scene::Node* _selectedNode = nullptr;
+	Scene::NodeIndex _selectedNode = Scene::InvalidNodeIndex;
 
 	void createInstance();
 	void createSwapChain();

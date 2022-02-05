@@ -97,6 +97,7 @@
     <ClInclude Include="src\JSON.hpp" />
     <ClInclude Include="src\Logger.hpp" />
     <ClInclude Include="src\stringutils.hpp" />
+    <ClInclude Include="src\TaggedType.hpp" />
     <ClInclude Include="src\ThreadPool.hpp" />
     <ClInclude Include="src\voxels\Chunk.hpp" />
     <ClInclude Include="src\vulkan\Buffer.hpp" />
