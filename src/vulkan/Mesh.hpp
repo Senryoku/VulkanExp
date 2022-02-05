@@ -91,8 +91,10 @@ class Mesh {
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
 	inline const Bounds& computeBounds() {
 		_bounds = SubMeshes[0].getBounds();
-		for(const auto& sm : SubMeshes)
+		for(auto& sm : SubMeshes) {
+			sm.computeBounds();
 			_bounds += sm.getBounds();
+		}
 		return _bounds;
 	}
 
