@@ -609,8 +609,6 @@ bool Scene::loadMaterial(const JSON::value& mat, uint32_t textureOffset) {
 }
 
 bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& json) {
-	// FIXME: This causes a weird crash, simply inlining this code fixes the problem, this is probably a problem with the JSON implementation (the const_iterator? operator[]?)
-	// CHECK: const_iterator union destructor maybe?
 	if(json.contains("textures"))
 		for(const auto& texture : json["textures"]) {
 			Textures.push_back(Texture{
