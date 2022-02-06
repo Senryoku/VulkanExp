@@ -779,27 +779,23 @@ void Scene::createAccelerationStructure(const Device& device) {
 	blasOffsets.reserve(submeshesCount);
 	buildSizesInfo.reserve(submeshesCount);
 
-	const auto&												 meshes = getMeshes();
-	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
-		transform = transform * n.transform;
-		for(const auto& c : n.children) {
-			visitNode(getNodes()[c], transform);
-		}
+	std::vector<std::vector<size_t>> submeshesIndicesIntoBLASArray;
 
-		// This is a leaf
-		// FIXME: If a mesh is refered to multiple times in a scene, we'll currently create multiple geometries.
-		//        In this case, we should only create multiple instances refering to the same geometry (BLAS)
-		if(n.mesh != -1) {
-			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
-				submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
-				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
-				/*
-				 * Right now there's a one-to-one relation between submeshes and geometries.
-				 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
-				 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
-				 * This should be doable using the gl_GeometryIndexEXT built-in.
-				 */
+	const auto& meshes = getMeshes();
+
+	{
+		QuickTimer qt("BLAS building");
+		// Collect all submeshes and query the memory requirements
+		for(const auto& mesh : meshes) {
+			auto& indices = submeshesIndicesIntoBLASArray.emplace_back();
+			/*
+			 * Right now there's a one-to-one relation between submeshes and geometries.
+			 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
+			 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
+			 * This should be doable using the gl_GeometryIndexEXT built-in.
+			 */
+			for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
+				indices.push_back(geometries.size());
 				geometries.push_back({
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
 					.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
@@ -809,11 +805,11 @@ void Scene::createAccelerationStructure(const Device& device) {
 								VkAccelerationStructureGeometryTrianglesDataKHR{
 									.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 									.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-									.vertexData = meshes[n.mesh].SubMeshes[i].getVertexBuffer().getDeviceAddress(),
+									.vertexData = mesh.SubMeshes[i].getVertexBuffer().getDeviceAddress(),
 									.vertexStride = sizeof(Vertex),
-									.maxVertex = static_cast<uint32_t>(meshes[n.mesh].SubMeshes[i].getVertices().size()),
+									.maxVertex = static_cast<uint32_t>(mesh.SubMeshes[i].getVertices().size()),
 									.indexType = VK_INDEX_TYPE_UINT32,
-									.indexData = meshes[n.mesh].SubMeshes[i].getIndexBuffer().getDeviceAddress(),
+									.indexData = mesh.SubMeshes[i].getIndexBuffer().getDeviceAddress(),
 									.transformData = 0,
 								},
 						},
@@ -832,7 +828,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 					.ppGeometries = nullptr,
 				};
 
-				const uint32_t primitiveCount = static_cast<uint32_t>(meshes[n.mesh].SubMeshes[i].getIndices().size() / 3);
+				const uint32_t primitiveCount = static_cast<uint32_t>(mesh.SubMeshes[i].getIndices().size() / 3);
 
 				VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 				vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
@@ -855,11 +851,6 @@ void Scene::createAccelerationStructure(const Device& device) {
 				});
 			}
 		}
-	};
-	{
-		QuickTimer qt("BLAS building");
-		// Collect all submeshes and query the memory requirements
-		visitNode(getRoot(), glm::mat4(1.0f));
 
 		_staticBLASBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
 		_staticBLASMemory.allocate(device, _staticBLASBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -902,91 +893,102 @@ void Scene::createAccelerationStructure(const Device& device) {
 			vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
 		});
 	}
+	{
+		QuickTimer qt("TLAS building");
 
-	QuickTimer qt("TLAS building");
-	uint32_t   customIndex = 0;
-	// FIXME: See note on BLAS creation
-	for(const auto& blas : _bottomLevelAccelerationStructures) {
-		// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-		VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-			.accelerationStructure = blas,
+		const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
+			transform = transform * n.transform;
+			for(const auto& c : n.children)
+				visitNode(getNodes()[c], transform);
+
+			if(n.mesh != -1) {
+				transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+				for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+					// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
+					VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+						.accelerationStructure = _bottomLevelAccelerationStructures[submeshesIndicesIntoBLASArray[n.mesh][i]],
+					};
+					auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+
+					submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
+					transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
+					_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
+						.transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform),
+						.instanceCustomIndex = meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable,
+						.mask = 0xFF,
+						.instanceShaderBindingTableRecordOffset = 0,
+						.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+						.accelerationStructureReference = BLASDeviceAddress,
+					});
+				}
+			}
 		};
-		auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+		visitNode(getRoot(), glm::mat4(1.0f));
 
-		_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
-			.transform = transforms[customIndex],
-			.instanceCustomIndex = submeshesIndices[customIndex],
-			.mask = 0xFF,
-			.instanceShaderBindingTableRecordOffset = 0,
-			.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-			.accelerationStructureReference = BLASDeviceAddress,
-		});
-		++customIndex;
+		_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+										 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
+		_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
+										   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
+
+		VkAccelerationStructureGeometryKHR TLASGeometry{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+			.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+			.geometry =
+				{
+					.instances =
+						{
+							.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+							.arrayOfPointers = VK_FALSE,
+							.data = _accStructInstancesBuffer.getDeviceAddress(),
+						},
+				},
+			.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
+		};
+
+		VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+			.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+			.geometryCount = 1,
+			.pGeometries = &TLASGeometry,
+		};
+
+		const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
+		VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+		vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
+
+		_tlasBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, TLASBuildSizesInfo.accelerationStructureSize);
+		_tlasMemory.allocate(device, _tlasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkAccelerationStructureCreateInfoKHR TLASCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+			.buffer = _tlasBuffer,
+			.size = TLASBuildSizesInfo.accelerationStructureSize,
+			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+		};
+
+		VK_CHECK(vkCreateAccelerationStructureKHR(device, &TLASCreateInfo, nullptr, &_topLevelAccelerationStructure));
+
+		_tlasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
+		_tlasScratchMemory.allocate(device, _tlasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+
+		TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
+		TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
+
+		VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
+			.primitiveCount = TBLAPrimitiveCount,
+			.primitiveOffset = 0,
+			.firstVertex = 0,
+			.transformOffset = 0,
+		};
+		std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
+
+		device.immediateSubmitCompute(
+			[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 	}
-
-	_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-									 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
-									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
-
-	VkAccelerationStructureGeometryKHR TLASGeometry{
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-		.geometry =
-			{
-				.instances =
-					{
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-						.arrayOfPointers = VK_FALSE,
-						.data = _accStructInstancesBuffer.getDeviceAddress(),
-					},
-			},
-		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
-	};
-
-	VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-		.geometryCount = 1,
-		.pGeometries = &TLASGeometry,
-	};
-
-	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
-	VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
-
-	_tlasBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, TLASBuildSizesInfo.accelerationStructureSize);
-	_tlasMemory.allocate(device, _tlasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkAccelerationStructureCreateInfoKHR TLASCreateInfo{
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-		.buffer = _tlasBuffer,
-		.size = TLASBuildSizesInfo.accelerationStructureSize,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-	};
-
-	VK_CHECK(vkCreateAccelerationStructureKHR(device, &TLASCreateInfo, nullptr, &_topLevelAccelerationStructure));
-
-	_tlasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
-	_tlasScratchMemory.allocate(device, _tlasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
-
-	TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-	TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
-	TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
-
-	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
-		.primitiveCount = TBLAPrimitiveCount,
-		.primitiveOffset = 0,
-		.firstVertex = 0,
-		.transformOffset = 0,
-	};
-	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
-
-	device.immediateSubmitCompute(
-		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
 void Scene::updateTLAS(const Device& device) {
