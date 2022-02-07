@@ -273,7 +273,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			auto& submesh = mesh.SubMeshes.emplace_back();
 			submesh.name = m("name", std::string("NoName"));
 			if(p.asObject().contains("material")) {
-				submesh.materialIndex = materialOffset + p["material"].as<int>();
+				submesh.materialIndex.value = materialOffset + p["material"].as<int>();
 			}
 
 			if(p.contains("mode"))
@@ -468,14 +468,12 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
-		sm->materialIndex = 0;
 	};
 	const auto nextSubMesh = [&]() {
 		if(sm)
 			vertexOffset += sm->getVertices().size();
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
-		sm->materialIndex = 0;
 	};
 
 	nextMesh();

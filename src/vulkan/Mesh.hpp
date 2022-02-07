@@ -15,9 +15,9 @@ class SubMesh {
 	SubMesh(const SubMesh&) = delete;
 	SubMesh(SubMesh&&) noexcept = default;
 
-	std::string name;
-	uint32_t	indexIntoOffsetTable = -1;
-	size_t		materialIndex = 0;
+	std::string	  name;
+	uint32_t	  indexIntoOffsetTable = -1;
+	MaterialIndex materialIndex{static_cast<uint32_t>(0)};
 
 	void init(const Device& device) {
 		if(_indexBuffer && _vertexBuffer) {

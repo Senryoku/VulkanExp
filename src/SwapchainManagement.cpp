@@ -570,7 +570,7 @@ void Application::recordCommandBuffers() {
 				if(n.mesh != -1) {
 					GBufferPushConstant pc{transform, glm::vec4{1.0}, 0, 0};
 					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
-						if(submesh.materialIndex != Scene::InvalidMaterialIndex) {
+						if(submesh.materialIndex != InvalidMaterialIndex) {
 							pc.baseColorFactor = glm::vec4(Materials[submesh.materialIndex].properties.baseColorFactor, 1.0);
 							pc.metalness = Materials[submesh.materialIndex].properties.metallicFactor;
 							pc.roughness = Materials[submesh.materialIndex].properties.roughnessFactor;
@@ -603,7 +603,7 @@ void Application::recordCommandBuffers() {
 			.layerCount = 1,
 		};
 
-		{
+		if(_enableReflections) {
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
 			const auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
@@ -640,22 +640,25 @@ void Application::recordCommandBuffers() {
 								0, 0);
 		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
 
-		// Wait on copy from another command buffer (reflections from previous frame)
-		_reflectionImages[i + _swapChainImages.size()].barrier(b, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT,
-															   VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-		_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0,
-								0);
-		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
-		_reflectionIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-													   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
-		_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
-		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1, &_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0,
-								0);
-		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		if(_enableReflections) {
+			// Wait on copy from another command buffer (reflections from previous frame)
+			_reflectionImages[i + _swapChainImages.size()].barrier(b, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT,
+																   VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+			_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1,
+									&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0, 0);
+			vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+			_reflectionIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+														   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+			_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
+			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1,
+									&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0, 0);
+			vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
 
-		_reflectionImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-									 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+			_reflectionImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+										 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
+		}
+
 		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 									  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 

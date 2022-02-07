@@ -180,6 +180,58 @@ void Application::drawUI() {
 	size_t	   treeUniqueIdx = 0;
 	const auto makeUnique = [&](const std::string& name) { return (name + "##" + std::to_string(++treeUniqueIdx)); };
 
+	const auto displayMaterial = [&](MaterialIndex* matIdx, bool dropTarget = false) {
+		bool  modified = false;
+		auto& mat = Materials[*matIdx];
+		if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			if(dropTarget && ImGui::BeginDragDropTarget()) {
+				auto payload = ImGui::AcceptDragDropPayload("MaterialIndex");
+				if(payload) {
+					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
+					*matIdx = droppedMat;
+					// FIXME: (Or rather, TODO:)
+					//  Update what needs to be updated when a reference to a material changes.
+				}
+				ImGui::EndDragDropTarget();
+			}
+			if(ImGui::BeginDragDropSource()) {
+				ImGui::SetDragDropPayload("MaterialIndex", matIdx, sizeof(MaterialIndex));
+				ImGui::EndDragDropSource();
+			}
+
+			++treeUniqueIdx;
+			const auto texInput = [&](const char* name, uint32_t* index) {
+				int tex = *index;
+				if(ImGui::InputInt(name, &tex)) {
+					if(tex == -1 || (tex >= 0 && tex < Textures.size())) {
+						(*index) = tex;
+						modified = true;
+					}
+				}
+				if(*index != -1)
+					ImGui::Image(SceneUITextureIDs[*index].imID, ImVec2(100, 100));
+			};
+			if(ImGui::ColorEdit3("Base Color", reinterpret_cast<float*>(&mat.properties.baseColorFactor))) {
+				modified = true;
+			}
+			texInput("Albedo Texture", &mat.properties.albedoTexture);
+			texInput("Normal Texture", &mat.properties.normalTexture);
+			texInput("Metallic Roughness Texture", &mat.properties.metallicRoughnessTexture);
+			texInput("Emissive Texture", &mat.properties.emissiveTexture);
+			if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.properties.emissiveFactor))) {
+				modified = true;
+			}
+			if(ImGui::SliderFloat("Metallic Factor", &mat.properties.metallicFactor, 0.0f, 1.0f)) {
+				modified = true;
+			}
+			if(ImGui::SliderFloat("Roughness Factor", &mat.properties.roughnessFactor, 0.0f, 1.0f)) {
+				modified = true;
+			}
+			ImGui::TreePop();
+		}
+		return modified;
+	};
+
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
 			if(ImGui::MenuItem("Load Scene")) {}
@@ -248,7 +300,9 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
-	if(ImGui::Begin("Scene")) {
+	bool dirtyMaterials = false;
+
+	if(ImGui::Begin("Objects")) {
 		auto&										nodes = _scene.getNodes();
 		const std::function<void(Scene::NodeIndex)> displayNode = [&](Scene::NodeIndex n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
@@ -283,15 +337,22 @@ void Application::drawUI() {
 			}
 		};
 		displayNode(Scene::NodeIndex{0});
+	}
+	ImGui::End();
 
-		if(ImGui::TreeNode("Loaded Textures")) {
-			for(const auto& texture : SceneUITextureIDs) {
-				if(ImGui::TreeNode(texture.texture.source.string().c_str())) {
-					ImGui::Image(texture.imID, ImVec2(100, 100));
-					ImGui::TreePop();
-				}
+	if(ImGui::Begin("Textures")) {
+		for(const auto& texture : SceneUITextureIDs) {
+			if(ImGui::TreeNode(texture.texture.source.string().c_str())) {
+				ImGui::Image(texture.imID, ImVec2(100, 100));
+				ImGui::TreePop();
 			}
-			ImGui::TreePop();
+		}
+	}
+	ImGui::End();
+
+	if(ImGui::Begin("Materials")) {
+		for(MaterialIndex i = MaterialIndex(0u); i < Materials.size(); ++i) {
+			dirtyMaterials = displayMaterial(&i, false) || dirtyMaterials;
 		}
 	}
 	ImGui::End();
@@ -304,6 +365,8 @@ void Application::drawUI() {
 
 	if(ImGui::Begin("Node")) {
 		if(_selectedNode != Scene::InvalidNodeIndex) {
+			ImGui::Text(_scene[_selectedNode].name.c_str());
+
 			// TEMP Button
 			// TODO: Ctrl+D shortcut?
 			if(ImGui::Button("Duplicate")) {
@@ -335,10 +398,9 @@ void Application::drawUI() {
 				vkDeviceWaitIdle(_device);
 			}
 
-			bool dirtyMaterials = false;
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
 				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-				ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
+				// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
 				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&_scene[_selectedNode].transform), matrixTranslation, matrixRotation, matrixScale);
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
@@ -389,56 +451,27 @@ void Application::drawUI() {
 					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
 						auto&& submesh = mesh.SubMeshes[i];
 						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-							auto&& mat = Materials[submesh.materialIndex];
-							if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-								++treeUniqueIdx;
-								const auto texInput = [&](const char* name, uint32_t* index) {
-									int tex = *index;
-									if(ImGui::InputInt(name, &tex)) {
-										if(tex == -1 || (tex >= 0 && tex < Textures.size())) {
-											(*index) = tex;
-											dirtyMaterials = true;
-										}
-									}
-									if(*index != -1)
-										ImGui::Image(SceneUITextureIDs[*index].imID, ImVec2(100, 100));
-								};
-								if(ImGui::ColorEdit3("Base Color", reinterpret_cast<float*>(&mat.properties.baseColorFactor))) {
-									dirtyMaterials = true;
-								}
-								texInput("Albedo Texture", &mat.properties.albedoTexture);
-								texInput("Normal Texture", &mat.properties.normalTexture);
-								texInput("Metallic Roughness Texture", &mat.properties.metallicRoughnessTexture);
-								texInput("Emissive Texture", &mat.properties.emissiveTexture);
-								if(ImGui::ColorEdit3("Emissive Factor", reinterpret_cast<float*>(&mat.properties.emissiveFactor))) {
-									dirtyMaterials = true;
-								}
-								if(ImGui::SliderFloat("Metallic Factor", &mat.properties.metallicFactor, 0.0f, 1.0f)) {
-									dirtyMaterials = true;
-								}
-								if(ImGui::SliderFloat("Roughness Factor", &mat.properties.roughnessFactor, 0.0f, 1.0f)) {
-									dirtyMaterials = true;
-								}
-								ImGui::TreePop();
-							}
+							dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
 							ImGui::TreePop();
 						}
 					}
 					ImGui::TreePop();
 				}
 			}
-			if(dirtyMaterials) {
-				vkDeviceWaitIdle(_device); // Overkill
-				writeGBufferDescriptorSets();
-				uploadMaterials();		// TODO: Optimize by updating only the relevant slice
-				recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
-										// of a uniform buffer (like the model matrix?)
-			}
 		} else {
 			ImGui::Text("No selected node.");
 		}
 	}
 	ImGui::End();
+
+	// Re-upload materials (FIXME: Can easily be optimised)
+	if(dirtyMaterials) {
+		vkDeviceWaitIdle(_device); // Overkill
+		writeGBufferDescriptorSets();
+		uploadMaterials();		// TODO: Optimize by updating only the relevant slice
+		recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
+								// of a uniform buffer (like the model matrix?)
+	}
 
 	// On screen gizmos
 	if(_selectedNode != Scene::InvalidNodeIndex) {
@@ -514,6 +547,9 @@ void Application::drawUI() {
 		if(ImGui::Combo("Present Mode", &curr_choice, values, 4)) {
 			_preferedPresentMode = static_cast<VkPresentModeKHR>(curr_choice);
 			_framebufferResized = true; // FIXME: Easy workaround, but can probaly be efficient.
+		}
+		if(ImGui::Checkbox("Enable Reflections", &_enableReflections)) {
+			_outdatedCommandBuffers = true;
 		}
 		if(ImGui::TreeNodeEx("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));

@@ -193,6 +193,8 @@ class Application {
 	std::vector<VkFence>			 _imagesInFlight;
 	std::vector<QueryPool>			 _mainTimingQueryPools;
 
+	bool _enableReflections = true;
+
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
 	void createReflectionPipeline();

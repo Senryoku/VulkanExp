@@ -36,14 +36,11 @@ class Scene {
 
 	struct NodeIndexTag {};
 	struct MeshIndexTag {};
-	struct MaterialIndexTag {};
 
 	using NodeIndex = TaggedIndex<uint32_t, NodeIndexTag>;
 	inline static const NodeIndex InvalidNodeIndex{static_cast<uint32_t>(-1)};
 	using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
 	inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
-	using MaterialIndex = TaggedIndex<uint32_t, MaterialIndexTag>;
-	inline static const MaterialIndex InvalidMaterialIndex{static_cast<uint32_t>(-1)};
 
 	struct Node {
 		std::string			   name = "Unamed Node";

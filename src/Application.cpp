@@ -205,7 +205,8 @@ void Application::drawFrame() {
 			dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 							 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		};
-		copyImage(_reflectionImages[_lastImageIndex], _reflectionImages[imageIndex + _swapChainImages.size()]);
+		if(_enableReflections)
+			copyImage(_reflectionImages[_lastImageIndex], _reflectionImages[imageIndex + _swapChainImages.size()]);
 		copyImage(_directLightImages[_lastImageIndex], _directLightImages[imageIndex + _swapChainImages.size()]);
 		_copyCommandBuffers.getBuffers()[imageIndex].end();
 	}
