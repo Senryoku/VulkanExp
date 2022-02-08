@@ -145,6 +145,8 @@ class Scene {
 	// Allocate memory for all meshes in the scene
 	void allocateMeshes(const Device& device);
 	void free(const Device& device);
+	void updateMeshOffsetTable(const Device& device);
+	void updateMeshOffsetTable(const Device& device, const std::vector<OffsetEntry>& offsetTable);
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:

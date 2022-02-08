@@ -264,7 +264,7 @@ class Application {
 	uint32_t  _frameIndex = 0;
 
 	bool   _controlCamera = false;
-	Camera _camera{glm::vec3(-380.0f, 650.0f, 120.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
+	Camera _camera{glm::vec3(-14.0f, 15.0f, 18.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double _mouse_x = 0, _mouse_y = 0;
 
 	Scene::NodeIndex _selectedNode = Scene::InvalidNodeIndex;

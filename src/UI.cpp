@@ -189,8 +189,8 @@ void Application::drawUI() {
 				if(payload) {
 					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
 					*matIdx = droppedMat;
-					// FIXME: (Or rather, TODO:)
-					//  Update what needs to be updated when a reference to a material changes.
+					_scene.updateMeshOffsetTable(_device);
+					recordCommandBuffers();
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -305,7 +305,8 @@ void Application::drawUI() {
 	if(ImGui::Begin("Objects")) {
 		auto&										nodes = _scene.getNodes();
 		const std::function<void(Scene::NodeIndex)> displayNode = [&](Scene::NodeIndex n) {
-			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(), nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow);
+			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(),
+										  nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen));
 			// Drag & Drop nodes to edit parent/children links
 			// TODO: Allow re-ordering between children (needs dummy ).
 			if(ImGui::BeginDragDropTarget()) {

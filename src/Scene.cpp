@@ -670,6 +670,27 @@ void Scene::allocateMeshes(const Device& device) {
 	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, OffsetTableSize);
 	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+	updateMeshOffsetTable(device, offsetTable);
+}
+
+void Scene::updateMeshOffsetTable(const Device& device) {
+	size_t					 totalVertexSize = 0;
+	size_t					 totalIndexSize = 0;
+	std::vector<OffsetEntry> offsetTable;
+	for(auto& m : getMeshes()) {
+		for(auto& sm : m.SubMeshes) {
+			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
+			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
+			sm.indexIntoOffsetTable = offsetTable.size();
+			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+											  static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+			totalVertexSize += vertexBufferMemReq.size;
+			totalIndexSize += indexBufferMemReq.size;
+		}
+	}
+}
+
+void Scene::updateMeshOffsetTable(const Device& device, const std::vector<OffsetEntry>& offsetTable) {
 	// Upload OffsetTable via a staging buffer.
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
