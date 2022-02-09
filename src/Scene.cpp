@@ -186,7 +186,12 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	if(path.extension() == ".gltf") {
 		json.parse(path);
 		// Load Buffers
-		for(const auto& bufferDesc : json.getRoot()["buffers"]) {
+		const auto& obj = json.getRoot(); // FIXME: Assigning a vector::iterator to our JSON::value::iterator union causes a reading violation in _Orphan_me_unlocked_v3 (in debug
+										  // mode only). Maybe I'm doing something terribly wrong, but it looks a lot like a bug in MSVC stblib implementation. Relevant discussion:
+										  // https://stackoverflow.com/questions/32748870/visual-studio-const-iterator-assignment-error, however in this case the crash happens on
+										  // non-singular values (.begin() on a non-empty vector). const_iterator doesn't seem to be affected by this problem, so I'm creating a
+										  // const alias to force its use as a workaround.
+		for(const auto& bufferDesc : obj["buffers"]) {
 			buffers.push_back({});
 			auto&	   buffer = buffers.back();
 			size_t	   length = bufferDesc["byteLength"].as<int>();
@@ -268,6 +273,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 	for(const auto& m : object["meshes"]) {
 		auto& mesh = _meshes.emplace_back();
+		mesh.path = path;
 		mesh.name = m("name", std::string("NoName"));
 		for(const auto& p : m["primitives"]) {
 			auto& submesh = mesh.SubMeshes.emplace_back();
@@ -615,6 +621,16 @@ bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& j
 				.samplerDescription = json["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
 			});
 		}
+	return true;
+}
+
+bool Scene::save(const std::filesystem::path& path) {
+	JSON  serialized;
+	auto& root = serialized.getRoot();
+	root = JSON::object();
+	root["files"] = JSON::array();
+
+	serialized.save(path);
 	return true;
 }
 

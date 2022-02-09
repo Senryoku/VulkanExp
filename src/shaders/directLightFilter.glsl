@@ -19,7 +19,10 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const float maxDev = 32.0;
+const float maxDev = 32.0;           // FIXME: This is arbitrary.
+const float depthFactor = 1.0 / 1.0; // FIXME: This is arbitrary.
+const float baseHysteresis = 0.94;
+const float depthStdDev = 1.0;       // FIXME: Also arbitrary.
 
 // FIXME: Surfaces close to the camera are black (related to the depth used in stdDev)
 // TODO: Use Depth from the Occlusion pass (not only the gbuffer) to drive the stdDev, or, even better, the variance (from a history buffer)? (similar to roughness usage in reflections).
@@ -27,17 +30,27 @@ const float maxDev = 32.0;
 void main()
 {
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+#ifdef DISABLE
+    imageStore(outImage, coords, imageLoad(inImage, coords));
+    return;
+#endif
     vec4 final = vec4(0);
     vec4 positionDepth = imageLoad(positionDepthTex, coords);
     vec3 position = positionDepth.xyz;
     float depth = positionDepth.w;
-    float stdDev = 1 + max(1, maxDev / (max(1, depth / 1.0))); // FIXME: This is arbitrary.
-    float depthStdDev = 1.0;                        // FIXME: Also arbitrary.
+    float stdDev = 1 + max(1, maxDev / (max(1, depthFactor * depth)));
     int window = int(clamp(ceil(sqrt(-2 * stdDev * stdDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev + 1));
     
     float totalFactor = 0;
-
-    for(int i = -window; i <= window; ++i) {
+    ivec2 launchSize = imageSize(inImage);
+#ifdef DIRECTION_X
+    int minOffset = -min(window, coords.x);
+    int maxOffset = min(window, launchSize.x - coords.x);
+#else
+    int minOffset = -min(window, coords.y);
+    int maxOffset = min(window, launchSize.y - coords.y);
+#endif
+    for(int i = minOffset; i <= maxOffset; ++i) {
 #ifdef DIRECTION_X
         ivec2 offset = ivec2(i, 0);
 #else
@@ -51,40 +64,35 @@ void main()
 #endif
         final += factor * imageLoad(inImage, coords + offset);
     }
-#ifdef DISABLE
-    imageStore(outImage, coords, imageLoad(inImage, coords));
-#else
 #ifdef EDGE_PRESERVING
     if(totalFactor > 1e-2)
         final /= totalFactor;
     else final = vec4(0);
 #endif
-    #ifdef DIRECTION_X
-            imageStore(outImage, coords, vec4(final.rgb, depth));
-    #else		
-        // Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
-        ivec2 launchSize = imageSize(inImage);
-		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
-        vec4 previousRay = vec4(prevCoords.xy, 1, 1);
-		prevCoords.xy /= prevCoords.w;
-		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
-		vec4 previousValue = vec4(0);
-		float hysteresis = 0.94;
-		if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
-			hysteresis = 0.0f;
-		else {
-			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
-            // Discard history if the previous position is too different from the current one (i.e. the pixel probably doesn't map to the same object anymore).
-            vec3 previousOrigin = (inverse(prevUBO.view) * vec4(0, 0, 0, 1)).xyz;
-            // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
-            vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
-            float diff = length(position - previousPosition);
-            if(diff < 1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
-            float factor = 0.1 * length(position - previousPosition);
-            hysteresis *= 1.0 - clamp(factor, 0, 1);
-	    }
-		final.rgb = clamp(final.rgb, 0, 1);
-	    imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, depth));
-    #endif
+#ifdef DIRECTION_X
+        imageStore(outImage, coords, vec4(final.rgb, depth));
+#else		
+    // Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
+	vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
+    vec4 previousRay = vec4(prevCoords.xy, 1, 1);
+	prevCoords.xy /= prevCoords.w;
+	prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
+	vec4 previousValue = vec4(0);
+	float hysteresis = baseHysteresis;
+	if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
+		hysteresis = 0.0f;
+	else {
+		previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
+        // Discard history if the previous position is too different from the current one (i.e. the pixel probably doesn't map to the same object anymore).
+        vec3 previousOrigin = (inverse(prevUBO.view) * vec4(0, 0, 0, 1)).xyz;
+        // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
+        vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
+        float diff = length(position - previousPosition);
+        if(diff < 1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
+        float factor = 0.1 * length(position - previousPosition);
+        hysteresis *= 1.0 - clamp(factor, 0, 1);
+	}
+	final.rgb = clamp(final.rgb, 0, 1);
+	imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, depth));
 #endif
 }

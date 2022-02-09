@@ -26,6 +26,43 @@ void Application::initWindow() {
 	glfwSetMouseButtonCallback(_window, sMouseButtonCallback);
 	glfwSetScrollCallback(_window, sScrollCallback);
 	glfwSetDropCallback(_window, sDropCallback);
+	glfwSetKeyCallback(_window, sKeyCallback);
+
+	_shortcuts[{GLFW_KEY_ESCAPE}] = [&]() { _drawUI = !_drawUI; };
+	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/defaut.scene"); };
+	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
+}
+
+void Application::duplicateSelectedNode() {
+	if(_selectedNode == Scene::InvalidNodeIndex)
+		return;
+
+	std::function<Scene::NodeIndex(Scene::NodeIndex)> copyNode = [&](Scene::NodeIndex target) {
+		_scene.getNodes().push_back(_scene[target]);
+		auto&			 copy = _scene.getNodes().back();
+		Scene::NodeIndex index(_scene.getNodes().size() - 1);
+		copy.parent = Scene::InvalidNodeIndex;
+		copy.children.clear();
+		for(const auto& c : _scene[target].children) {
+			auto childIndex = copyNode(c);
+			_scene.addChild(index, childIndex);
+		}
+		return index;
+	};
+
+	auto parent = _scene[_selectedNode].parent;
+	_selectedNode = copyNode(_selectedNode);
+	_scene.addChild(parent, _selectedNode);
+
+	// Recreate Acceleration Structure
+	// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
+	vkDeviceWaitIdle(_device);
+	_scene.destroyAccelerationStructure(_device);
+	_scene.createAccelerationStructure(_device);
+	// We have to update the all descriptor sets referencing the acceleration structures.
+	// FIXME: This is way overkill
+	recreateSwapChain();
+	vkDeviceWaitIdle(_device);
 }
 
 void Application::run() {
@@ -123,7 +160,8 @@ void Application::mainLoop() {
 		ImGui::NewFrame();
 		ImGuizmo::BeginFrame();
 		ImGui::DockSpaceOverViewport(nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
-		drawUI();
+		if(_drawUI)
+			drawUI();
 		ImGui::Render();
 		// Update and Render additional Platform Windows
 		if(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -223,12 +261,16 @@ void Application::drawFrame() {
 		cmdbuff[1] = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
 	}
 
+	uint32_t commandBufferCount = 2;
+	if(!_raytracingDebug)
+		++commandBufferCount;
+
 	VkSubmitInfo submitInfo{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.waitSemaphoreCount = 1,
 		.pWaitSemaphores = waitSemaphores,
 		.pWaitDstStageMask = waitStages,
-		.commandBufferCount = _raytracingDebug ? 2u : 3u,
+		.commandBufferCount = commandBufferCount,
 		.pCommandBuffers = cmdbuff,
 		.signalSemaphoreCount = 1,
 		.pSignalSemaphores = signalSemaphores,

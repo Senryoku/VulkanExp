@@ -623,6 +623,7 @@ void Application::recordCommandBuffers() {
 
 		// Filter Direct Light & Reflections (Not physically based)
 		const auto groupSize = 32;
+		glm::ivec2 launchSize = {glm::ceil(static_cast<float>(_width) / groupSize), glm::ceil(static_cast<float>(_height) / groupSize)};
 		_directLightFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 									  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
@@ -632,13 +633,13 @@ void Application::recordCommandBuffers() {
 																VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineX.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 0],
 								0, 0);
-		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
 		_directLightIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
 														VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 		_directLightFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineY.getLayout(), 0, 1, &_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1],
 								0, 0);
-		vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+		vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
 
 		if(_enableReflections) {
 			// Wait on copy from another command buffer (reflections from previous frame)
@@ -647,13 +648,13 @@ void Application::recordCommandBuffers() {
 			_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1,
 									&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0, 0);
-			vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+			vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
 			_reflectionIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
 														   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1,
 									&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0, 0);
-			vkCmdDispatch(b, _width / groupSize, _height / groupSize, 1);
+			vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
 
 			_reflectionImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 										 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);

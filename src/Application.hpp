@@ -37,6 +37,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <IrradianceProbes.hpp>
+#include <KeyboardShortcut.hpp>
 #include <Light.hpp>
 #include <QuickTimer.hpp>
 #include <RollingBuffer.hpp>
@@ -194,6 +195,7 @@ class Application {
 	std::vector<QueryPool>			 _mainTimingQueryPools;
 
 	bool _enableReflections = true;
+	bool _drawUI = true;
 
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
@@ -263,9 +265,10 @@ class Application {
 	size_t	  _currentFrame = 0;
 	uint32_t  _frameIndex = 0;
 
-	bool   _controlCamera = false;
-	Camera _camera{glm::vec3(-14.0f, 15.0f, 18.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
-	double _mouse_x = 0, _mouse_y = 0;
+	std::unordered_map<KeyboardShortcut, std::function<void()>> _shortcuts;
+	bool														_controlCamera = false;
+	Camera														_camera{glm::vec3(-14.0f, 15.0f, 18.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
+	double														_mouse_x = 0, _mouse_y = 0;
 
 	Scene::NodeIndex _selectedNode = Scene::InvalidNodeIndex;
 
@@ -282,7 +285,9 @@ class Application {
 	void recordUICommandBuffer(size_t index);
 	void uploadScene();
 	void uploadMaterials();
+
 	void trySelectNode();
+	void duplicateSelectedNode();
 
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
@@ -325,6 +330,15 @@ class Application {
 		// FIXME: This is way overkill
 		app->uploadScene();
 		app->recreateSwapChain();
+	}
+
+	static void sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		if(ImGui::GetIO().WantCaptureKeyboard || app->_controlCamera)
+			return;
+		auto it = app->_shortcuts.find({key, action, mods});
+		if(it != app->_shortcuts.end())
+			it->second();
 	}
 
 	bool checkValidationLayerSupport() {

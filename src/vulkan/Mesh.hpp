@@ -81,8 +81,9 @@ class Mesh {
 	Mesh(const Mesh&) = delete;
 	Mesh(Mesh&&) = default;
 
-	std::string			 name;
-	std::vector<SubMesh> SubMeshes;
+	std::string			  name;
+	std::filesystem::path path; // Path to file containing this mesh (May be empty)
+	std::vector<SubMesh>  SubMeshes;
 
 	void destroy() { SubMeshes.clear(); }
 	~Mesh() { destroy(); }

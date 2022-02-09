@@ -3,7 +3,6 @@
 ## Todos
 
 ### Bugs
-  - Reflections (or just the filter?) is broken at the bottom of the screen.
   - Probably a lot.
 
 ### Major Features

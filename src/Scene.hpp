@@ -65,6 +65,8 @@ class Scene {
 	bool loadOBJ(const std::filesystem::path& path);
 	bool loadMaterial(const std::filesystem::path& path);
 
+	bool save(const std::filesystem::path& path);
+
 	void createAccelerationStructure(const Device& device);
 	void destroyAccelerationStructure(const Device& device);
 
@@ -150,6 +152,8 @@ class Scene {
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:
+	std::vector<std::filesystem::path> _loadedFiles; // Path of all currently loaded files.
+
 	std::vector<Mesh> _meshes;
 	std::vector<Node> _nodes;
 

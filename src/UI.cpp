@@ -3,6 +3,7 @@
 #include <ImGuiExtensions.hpp>
 #include <ImGuizmo.h>
 #include <implot/implot.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 struct TextureRef {
 	const Texture&	  texture;
@@ -306,7 +307,8 @@ void Application::drawUI() {
 		auto&										nodes = _scene.getNodes();
 		const std::function<void(Scene::NodeIndex)> displayNode = [&](Scene::NodeIndex n) {
 			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(),
-										  nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen));
+										  (n == _selectedNode ? ImGuiTreeNodeFlags_Selected : 0) |
+											  (nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen)));
 			// Drag & Drop nodes to edit parent/children links
 			// TODO: Allow re-ordering between children (needs dummy ).
 			if(ImGui::BeginDragDropTarget()) {
@@ -366,37 +368,12 @@ void Application::drawUI() {
 
 	if(ImGui::Begin("Node")) {
 		if(_selectedNode != Scene::InvalidNodeIndex) {
-			ImGui::Text(_scene[_selectedNode].name.c_str());
+			ImGui::InputText("Name", &_scene[_selectedNode].name);
 
 			// TEMP Button
 			// TODO: Ctrl+D shortcut?
 			if(ImGui::Button("Duplicate")) {
-				std::function<Scene::NodeIndex(Scene::NodeIndex)> copyNode = [&](Scene::NodeIndex target) {
-					_scene.getNodes().push_back(_scene[target]);
-					auto&			 copy = _scene.getNodes().back();
-					Scene::NodeIndex index(_scene.getNodes().size() - 1);
-					copy.parent = Scene::InvalidNodeIndex;
-					copy.children.clear();
-					for(const auto& c : _scene[target].children) {
-						auto childIndex = copyNode(c);
-						_scene.addChild(index, childIndex);
-					}
-					return index;
-				};
-
-				auto parent = _scene[_selectedNode].parent;
-				_selectedNode = copyNode(_selectedNode);
-				_scene.addChild(parent, _selectedNode);
-
-				// Recreate Acceleration Structure
-				// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
-				vkDeviceWaitIdle(_device);
-				_scene.destroyAccelerationStructure(_device);
-				_scene.createAccelerationStructure(_device);
-				// We have to update the all descriptor sets referencing the acceleration structures.
-				// FIXME: This is way overkill
-				recreateSwapChain();
-				vkDeviceWaitIdle(_device);
+				duplicateSelectedNode();
 			}
 
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {

@@ -19,7 +19,10 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 5; // FIXME: This is arbitrary.
+const int maxDev = 5;                // FIXME: This is arbitrary.
+const float depthFactor = 1.0 / 1.0; // FIXME: This is arbitrary.
+const float baseHysteresis = 0.9;
+const float depthStdDev = 1.0;       // FIXME: Also arbitrary.
 
 void main()
 {
@@ -35,17 +38,24 @@ void main()
     vec3 position = positionDepth.xyz;
     float depth = positionDepth.w;
     float roughness = imageLoad(inImage, coords).w;
-    float stdDev = max(0, maxDev * roughness / max(1, (depth / 20.0))); // FIXME: This is arbitrary.
+    float stdDev = max(0, maxDev * roughness / max(1, (depthFactor * depth))); 
     if(stdDev == 0) { // Skip filter entirely if roughness == 0 since we only need a single sample anyway.
         imageStore(outImage, coords, imageLoad(inImage, coords)); 
         return;
     }
-    float depthStdDev = 1.0;                                           // FIXME: Also arbitrary.
     float sqrDev = stdDev * stdDev;
     int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev));
     float totalFactor = 0;
+    ivec2 launchSize = imageSize(inImage);
+#ifdef DIRECTION_X
+    int minOffset = -min(window, coords.x);
+    int maxOffset = min(window, launchSize.x - coords.x);
+#else
+    int minOffset = -min(window, coords.y);
+    int maxOffset = min(window, launchSize.y - coords.y);
+#endif
     // TODO: Base the kernel on the roughness. A better approximation should use as much available geometric data as possible (sample direction, depth...)
-    for(int i = -window; i <= window; ++i) {
+    for(int i = minOffset; i <= maxOffset; ++i) {
 #ifdef DIRECTION_X
         ivec2 offset = ivec2(i, 0);
 #else
@@ -71,13 +81,12 @@ void main()
 		// Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
 		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
 		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
-        ivec2 launchSize = imageSize(inImage);
 		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
 		prevCoords.xy /= prevCoords.w;
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
 		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
 		vec4 previousValue = vec4(0);
-		float hysteresis = 0.9;
+		float hysteresis = baseHysteresis;
 		if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
 			hysteresis = 0.0f;
 		else {

@@ -263,15 +263,17 @@ class JSON {
 			iterator(const iterator& it) : _type{it._type} {
 				if(_type == Type::array)
 					_it.array_it = it._it.array_it;
-				if(_type == Type::object)
+				else if(_type == Type::object)
 					_it.object_it = it._it.object_it;
+				else
+					assert(false);
 			}
 
-			iterator(array::iterator it) {
+			iterator(const array::iterator& it) {
 				_type = Type::array;
 				_it.array_it = it;
 			}
-			iterator(object::iterator it) {
+			iterator(const object::iterator& it) {
 				_type = Type::object;
 				_it.object_it = it;
 			}
@@ -279,8 +281,10 @@ class JSON {
 			~iterator() {
 				if(_type == Type::array)
 					_it.array_it.array::iterator::~iterator();
-				if(_type == Type::object)
+				else if(_type == Type::object)
 					_it.object_it.object::iterator::~iterator();
+				else
+					assert(false);
 			}
 
 			reference operator*() {
@@ -342,7 +346,9 @@ class JSON {
 		class const_iterator {
 		  public:
 			using iterator_category = std::forward_iterator_tag;
+			using difference_type = std::ptrdiff_t;
 			using value_type = value;
+			using pointer = const value_type*;
 			using reference = const value_type&;
 
 			const_iterator(const const_iterator& it) : _type{it._type} {
@@ -352,11 +358,11 @@ class JSON {
 					_it.object_it = it._it.object_it;
 			}
 
-			const_iterator(array::const_iterator it) {
+			const_iterator(const array::const_iterator& it) {
 				_type = Type::array;
 				_it.array_it = it;
 			}
-			const_iterator(object::const_iterator it) {
+			const_iterator(const object::const_iterator& it) {
 				_type = Type::object;
 				_it.object_it = it;
 			}
@@ -560,6 +566,10 @@ class JSON {
 	bool parse(const std::filesystem::path&);
 	bool parse(std::istream&);
 
+	bool save(const std::filesystem::path&) const;
+	bool save(std::ostream&) const;
+
+	value&		 getRoot() { return _root; };
 	const value& getRoot() const { return _root; };
 
   private:

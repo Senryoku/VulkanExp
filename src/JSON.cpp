@@ -207,3 +207,18 @@ JSON::value JSON::parseValue(std::istream& file) {
 	}
 	error("JSON::parseValue: Unexpected character '{}'.\n", byte);
 }
+
+bool JSON::save(const std::filesystem::path& path) const {
+	std::ofstream file(path);
+	if(!file)
+		return false;
+	save(file);
+	return true;
+}
+
+bool JSON::save(std::ostream& file) const {
+	// auto str = toString(getRoot());
+	// file.write(str.c_str(), str.size());
+	file << *this;
+	return true;
+}
