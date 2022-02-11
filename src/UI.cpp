@@ -133,6 +133,12 @@ void Application::createImGuiRenderPass() {
 }
 
 void Application::uiOnSwapChainReady() {
+	// Prepare new scene textures for display
+	for(size_t i = SceneUITextureIDs.size(); i < Textures.size(); ++i) {
+		SceneUITextureIDs.push_back(
+			{Textures[i], ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	}
+
 	DebugTextureIDs.clear();
 	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
 		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
