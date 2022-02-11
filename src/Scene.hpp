@@ -134,21 +134,22 @@ class Scene {
 		uint32_t indexOffset;
 	};
 
-	DeviceMemory OffsetTableMemory;
-	DeviceMemory VertexMemory;
-	DeviceMemory IndexMemory;
-	size_t		 NextVertexMemoryOffset = 0;
-	size_t		 NextIndexMemoryOffset = 0;
-	Buffer		 OffsetTableBuffer;
-	Buffer		 VertexBuffer;
-	Buffer		 IndexBuffer;
-	uint32_t	 OffsetTableSize;
+	DeviceMemory			 OffsetTableMemory;
+	DeviceMemory			 VertexMemory;
+	DeviceMemory			 IndexMemory;
+	size_t					 NextVertexMemoryOffset = 0;
+	size_t					 NextIndexMemoryOffset = 0;
+	Buffer					 OffsetTableBuffer;
+	Buffer					 VertexBuffer;
+	Buffer					 IndexBuffer;
+	uint32_t				 OffsetTableSize;
+	std::vector<OffsetEntry> _offsetTable;
 
 	// Allocate memory for all meshes in the scene
 	void allocateMeshes(const Device& device);
 	void free(const Device& device);
-	void updateMeshOffsetTable(const Device& device);
-	void updateMeshOffsetTable(const Device& device, const std::vector<OffsetEntry>& offsetTable);
+	void updateMeshOffsetTable();
+	void uploadMeshOffsetTable(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////
 
   private:

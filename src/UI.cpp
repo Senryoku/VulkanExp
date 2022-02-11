@@ -190,7 +190,8 @@ void Application::drawUI() {
 				if(payload) {
 					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
 					*matIdx = droppedMat;
-					_scene.updateMeshOffsetTable(_device);
+					_scene.updateMeshOffsetTable();
+					_scene.uploadMeshOffsetTable(_device);
 					recordCommandBuffers();
 				}
 				ImGui::EndDragDropTarget();

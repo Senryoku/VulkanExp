@@ -437,6 +437,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	for(const auto& scene : object["scenes"]) {
 		Node& rootNode = _nodes.emplace_back(Node{.name = scene("name", std::string("Unamed Scene"))});
 		addChild(NodeIndex{0}, NodeIndex(_nodes.size() - 1));
+		markDirty(NodeIndex(_nodes.size() - 1));
 		if(scene.contains("nodes")) {
 			for(const auto& n : scene["nodes"]) {
 				addChild(NodeIndex(_nodes.size() - 1), NodeIndex(nodesOffset + n.as<int>()));
@@ -460,6 +461,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	Node&	  rootNode = _nodes.emplace_back(Node{.name = path.string()});
 	NodeIndex rootIndex(_nodes.size() - 1);
 	addChild(NodeIndex{0u}, rootIndex);
+	markDirty(rootIndex);
 
 	std::vector<glm::vec2> uvs;
 	std::vector<glm::vec3> normals;
@@ -650,16 +652,15 @@ void Scene::allocateMeshes(const Device& device) {
 	size_t							  totalVertexSize = 0;
 	size_t							  totalIndexSize = 0;
 	std::vector<VkMemoryRequirements> memReqs;
-	std::vector<OffsetEntry>		  offsetTable;
 	for(auto& m : getMeshes()) {
 		for(auto& sm : m.SubMeshes) {
 			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
 			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
-			sm.indexIntoOffsetTable = offsetTable.size();
-			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-											  static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+			sm.indexIntoOffsetTable = _offsetTable.size();
+			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
 			totalVertexSize += vertexBufferMemReq.size;
 			totalIndexSize += indexBufferMemReq.size;
 		}
@@ -682,37 +683,37 @@ void Scene::allocateMeshes(const Device& device) {
 	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
 	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
 
-	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * offsetTable.size());
+	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
 	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, OffsetTableSize);
 	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	updateMeshOffsetTable(device, offsetTable);
+	uploadMeshOffsetTable(device);
 }
 
-void Scene::updateMeshOffsetTable(const Device& device) {
-	size_t					 totalVertexSize = 0;
-	size_t					 totalIndexSize = 0;
-	std::vector<OffsetEntry> offsetTable;
+void Scene::updateMeshOffsetTable() {
+	size_t totalVertexSize = 0;
+	size_t totalIndexSize = 0;
+	_offsetTable.clear();
 	for(auto& m : getMeshes()) {
 		for(auto& sm : m.SubMeshes) {
 			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
 			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
-			sm.indexIntoOffsetTable = offsetTable.size();
-			offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-											  static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+			sm.indexIntoOffsetTable = _offsetTable.size();
+			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
 			totalVertexSize += vertexBufferMemReq.size;
 			totalIndexSize += indexBufferMemReq.size;
 		}
 	}
 }
 
-void Scene::updateMeshOffsetTable(const Device& device, const std::vector<OffsetEntry>& offsetTable) {
+void Scene::uploadMeshOffsetTable(const Device& device) {
 	// Upload OffsetTable via a staging buffer.
 	Buffer		 stagingBuffer;
 	DeviceMemory stagingMemory;
 	stagingBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, OffsetTableSize);
 	stagingMemory.allocate(device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	stagingMemory.fill(offsetTable.data(), offsetTable.size());
+	stagingMemory.fill(_offsetTable.data(), _offsetTable.size());
 
 	CommandPool tmpCmdPool;
 	tmpCmdPool.create(device, device.getPhysicalDevice().getTransfertQueueFamilyIndex());
