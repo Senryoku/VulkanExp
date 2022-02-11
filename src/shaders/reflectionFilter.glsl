@@ -20,7 +20,7 @@ float gaussian(float stdDev, float dist) {
 }
 
 const int maxDev = 5;                // FIXME: This is arbitrary.
-const float depthFactor = 1.0 / 1.0; // FIXME: This is arbitrary.
+const float depthFactor = 1.0 / 20.0; // FIXME: This is arbitrary.
 const float baseHysteresis = 0.9;
 const float depthStdDev = 1.0;       // FIXME: Also arbitrary.
 
@@ -81,6 +81,7 @@ void main()
 		// Re-project position to previous frame pixel coords. (Only considering camera motion since we don't have motion vectors yet (and no dynamic geometry anyway :D))
 		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
 		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
+        // It breaks really bad when the camera is moving (as in 'translating', not just rotating), we could also simply detect this case and reduce hysteresis as a workaround.
 		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
 		prevCoords.xy /= prevCoords.w;
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
@@ -96,7 +97,7 @@ void main()
             // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
             vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
             float diff = length(position - previousPosition);
-            if(diff < 1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
+            if(diff < 0.1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
             float factor = 0.1 * length(position - previousPosition);
             hysteresis *= 1.0 - clamp(factor, 0, 1);
         }
