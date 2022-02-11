@@ -95,32 +95,6 @@ void IrradianceProbes::init(const Device& device, uint32_t transfertFamilyQueueI
 	_probeInfoMemory.allocate(device, _probeInfoBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	updateUniforms();
 
-	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
-	dslBuilder
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Irradiance Depth
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Direction
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Color
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Depth
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT); // Probes Indices
-	_descriptorSetLayout = dslBuilder.build(device);
-
-	_pipelineLayout.create(device, {_descriptorSetLayout},
-						   {{
-							   // Push Constants
-							   .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT,
-							   .offset = 0,
-							   .size = sizeof(PushConstant),
-						   }});
-
-	_descriptorPool.create(device, 1,
-						   std::array<VkDescriptorPoolSize, 5>{
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
-							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-						   });
-	_descriptorPool.allocate({_descriptorSetLayout.getHandle()});
 	_fence.create(device);
 
 	_commandPool.create(device, computeFamilyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -138,11 +112,41 @@ void IrradianceProbes::destroyPipeline() {
 	_updateDepthPipeline.destroy();
 	_copyBordersPipeline.destroy();
 	_queryPool.destroy();
+	_pipelineLayout.destroy();
+	_descriptorPool.destroy();
+	_descriptorSetLayout.destroy();
 }
 
 void IrradianceProbes::createPipeline() {
 	if(_traceRaysPipeline)
 		destroyPipeline();
+
+	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
+	dslBuilder
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Irradiance Depth
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT)   // Ray Direction
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Color
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)									   // Depth
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT); // Probes Indices
+	_descriptorSetLayout = dslBuilder.build(*_device);
+
+	_pipelineLayout.create(*_device, {_descriptorSetLayout},
+						   {{
+							   // Push Constants
+							   .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT,
+							   .offset = 0,
+							   .size = sizeof(PushConstant),
+						   }});
+
+	_descriptorPool.create(*_device, 1,
+						   std::array<VkDescriptorPoolSize, 5>{
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
+							   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+						   });
+	_descriptorPool.allocate({_descriptorSetLayout.getHandle()});
 
 	// Init Pipeline
 	{
@@ -287,6 +291,7 @@ void IrradianceProbes::createPipeline() {
 }
 
 void IrradianceProbes::writeDescriptorSet(const Scene& scene, const Buffer& lightBuffer) {
+	setLightBuffer(lightBuffer);
 	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, *this, lightBuffer);
 	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayIrradianceDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayDirectionView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
@@ -580,10 +585,7 @@ void IrradianceProbes::destroy() {
 	_probeInfoMemory.free();
 	_probesToUpdate.destroy();
 	_probesToUpdateMemory.free();
-	_descriptorPool.destroy();
-	_descriptorSetLayout.destroy();
 	destroyPipeline();
-	_pipelineLayout.destroy();
 
 	_rayIrradianceDepthView.destroy();
 	_rayIrradianceDepth.destroy();
