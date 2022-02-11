@@ -6,6 +6,7 @@
 #include <Sampler.hpp>
 
 #include <JSON.hpp>
+#include <TaggedType.hpp>
 
 /*
  * TODO: Clean this up.
@@ -24,7 +25,9 @@ struct Texture {
 	GPUImage*			  gpuImage = nullptr;
 };
 
-inline std::vector<Texture>						 Textures;
+inline std::vector<Texture> Textures;
+struct TextureIndexTag {};
+using TextureIndex = TaggedIndex<size_t, TextureIndexTag>;
 inline std::unordered_map<std::string, GPUImage> Images;
 inline std::unordered_map<size_t, Sampler>		 Samplers;
 inline Buffer									 MaterialBuffer;

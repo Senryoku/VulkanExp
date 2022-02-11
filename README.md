@@ -3,9 +3,6 @@
 ## Todos
 
 ### Bugs
-  - Loading a mesh by drag& drop (only with textures?) crashes the application with the validation error:
-      Validation layer: Validation Error: [ VUID-VkWriteDescriptorSet-descriptorCount-00317 ] Object 0: handle = 0x972ee40000000265, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0xef042099 | vkUpdateDescriptorSets() pDescriptorWrites[1] failed write update validation for VkDescriptorSet 0x972ee40000000265[] with error: Attempting write update to VkDescriptorSet 0x972ee40000000265[] allocated with VkDescriptorSetLayout 0x8b003b0000000262[] binding index #2 (3 from dstBinding offset) with a different stageFlag and/or descriptorType from previous bindings. All bindings must have consecutive stageFlag and/or descriptorType across a VkWriteDescriptorSet. The Vulkan spec states: All consecutive bindings updated via a single VkWriteDescriptorSet structure, except those with a descriptorCount of zero, must have identical descriptorType and stageFlags (https://vulkan.lunarg.com/doc/view/1.2.198.0/windows/1.2-extensions/vkspec.html#VUID-VkWriteDescriptorSet-descriptorCount-00317)
-    Can descriptorCount be modified between calls?
   - Probably a lot.
 
 ### Major Features

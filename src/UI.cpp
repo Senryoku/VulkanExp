@@ -6,8 +6,8 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 struct TextureRef {
-	const Texture&	  texture;
-	const ImTextureID imID;
+	const TextureIndex textureIndex;
+	const ImTextureID  imID;
 };
 
 static std::vector<TextureRef> SceneUITextureIDs;
@@ -90,8 +90,8 @@ void Application::initImGui(uint32_t queueFamily) {
 	_device.immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
-	for(const auto& texture : Textures) {
-		SceneUITextureIDs.push_back({texture, ImGui_ImplVulkan_AddTexture(texture.sampler->getHandle(), texture.gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(TextureIndex i = TextureIndex{0}; i < TextureIndex{Textures.size()}; ++i) {
+		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 	ProbesRayIrradianceDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayIrradianceDepthView(), VK_IMAGE_LAYOUT_GENERAL);
 	ProbesRayDirection = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayDirectionView(), VK_IMAGE_LAYOUT_GENERAL);
@@ -134,9 +134,8 @@ void Application::createImGuiRenderPass() {
 
 void Application::uiOnSwapChainReady() {
 	// Prepare new scene textures for display
-	for(size_t i = SceneUITextureIDs.size(); i < Textures.size(); ++i) {
-		SceneUITextureIDs.push_back(
-			{Textures[i], ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+	for(TextureIndex i = TextureIndex{SceneUITextureIDs.size()}; i < Textures.size(); ++i) {
+		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 
 	DebugTextureIDs.clear();
@@ -352,7 +351,7 @@ void Application::drawUI() {
 
 	if(ImGui::Begin("Textures")) {
 		for(const auto& texture : SceneUITextureIDs) {
-			if(ImGui::TreeNode(texture.texture.source.string().c_str())) {
+			if(ImGui::TreeNode(Textures[texture.textureIndex].source.string().c_str())) {
 				ImGui::Image(texture.imID, ImVec2(100, 100));
 				ImGui::TreePop();
 			}
