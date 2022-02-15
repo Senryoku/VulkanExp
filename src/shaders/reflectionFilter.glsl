@@ -22,7 +22,7 @@ float gaussian(float stdDev, float dist) {
 const int maxDev = 5;                // FIXME: This is arbitrary.
 const float depthFactor = 1.0 / 20.0; // FIXME: This is arbitrary.
 const float baseHysteresis = 0.9;
-const float depthStdDev = 1.0;       // FIXME: Also arbitrary.
+const float depthStdDev = 0.1;       // FIXME: Also arbitrary.
 
 void main()
 {
@@ -97,7 +97,7 @@ void main()
             // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
             vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
             float diff = length(position - previousPosition);
-            if(diff < 0.1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
+            if(diff < 0.01) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
             float factor = 0.1 * length(position - previousPosition);
             hysteresis *= 1.0 - clamp(factor, 0, 1);
         }

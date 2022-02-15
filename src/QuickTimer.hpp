@@ -53,6 +53,8 @@ class QuickTimer {
 		auto d = _end - _start;
 		if(d.count() > 10000000)
 			report(std::chrono::duration_cast<std::chrono::milliseconds>(d));
+		else if(d.count() > 1000000)
+			report(fmt::format("{:.1f}ms", d.count() / 1000000.0));
 		else if(d.count() > 10000)
 			report(std::chrono::duration_cast<std::chrono::microseconds>(d));
 		else

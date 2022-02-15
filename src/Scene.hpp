@@ -64,6 +64,7 @@ class Scene {
 	bool loadglTF(const std::filesystem::path& path);
 	bool loadOBJ(const std::filesystem::path& path);
 	bool loadMaterial(const std::filesystem::path& path);
+	bool loadScene(const std::filesystem::path& path);
 
 	bool save(const std::filesystem::path& path);
 
@@ -179,3 +180,5 @@ class Scene {
 	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
 	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
 };
+
+JSON::value toJSON(const Scene::Node&);

@@ -33,3 +33,6 @@ struct Material {
 struct MaterialIndexTag {};
 using MaterialIndex = TaggedIndex<uint32_t, MaterialIndexTag>;
 inline static const MaterialIndex InvalidMaterialIndex{static_cast<uint32_t>(-1)};
+
+Material	parseMaterial(const JSON::value& obj, uint32_t textureOffset);
+JSON::value toJSON(const Material& mat);

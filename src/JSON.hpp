@@ -108,11 +108,11 @@ class JSON {
 		value(const object& o) {
 			_type = Type::object;
 			new(&_value.as_object) object{o};
-		};
+		}
 		value(object&& o) {
 			_type = Type::object;
 			new(&_value.as_object) object{std::move(o)};
-		};
+		}
 		value(const array& a) {
 			_type = Type::array;
 			new(&_value.as_array) array{a};
@@ -120,31 +120,34 @@ class JSON {
 		value(array&& a) {
 			_type = Type::array;
 			new(&_value.as_array) array{std::move(a)};
-		};
+		}
 		value(const string& s) {
 			_type = Type::string;
 			new(&_value.as_string) string{s};
-		};
+		}
 		value(string&& s) {
 			_type = Type::string;
 			new(&_value.as_string) string{std::move(s)};
-		};
+		}
 		value(const number& n) {
 			_type = Type::number;
 			new(&_value.as_number) number{n};
-		};
+		}
 		value(number&& n) {
 			_type = Type::number;
 			new(&_value.as_number) number{std::move(n)};
-		};
+		}
+		value(float f) : value(number(f)) {}
+		value(int i) : value(number(i)) {}
+		value(uint32_t i) : value(number(static_cast<int>(i))) {}
 		value(bool b) {
 			_type = Type::boolean;
 			_value.as_boolean = b;
-		};
+		}
 		value(null_t n) {
 			_type = Type::null;
 			new(&_value.as_null) null_t{n};
-		};
+		}
 
 		~value() {
 			switch(_type) {
@@ -167,6 +170,7 @@ class JSON {
 				case Type::object: return JSON::toString(_value.as_object);
 				case Type::boolean: return _value.as_boolean ? "true" : "false";
 				case Type::null: return "null";
+				default: return "undefined";
 			}
 		}
 
@@ -180,7 +184,15 @@ class JSON {
 			assert(_type == Type::object);
 			return _value.as_object;
 		}
+		object& asObject() {
+			assert(_type == Type::object);
+			return _value.as_object;
+		}
 		const array& asArray() const {
+			assert(_type == Type::array);
+			return _value.as_array;
+		}
+		array& asArray() {
 			assert(_type == Type::array);
 			return _value.as_array;
 		}
@@ -188,7 +200,15 @@ class JSON {
 			assert(_type == Type::number);
 			return _value.as_number;
 		}
+		number& asNumber() {
+			assert(_type == Type::number);
+			return _value.as_number;
+		}
 		const string& asString() const {
+			assert(_type == Type::string);
+			return _value.as_string;
+		}
+		string& asString() {
 			assert(_type == Type::string);
 			return _value.as_string;
 		}
@@ -547,6 +567,10 @@ class JSON {
 		s += '[';
 		for(const auto& v : value)
 			s += v.toString() + ", ";
+		if(value.size() > 0) {
+			s.pop_back(); // Remove trailing ', '
+			s.pop_back();
+		}
 		s += ']';
 		return s;
 	}
@@ -556,6 +580,10 @@ class JSON {
 		s += '{';
 		for(const auto& v : value)
 			s += v.first + ": " + v.second.toString() + ", ";
+		if(value.size() > 0) {
+			s.pop_back();
+			s.pop_back();
+		}
 		s += '}';
 		return s;
 	}
@@ -565,6 +593,7 @@ class JSON {
 
 	bool parse(const std::filesystem::path&);
 	bool parse(std::istream&);
+	bool parse(char* data, size_t size);
 
 	bool save(const std::filesystem::path&) const;
 	bool save(std::ostream&) const;

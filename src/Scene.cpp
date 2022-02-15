@@ -12,57 +12,13 @@
 #include "JSON.hpp"
 #include "Logger.hpp"
 #include "STBImage.hpp"
+#include <Base64.hpp>
 #include <QuickTimer.hpp>
+#include <Serialization.hpp>
 #include <vulkan/CommandBuffer.hpp>
 #include <vulkan/Image.hpp>
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
-
-template<>
-glm::vec3 JSON::value::to<glm::vec3>() const {
-	assert(_type == Type::array);
-	assert(_value.as_array.size() == 3);
-	const auto& a = _value.as_array;
-	return glm::vec3{a[0].to<float>(), a[1].to<float>(), a[2].to<float>()};
-}
-
-template<>
-glm::vec4 JSON::value::to<glm::vec4>() const {
-	assert(_type == Type::array);
-	assert(_value.as_array.size() == 4);
-	const auto& a = _value.as_array;
-	return glm::vec4{
-		a[0].to<float>(),
-		a[1].to<float>(),
-		a[2].to<float>(),
-		a[3].to<float>(),
-	};
-}
-
-template<>
-glm::quat JSON::value::to<glm::quat>() const {
-	assert(_type == Type::array);
-	assert(_value.as_array.size() == 4);
-	const auto& a = _value.as_array;
-	// glm::quat constructor takes w as the first argument.
-	return glm::quat{
-		a[3].to<float>(),
-		a[0].to<float>(),
-		a[1].to<float>(),
-		a[2].to<float>(),
-	};
-}
-
-template<>
-glm::mat4 JSON::value::to<glm::mat4>() const {
-	assert(_type == Type::array);
-	assert(_value.as_array.size() == 16);
-	const auto& a = _value.as_array;
-	return glm::mat4{
-		a[0].to<float>(), a[1].to<float>(), a[2].to<float>(),  a[3].to<float>(),  a[4].to<float>(),	 a[5].to<float>(),	a[6].to<float>(),  a[7].to<float>(),
-		a[8].to<float>(), a[9].to<float>(), a[10].to<float>(), a[11].to<float>(), a[12].to<float>(), a[13].to<float>(), a[14].to<float>(), a[15].to<float>(),
-	};
-}
 
 Scene::Scene() {
 	_nodes.push_back({.name = "Root"});
@@ -77,84 +33,17 @@ Scene::~Scene() {
 }
 
 bool Scene::load(const std::filesystem::path& path) {
+	const auto canonicalPath = path.lexically_normal();
 	const auto ext = path.extension();
+	if(ext == ".scene")
+		return loadScene(canonicalPath);
 	if(ext == ".obj")
-		return loadOBJ(path);
+		return loadOBJ(canonicalPath);
 	else if(ext == ".gltf" || ext == ".glb")
-		return loadglTF(path);
+		return loadglTF(canonicalPath);
 	else
 		warn("Scene::load: File extension {} is not supported ('{}').", ext, path.string());
 	return false;
-}
-
-char decode_b64(char c) {
-	if(c >= 'A' && c <= 'Z')
-		return c - 'A';
-	if(c >= 'a' && c <= 'z')
-		return 26 + c - 'a';
-	if(c >= '0' && c <= '9')
-		return 52 + c - '0';
-	if(c == '+')
-		return 62;
-	if(c == '/')
-		return 63;
-	assert(false);
-}
-
-std::vector<char> decode_b64(const std::string_view& str) {
-	assert(str.size() % 4 == 0); // We only support padded string for now.
-	std::vector<char> result;
-	result.reserve(str.size() / 4 * 3);
-	for(size_t i = 0; i < str.size() / 4 - 1; ++i) {
-		std::array<char, 4> d{
-			decode_b64(str[4 * i + 0]),
-			decode_b64(str[4 * i + 1]),
-			decode_b64(str[4 * i + 2]),
-			decode_b64(str[4 * i + 3]),
-		};
-		int32_t data = (d[0] << 18) | (d[1] << 12) | (d[2] << 6) | d[3];
-		result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
-		result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
-		result.push_back(static_cast<char>((data >> 0 * 8) & 0xFF));
-	}
-	// Last quadruplet may contain padding
-	if(str.size() % 4 != 0) {
-		// TODO
-	} else {
-		const auto i = str.size() / 4 - 1;
-		// May contain padding character(s)
-		if(str[str.size() - 1] == '=') {
-			if(str[str.size() - 2] == '=') {
-				std::array<char, 2> d{
-					decode_b64(str[4 * i + 0]),
-					decode_b64(str[4 * i + 1]),
-				};
-				int32_t data = (d[0] << 18) | ((d[1] << 12) & 0b110000);
-				result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
-			} else {
-				std::array<char, 3> d{
-					decode_b64(str[4 * i + 0]),
-					decode_b64(str[4 * i + 1]),
-					decode_b64(str[4 * i + 2]),
-				};
-				int32_t data = (d[0] << 18) | (d[1] << 12) | ((d[2] << 6) & 0b111100);
-				result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
-				result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
-			}
-		} else {
-			std::array<char, 4> d{
-				decode_b64(str[4 * i + 0]),
-				decode_b64(str[4 * i + 1]),
-				decode_b64(str[4 * i + 2]),
-				decode_b64(str[4 * i + 3]),
-			};
-			int32_t data = (d[0] << 18) | (d[1] << 12) | (d[2] << 6) | d[3];
-			result.push_back(static_cast<char>((data >> 2 * 8) & 0xFF));
-			result.push_back(static_cast<char>((data >> 1 * 8) & 0xFF));
-			result.push_back(static_cast<char>((data >> 0 * 8) & 0xFF));
-		}
-	}
-	return result;
 }
 
 struct GLBHeader {
@@ -163,20 +52,16 @@ struct GLBHeader {
 	uint32_t length;
 };
 
-struct GLBChunk {
-	uint32_t length;
-	uint32_t type;
-	char*	 data;
+enum class GLBChunkType : uint32_t
+{
+	JSON = 0x4E4F534A,
+	BIN = 0x004E4942,
 };
 
-template<typename char_type>
-struct istreambuf : public std::basic_streambuf<char_type, std::char_traits<char_type>> {
-	istreambuf(char_type* buffer, std::streamsize bufferLength) {
-		// Set the "get" pointer to the start of the buffer, the next item, and record its length.
-		this->setg(buffer, buffer, buffer + bufferLength);
-		// set the "put" pointer the start of the buffer and record it's length.
-		this->setp(buffer, buffer + bufferLength);
-	}
+struct GLBChunk {
+	uint32_t	 length;
+	GLBChunkType type;
+	char*		 data;
 };
 
 bool Scene::loadglTF(const std::filesystem::path& path) {
@@ -200,7 +85,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				// Inlined data
 				if(uri.starts_with("data:application/octet-stream;base64,")) {
 					const auto data = std::string_view(uri).substr(std::string("data:application/octet-stream;base64,").size());
-					buffer = std::move(decode_b64(data));
+					buffer = std::move(decodeBase64(data));
 				} else {
 					warn("Scene::loadglTF: Unsupported data format ('{}'...)\n", uri.substr(0, 64));
 					return false;
@@ -222,7 +107,11 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			}
 		}
 	} else if(path.extension() == ".glb") {
-		std::ifstream	file(path, std::ios::binary | std::ios::ate);
+		std::ifstream file(path, std::ios::binary | std::ios::ate);
+		if(!file) {
+			error("Scene::loadglTf error: Could not open file '{}'.\n", path.string());
+			return false;
+		}
 		std::streamsize size = file.tellg();
 		file.seekg(0, std::ios::beg);
 
@@ -231,23 +120,16 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			GLBHeader header = *reinterpret_cast<GLBHeader*>(buffer.data());
 			assert(header.magic == 0x46546C67);
 			GLBChunk jsonChunk = *reinterpret_cast<GLBChunk*>(buffer.data() + sizeof(GLBHeader));
-			assert(jsonChunk.type == 0x4E4F534A);
+			assert(jsonChunk.type == GLBChunkType::JSON);
 			jsonChunk.data = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data);
-			/*
-			I'd like to do the following, but pubsetbuf is not implemented ('correctly'?) in Visual Studio. Yay.
-				std::stringstream stream;
-				stream.rdbuf()->pubsetbuf(jsonChunk.data, jsonChunk.length);
-			*/
-			istreambuf<char> streambuf(jsonChunk.data, jsonChunk.length);
-			std::istream	 stream(&streambuf);
-			if(!json.parse(stream)) {
+			if(!json.parse(jsonChunk.data, jsonChunk.length)) {
 				error("Scene::loadglTF: GLB ('{}') JSON chunk could not be parsed.\n", path.string());
 				return false;
 			}
 			char* offset = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data) + jsonChunk.length;
 			while(offset - buffer.data() < header.length) {
 				GLBChunk chunk = *reinterpret_cast<GLBChunk*>(offset);
-				assert(chunk.type == 0x004E4942);
+				assert(chunk.type == GLBChunkType::BIN);
 				chunk.data = offset + offsetof(GLBChunk, data);
 				offset += offsetof(GLBChunk, data) + chunk.length;
 				buffers.emplace_back().assign(chunk.data, chunk.data + chunk.length);
@@ -584,32 +466,13 @@ bool Scene::loadMaterial(const std::filesystem::path& path) {
 }
 
 bool Scene::loadMaterial(const JSON::value& mat, uint32_t textureOffset) {
-	Material material;
-	material.name = mat("name", std::string("NoName"));
-	if(mat.contains("pbrMetallicRoughness")) {
-		material.properties.baseColorFactor = mat["pbrMetallicRoughness"].get("baseColorFactor", glm::vec4{1.0, 1.0, 1.0, 1.0});
-		material.properties.metallicFactor = mat["pbrMetallicRoughness"].get("metallicFactor", 1.0f);
-		material.properties.roughnessFactor = mat["pbrMetallicRoughness"].get("roughnessFactor", 1.0f);
-		if(mat["pbrMetallicRoughness"].contains("baseColorTexture")) {
-			material.properties.albedoTexture = textureOffset + mat["pbrMetallicRoughness"]["baseColorTexture"]["index"].as<int>();
-		}
-		if(mat["pbrMetallicRoughness"].contains("metallicRoughnessTexture")) {
-			material.properties.metallicRoughnessTexture = textureOffset + mat["pbrMetallicRoughness"]["metallicRoughnessTexture"]["index"].as<int>();
-			// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
-			if(material.properties.metallicRoughnessTexture < Textures.size())
-				Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
-		}
-	}
-	material.properties.emissiveFactor = mat.get("emissiveFactor", glm::vec3(0.0f));
-	if(mat.contains("emissiveTexture")) {
-		material.properties.emissiveTexture = textureOffset + mat["emissiveTexture"]["index"].as<int>();
-	}
-	if(mat.contains("normalTexture")) {
-		material.properties.normalTexture = textureOffset + mat["normalTexture"]["index"].as<int>();
-		// Change the default format of this texture now that we know it will be used as a normal map
-		if(material.properties.normalTexture < Textures.size())
-			Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
-	}
+	Material material = parseMaterial(mat, textureOffset);
+	// Change the default format of this texture now that we know it will be used as a normal map
+	if(material.properties.normalTexture < Textures.size())
+		Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+	// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
+	if(material.properties.metallicRoughnessTexture < Textures.size())
+		Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
 	Materials.push_back(material);
 	return true;
 }
@@ -626,13 +489,151 @@ bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& j
 	return true;
 }
 
-bool Scene::save(const std::filesystem::path& path) {
-	JSON  serialized;
-	auto& root = serialized.getRoot();
-	root = JSON::object();
-	root["files"] = JSON::array();
+JSON::value toJSON(const Scene::Node& n) {
+	JSON::object o;
+	o["name"] = n.name;
+	o["transform"] = toJSON(n.transform);
+	o["parent"] = static_cast<int>(n.parent);
+	o["mesh"] = static_cast<int>(n.mesh);
+	auto& children = o["children"] = JSON::array();
+	for(const auto& c : n.children)
+		children.asArray().push_back(static_cast<int>(c));
+	return o;
+}
 
-	serialized.save(path);
+bool Scene::save(const std::filesystem::path& path) {
+	QuickTimer qt(fmt::format("Save Scene to '{}'", path.string()));
+	JSON	   serialized;
+	auto&	   root = serialized.getRoot();
+	root = JSON::object();
+
+	root["materials"] = JSON::array();
+	auto& mats = root["materials"].asArray();
+	for(const auto& mat : Materials)
+		mats.push_back(toJSON(mat));
+
+	root["nodes"] = JSON::array();
+	auto& nodes = root["nodes"].asArray();
+	for(const auto& node : _nodes) {
+		nodes.push_back(toJSON(node));
+	}
+
+	std::vector<GLBChunk> buffers;
+	buffers.push_back({
+		.type = GLBChunkType::JSON,
+	}); // This will become the main JSON chunk header
+	root["meshes"] = JSON::array();
+	auto& meshes = root["meshes"].asArray();
+	for(const auto& m : _meshes) {
+		auto mesh = JSON::object();
+		mesh["name"] = m.name;
+		mesh["submeshes"] = JSON::array();
+		auto& submeshes = mesh["submeshes"].asArray();
+		for(const auto& sm : m.SubMeshes) {
+			auto submesh = JSON::object();
+			int	 offset = buffers.size();
+			submesh["vertexArray"] = offset + 0;
+			submesh["indexArray"] = offset + 1;
+			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(sm.getVertices().data()))});
+			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getIndexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<uint32_t*>(sm.getIndices().data()))});
+			submeshes.push_back(submesh);
+		}
+		meshes.push_back(mesh);
+	}
+
+	root["textures"] = JSON::array();
+	auto& textures = root["textures"].asArray();
+	for(const auto& t : Textures) {
+		auto tex = JSON::object();
+		tex["source"] = t.source.string();
+		tex["format"] = t.format;
+		tex["sampler"] = t.samplerDescription;
+		textures.push_back(tex);
+	}
+
+	std::ofstream file(path);
+	if(!file) {
+		error("Scene::save error: Could not open '{}' file for writing.", path.string());
+		return false;
+	}
+
+	GLBHeader header{
+		.magic = 0x4e454353,
+		.version = 0,
+		.length = static_cast<uint32_t>(buffers.size()),
+	};
+
+	file.write(reinterpret_cast<char*>(&header), sizeof(header));
+	auto jsonStr = root.toString();
+	buffers[0].length = static_cast<uint32_t>(jsonStr.size());
+	buffers[0].data = jsonStr.data();
+	for(const auto& buff : buffers) {
+		file.write(reinterpret_cast<const char*>(&buff.length), sizeof(buff.length));
+		file.write(reinterpret_cast<const char*>(&buff.type), sizeof(buff.type));
+		file.write(buff.data, buff.length);
+	}
+
+	file.close();
+
+	return true;
+}
+
+bool Scene::loadScene(const std::filesystem::path& path) {
+	std::ifstream file(path, std::ios::binary | std::ios::ate);
+	if(!file) {
+		error("Scene::loadScene error: Could not open file '{}'.\n", path.string());
+		return false;
+	}
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::vector<std::vector<char>> buffers(size);
+	std::vector<char>			   buffer(size);
+	if(file.read(buffer.data(), size)) {
+		JSON	  json;
+		GLBHeader header = *reinterpret_cast<GLBHeader*>(buffer.data());
+		assert(header.magic == 0x46546C67);
+		GLBChunk jsonChunk = *reinterpret_cast<GLBChunk*>(buffer.data() + sizeof(GLBHeader));
+		assert(jsonChunk.type == GLBChunkType::JSON);
+		jsonChunk.data = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data);
+		if(!json.parse(jsonChunk.data, jsonChunk.length)) {
+			error("Scene::loadScene: JSON chunk from scene file '{}' could not be parsed.\n", path.string());
+			return false;
+		}
+		char* offset = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data) + jsonChunk.length;
+		while(offset - buffer.data() < header.length) {
+			GLBChunk chunk = *reinterpret_cast<GLBChunk*>(offset);
+			assert(chunk.type == GLBChunkType::BIN);
+			chunk.data = offset + offsetof(GLBChunk, data);
+			offset += offsetof(GLBChunk, data) + chunk.length;
+			buffers.emplace_back().assign(chunk.data, chunk.data + chunk.length);
+		}
+
+		_nodes.clear();
+		for(const auto& n : json.getRoot()["nodes"]) {
+			_nodes.push_back({
+				.name = n("name", std::string("Unamed Node")),
+				.transform = n("transform", glm::mat4{1.0f}),
+				.parent = NodeIndex{static_cast<uint32_t>(n("parent", static_cast<int>(InvalidNodeIndex)))},
+				.children = {},
+				.mesh = MeshIndex{static_cast<uint32_t>(n("mesh", static_cast<int>(InvalidMeshIndex)))},
+			});
+			for(const auto& c : n["children"]) {
+				_nodes.back().children.push_back(NodeIndex{static_cast<uint32_t>(c.asNumber().asInteger())});
+			}
+		}
+
+		Textures.clear();
+		// TODO: Load Textures
+
+		Materials.clear();
+		for(const auto& m : json.getRoot()["materials"]) {
+			parseMaterial(m, 0);
+		}
+
+		_meshes.clear();
+		// TODO: Load Meshes
+	}
 	return true;
 }
 

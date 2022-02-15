@@ -84,6 +84,7 @@
     <ClInclude Include="ext\implot\implot_internal.h" />
     <ClInclude Include="ext\stb_image.h" />
     <ClInclude Include="src\Application.hpp" />
+    <ClInclude Include="src\Base64.hpp" />
     <ClInclude Include="src\Bounds.hpp" />
     <ClInclude Include="src\Camera.hpp" />
     <ClInclude Include="src\KeyboardShortcut.hpp" />
@@ -95,6 +96,7 @@
     <ClInclude Include="src\Raytracing.hpp" />
     <ClInclude Include="src\Resources.hpp" />
     <ClInclude Include="src\RollingBuffer.hpp" />
+    <ClInclude Include="src\Serialization.hpp" />
     <ClInclude Include="src\STBImage.hpp" />
     <ClInclude Include="src\JSON.hpp" />
     <ClInclude Include="src\Logger.hpp" />

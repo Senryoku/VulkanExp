@@ -32,6 +32,28 @@ bool JSON::parse(std::istream& file) {
 	return true;
 }
 
+// NOTE: Used to construct an istream from a arbitrary memory buffer.
+template<typename char_type>
+struct istreambuf : public std::basic_streambuf<char_type, std::char_traits<char_type>> {
+	istreambuf(char_type* buffer, std::streamsize bufferLength) {
+		// Set the "get" pointer to the start of the buffer, the next item, and record its length.
+		this->setg(buffer, buffer, buffer + bufferLength);
+		// set the "put" pointer the start of the buffer and record it's length.
+		this->setp(buffer, buffer + bufferLength);
+	}
+};
+
+bool JSON::parse(char* data, size_t size) {
+	/* NOTE: Workaround
+	I'd like to do the following, but pubsetbuf is not implemented ('correctly'?) in Visual Studio. Yay.
+		std::stringstream stream;
+		stream.rdbuf()->pubsetbuf(jsonChunk.data, jsonChunk.length);
+	*/
+	istreambuf<char> streambuf(data, size);
+	std::istream	 stream(&streambuf);
+	return parse(stream);
+}
+
 bool JSON::expectImmediate(char c, std::istream& file) {
 	char byte;
 	file.get(byte);

@@ -42,6 +42,23 @@
 ### Major Features, but not priorities
  - Rigging
 
+ ##Scene Format
+
+ Heavily inspired by the glTF binary format, it consists of a header, followed by a series of chunks, each with their own header.
+```
+struct Header {
+    uint32_t magic;    // = 0x4e454353
+    uint32_t version;
+    uint32_t length;   // Number of chunks
+};
+
+struct ChunkHeader {
+    uint32_t length; // Length in bytes
+    uint32_t type;   // "JSON" (0x4E4F534A) or " BIN" (0x004E4942)
+};
+// Immediately followed by 'length' bytes of binary data.
+```
+
 ## Build
 
 Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
