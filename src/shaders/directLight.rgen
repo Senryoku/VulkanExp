@@ -86,9 +86,9 @@ void main()
 		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
 		// https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf Chapter 24
 		if(!isShadowed) {
-			// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
-			//color += pbrMetallicRoughness(normal, toOrigin, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, vec4(albedo, 1.0), metalness, roughness).rgb;
 			color = vec3(1.0);
+			if(direction.y < 0) // FIXME: Special case for the sun, fading it out during the 'night' (when it is below the horizon, shining from underneath)
+				color *= 1.0 - clamp(-direction.y, 0, 0.1) / 0.1;
 		}
 		imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
 	}
