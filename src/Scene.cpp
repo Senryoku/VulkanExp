@@ -532,6 +532,7 @@ bool Scene::save(const std::filesystem::path& path) {
 		for(const auto& sm : m.SubMeshes) {
 			auto submesh = JSON::object();
 			int	 offset = buffers.size();
+			submesh["name"] = sm.name;
 			submesh["vertexArray"] = offset + 0;
 			submesh["indexArray"] = offset + 1;
 			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(sm.getVertices().data()))});
@@ -545,28 +546,33 @@ bool Scene::save(const std::filesystem::path& path) {
 	auto& textures = root["textures"].asArray();
 	for(const auto& t : Textures) {
 		auto tex = JSON::object();
-		tex["source"] = t.source.string();
+		tex["source"] = t.source.lexically_relative(path.parent_path()).string();
 		tex["format"] = t.format;
 		tex["sampler"] = t.samplerDescription;
 		textures.push_back(tex);
 	}
 
-	std::ofstream file(path);
+	std::ofstream file(path, std::ios::binary);
 	if(!file) {
 		error("Scene::save error: Could not open '{}' file for writing.", path.string());
 		return false;
 	}
 
-	GLBHeader header{
-		.magic = 0x4e454353,
-		.version = 0,
-		.length = static_cast<uint32_t>(buffers.size()),
-	};
-
-	file.write(reinterpret_cast<char*>(&header), sizeof(header));
 	auto jsonStr = root.toString();
 	buffers[0].length = static_cast<uint32_t>(jsonStr.size());
 	buffers[0].data = jsonStr.data();
+
+	uint32_t totalLength = sizeof(GLBHeader);
+	for(const auto& buff : buffers)
+		totalLength += 2 * sizeof(uint32_t) + buff.length;
+
+	GLBHeader header{
+		.magic = 0x4e454353,
+		.version = 0,
+		.length = totalLength,
+	};
+
+	file.write(reinterpret_cast<char*>(&header), sizeof(header));
 	for(const auto& buff : buffers) {
 		file.write(reinterpret_cast<const char*>(&buff.length), sizeof(buff.length));
 		file.write(reinterpret_cast<const char*>(&buff.type), sizeof(buff.type));
@@ -587,21 +593,21 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 	std::streamsize size = file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	std::vector<std::vector<char>> buffers(size);
-	std::vector<char>			   buffer(size);
-	if(file.read(buffer.data(), size)) {
+	std::vector<char>			   filebuffer(size);
+	std::vector<std::vector<char>> buffers;
+	if(file.read(filebuffer.data(), size)) {
 		JSON	  json;
-		GLBHeader header = *reinterpret_cast<GLBHeader*>(buffer.data());
-		assert(header.magic == 0x46546C67);
-		GLBChunk jsonChunk = *reinterpret_cast<GLBChunk*>(buffer.data() + sizeof(GLBHeader));
+		GLBHeader header = *reinterpret_cast<GLBHeader*>(filebuffer.data());
+		assert(header.magic == 0x4e454353);
+		GLBChunk jsonChunk = *reinterpret_cast<GLBChunk*>(filebuffer.data() + sizeof(GLBHeader));
 		assert(jsonChunk.type == GLBChunkType::JSON);
-		jsonChunk.data = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data);
+		jsonChunk.data = filebuffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data);
 		if(!json.parse(jsonChunk.data, jsonChunk.length)) {
 			error("Scene::loadScene: JSON chunk from scene file '{}' could not be parsed.\n", path.string());
 			return false;
 		}
-		char* offset = buffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data) + jsonChunk.length;
-		while(offset - buffer.data() < header.length) {
+		char* offset = filebuffer.data() + sizeof(GLBHeader) + offsetof(GLBChunk, data) + jsonChunk.length;
+		while(offset - filebuffer.data() < header.length) {
 			GLBChunk chunk = *reinterpret_cast<GLBChunk*>(offset);
 			assert(chunk.type == GLBChunkType::BIN);
 			chunk.data = offset + offsetof(GLBChunk, data);
@@ -610,7 +616,8 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 		}
 
 		_nodes.clear();
-		for(const auto& n : json.getRoot()["nodes"]) {
+		const auto& root = json.getRoot(); // FIXME: See loadglTF
+		for(const auto& n : root["nodes"]) {
 			_nodes.push_back({
 				.name = n("name", std::string("Unamed Node")),
 				.transform = n("transform", glm::mat4{1.0f}),
@@ -624,15 +631,35 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 		}
 
 		Textures.clear();
-		// TODO: Load Textures
+		for(const auto& t : root["textures"]) {
+			Textures.push_back(Texture{
+				.source = path.parent_path() / t["source"].asString(),
+				.format = static_cast<VkFormat>(t["format"].as<int>()),
+				.samplerDescription = t["sampler"].asObject(),
+			});
+		}
 
 		Materials.clear();
-		for(const auto& m : json.getRoot()["materials"]) {
-			parseMaterial(m, 0);
+		for(const auto& m : root["materials"]) {
+			loadMaterial(m, 0);
 		}
 
 		_meshes.clear();
-		// TODO: Load Meshes
+		for(const auto& m : root["meshes"]) {
+			_meshes.emplace_back();
+			auto& mesh = _meshes.back();
+			mesh.name = m["name"].asString();
+			for(const auto& sm : m["submeshes"]) {
+				auto& submesh = mesh.SubMeshes.emplace_back();
+				submesh.name = sm["name"].asString();
+				auto vertexArrayIndex = sm["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
+				submesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
+											 reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
+				auto indexArrayIndex = sm["indexArray"].as<int>() - 1;
+				submesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
+											reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
+			}
+		}
 	}
 	return true;
 }

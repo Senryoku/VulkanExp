@@ -32,7 +32,7 @@ JSON::value toJSON(const Material& mat) {
 
 	obj["name"] = mat.name;
 	obj["pbrMetallicRoughness"] = JSON::object();
-	obj["pbrMetallicRoughness"]["baseColorFactor"] = toJSON(mat.properties.baseColorFactor);
+	obj["pbrMetallicRoughness"]["baseColorFactor"] = toJSON(glm::vec4(mat.properties.baseColorFactor, 1.0)); // Saved as vec4 to match glTF
 	obj["pbrMetallicRoughness"]["metallicFactor"] = mat.properties.metallicFactor;
 	obj["pbrMetallicRoughness"]["roughnessFactor"] = mat.properties.roughnessFactor;
 	auto baseColorTexture = JSON::object();
@@ -41,9 +41,13 @@ JSON::value toJSON(const Material& mat) {
 	auto metallicRoughnessTexture = JSON::object();
 	metallicRoughnessTexture["index"] = mat.properties.metallicRoughnessTexture;
 	obj["pbrMetallicRoughness"]["metallicRoughnessTexture"] = metallicRoughnessTexture;
-	obj["normalTexture"] = mat.properties.normalTexture;
+	auto normalTexture = JSON::object();
+	normalTexture["index"] = mat.properties.normalTexture;
+	obj["normalTexture"] = normalTexture;
 	obj["emissiveFactor"] = toJSON(mat.properties.emissiveFactor);
-	obj["emissiveTexture"] = mat.properties.emissiveTexture;
+	auto emissiveTexture = JSON::object();
+	emissiveTexture["index"] = mat.properties.emissiveTexture;
+	obj["emissiveTexture"] = emissiveTexture;
 
 	return obj;
 }

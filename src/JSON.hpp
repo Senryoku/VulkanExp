@@ -162,6 +162,18 @@ class JSON {
 
 		auto operator<=>(const value&) const = default;
 
+		std::string serialize() const {
+			switch(_type) {
+				// case Type::string: return "\"" + _value.as_string + "\"";
+				case Type::string: {
+					std::ostringstream ss;
+					ss << std::quoted(_value.as_string);
+					return ss.str();
+				}
+				default: return toString();
+			}
+		}
+
 		std::string toString() const {
 			switch(_type) {
 				case Type::string: return _value.as_string;
@@ -566,7 +578,7 @@ class JSON {
 		std::string s;
 		s += '[';
 		for(const auto& v : value)
-			s += v.toString() + ", ";
+			s += v.serialize() + ", ";
 		if(value.size() > 0) {
 			s.pop_back(); // Remove trailing ', '
 			s.pop_back();
@@ -579,7 +591,7 @@ class JSON {
 		std::string s;
 		s += '{';
 		for(const auto& v : value)
-			s += v.first + ": " + v.second.toString() + ", ";
+			s += std::format("\"{}\": {}, ", v.first, v.second.serialize());
 		if(value.size() > 0) {
 			s.pop_back();
 			s.pop_back();

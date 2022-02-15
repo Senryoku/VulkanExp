@@ -366,6 +366,23 @@ void Application::drawUI() {
 	}
 	ImGui::End();
 
+	if(ImGui::Begin("Meshes")) {
+		for(Scene::MeshIndex i = Scene::MeshIndex(0u); i < _scene.getMeshes().size(); ++i) {
+			auto& m = _scene.getMeshes()[i];
+			if(ImGui::TreeNodeEx(makeUnique(m.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+				for(auto& sm : m.SubMeshes) {
+					if(ImGui::TreeNodeEx(makeUnique(sm.name).c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DefaultOpen)) {
+						ImGui::Text("Vertices: %d", sm.getVertices().size());
+						ImGui::Text("Indices: %d", sm.getIndices().size());
+						ImGui::TreePop();
+					}
+				}
+				ImGui::TreePop();
+			}
+		}
+	}
+	ImGui::End();
+
 	bool					   updatedTransform = false;
 	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 	static ImGuizmo::MODE	   mCurrentGizmoMode(ImGuizmo::LOCAL);

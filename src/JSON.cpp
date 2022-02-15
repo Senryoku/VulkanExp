@@ -25,7 +25,7 @@ bool JSON::parse(std::istream& file) {
 	else if(byte == '[')
 		_root = value{parseArray(file)};
 	else {
-		error("JSON Parsing error: Expected '{{' or '[', got '{}'\n", byte);
+		error("JSON::parse error: Expected '{{' or '[', got '{}'\n", byte);
 		return false;
 	}
 
@@ -58,7 +58,7 @@ bool JSON::expectImmediate(char c, std::istream& file) {
 	char byte;
 	file.get(byte);
 	if(byte != c) {
-		error("JSON Parsing error: Expected '{}', got '{}'\n", c, byte);
+		error("JSON::expectImmediate error: Expected '{}', got '{}'\n", c, byte);
 		return false;
 	}
 	return true;
@@ -67,7 +67,7 @@ bool JSON::expectImmediate(char c, std::istream& file) {
 bool JSON::expect(char c, std::istream& file) {
 	char byte = skipWhitespace(file);
 	if(byte != c) {
-		error("JSON Parsing error: Expected '{}', got '{}'\n", c, byte);
+		error("JSON::expect error: Expected '{}', got '{}'\n", c, byte);
 		return false;
 	}
 	return true;
@@ -88,7 +88,7 @@ JSON::object JSON::parseObject(std::istream& file) {
 			case ',':
 				// Just continue to the next key/value pair, or the end of the object
 				break;
-			default: error("JSON Parsing error: Unexpected character '{}'.\n", byte); return o;
+			default: error("JSON::parseObject error: Unexpected character '{}'.\n", byte); return o;
 		}
 	}
 	return o;
@@ -114,8 +114,9 @@ JSON::string JSON::parseString(std::istream& file) {
 	// We assume the leading '"' has already been consumed.
 	string s;
 	bool   escapeNext = false;
+
 	while(file) {
-		char byte = skipWhitespace(file);
+		char byte = file.get();
 		switch(byte) {
 			case '"':
 				if(escapeNext) {
@@ -125,14 +126,28 @@ JSON::string JSON::parseString(std::istream& file) {
 					return s;
 				break;
 			case '\\':
-				if(escapeNext)
+				if(escapeNext) {
 					s += '\\';
-				else
+					escapeNext = false;
+				} else
 					escapeNext = true;
 				break;
 			default:
 				if(escapeNext) {
-					// TODO: Correctly handle escaped caracters.
+					switch(byte) {
+						case '"': s += '"'; break;
+						case '\\': s += '\\'; break;
+						case '/': s += '/'; break;
+						case 'b': s += '\b'; break;
+						case 'f': s += '\f'; break;
+						case 'n': s += '\n'; break;
+						case 'r': s += '\r'; break;
+						case 't': s += '\t'; break;
+						case 'u':
+							// TODO: Handle unicode codepoint (\u followed by 4 hex digits)
+							assert(false);
+							break;
+					}
 					escapeNext = false;
 				} else {
 					s += byte;
@@ -185,7 +200,7 @@ bool JSON::parseBoolean(std::istream& file) {
 		expectImmediate('e', file);
 		return false;
 	}
-	error("JSON Parsing error: Unexpected character '{}'.\n", byte);
+	error("JSON::parseBoolean error: Unexpected character '{}'.\n", byte);
 	return false;
 }
 
@@ -239,8 +254,6 @@ bool JSON::save(const std::filesystem::path& path) const {
 }
 
 bool JSON::save(std::ostream& file) const {
-	// auto str = toString(getRoot());
-	// file.write(str.c_str(), str.size());
 	file << *this;
 	return true;
 }

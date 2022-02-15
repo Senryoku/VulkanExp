@@ -47,9 +47,9 @@
 Heavily inspired by the glTF binary format, it consists of a header, followed by a series of chunks, each with their own header.
 ```
 struct Header {
-    uint32_t magic;    // = 0x4e454353
+    uint32_t magic;    // "SCEN" (0x4e454353)
     uint32_t version;
-    uint32_t length;   // Number of chunks
+    uint32_t length;   // Total file length, in bytes.
 };
 
 struct ChunkHeader {

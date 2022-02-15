@@ -323,6 +323,7 @@ class Application {
 
 	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]) {
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		vkDeviceWaitIdle(app->_device); // FIXME: Do better?
 		for(int i = 0; i < pathCount; ++i) {
 			print("Received path '{}'.\n", paths[i]);
 			app->_scene.load(paths[i]);
