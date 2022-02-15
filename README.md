@@ -42,9 +42,9 @@
 ### Major Features, but not priorities
  - Rigging
 
- ##Scene Format
+## Scene Format
 
- Heavily inspired by the glTF binary format, it consists of a header, followed by a series of chunks, each with their own header.
+Heavily inspired by the glTF binary format, it consists of a header, followed by a series of chunks, each with their own header.
 ```
 struct Header {
     uint32_t magic;    // = 0x4e454353
