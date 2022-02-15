@@ -5,7 +5,11 @@
 #include "ProbeGrid.glsl"
 
 ivec3 probeLinearIndexToGridIndex(uint index, ProbeGrid grid) {
-    return ivec3(index % grid.resolution.x, (index / grid.resolution.x) % grid.resolution.y, (index / (grid.resolution.x * grid.resolution.y)) % grid.resolution.z);
+    return ivec3(
+        index % grid.resolution.x, 
+        (index % (grid.resolution.x * grid.resolution.y)) / grid.resolution.x, 
+        (index / (grid.resolution.x * grid.resolution.y))
+    );
 }
 
 uint probeLinearIndex(ivec3 index, ProbeGrid grid) {

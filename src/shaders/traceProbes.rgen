@@ -31,7 +31,7 @@ void main() {
     uint rayIndex = gl_LaunchIDEXT.y;
     float tmax = length(grid.extentMax - grid.extentMin);
     
-	vec4 origin = vec4(probeIndexToWorldPosition(probeIndex, grid), 1);
+	vec3 origin = probeIndexToWorldPosition(probeIndex, grid);
 	vec3 direction = mat3(push.randomOrientation) * sphericalFibonacci(rayIndex, grid.raysPerProbe);
 
 	payload.color = vec4(0.0);
@@ -39,7 +39,7 @@ void main() {
 	payload.raydx = rotateAxis(direction, normalize(cross(direction, vec3(1, 0, 0))), 0.001);
 	payload.raydy = rotateAxis(direction, normalize(cross(direction, vec3(0, 1, 0))), 0.001);
     payload.recursionDepth = 1; // Skip reflections
-	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin, tmin, direction, tmax, 0);
         
     ivec2 coords = ivec2(gl_LaunchIDEXT.x, rayIndex);
     imageStore(rayIrradianceDepth, coords, vec4(payload.color.rgb, payload.depth));

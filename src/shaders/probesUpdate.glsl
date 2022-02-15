@@ -30,17 +30,16 @@ float max3 (vec3 v) {
   return max (max (v.x, v.y), v.z);
 }
 
+vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
+    //return (vec2(coords) + vec2(0.5)) * (2.0f / vec2(gl_WorkGroupSize.xy)) - vec2(1.0f);
 #ifdef IRRADIANCE
 // For res = 6
-vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
-    return 3.33333 * coord + 0.833333;
-}
+    return 0.33333 * (coord - 2.5);
 #else
 // For res = 14
-vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
-    return 0.142857 * coord - 0.928571;
-}
+    return 0.142857 * (coord - 6.5);
 #endif
+}
 
 shared float globalMaxChange;
 
