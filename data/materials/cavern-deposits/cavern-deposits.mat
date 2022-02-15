@@ -18,6 +18,12 @@
 	"textures": [{
 		"source": 0,
 		"sampler": 0
+	},{
+		"source": 1,
+		"sampler": 0
+	},{
+		"source": 2,
+		"sampler": 0
 	}],
 	"images": [{
 			"uri": "cavern-deposits_albedo.png"

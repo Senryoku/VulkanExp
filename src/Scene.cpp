@@ -468,11 +468,17 @@ bool Scene::loadMaterial(const std::filesystem::path& path) {
 bool Scene::loadMaterial(const JSON::value& mat, uint32_t textureOffset) {
 	Material material = parseMaterial(mat, textureOffset);
 	// Change the default format of this texture now that we know it will be used as a normal map
-	if(material.properties.normalTexture < Textures.size())
-		Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+	if(material.properties.normalTexture != InvalidTextureIndex)
+		if(material.properties.normalTexture < Textures.size())
+			Textures[material.properties.normalTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+		else
+			warn("Scene::loadMaterial: Material '{}' refers to an out-of-bounds normal texture ({}).\n", material.name, material.properties.normalTexture);
 	// Change the default format of this texture now that we know it will be used as a metallicRoughnessTexture
-	if(material.properties.metallicRoughnessTexture < Textures.size())
-		Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+	if(material.properties.metallicRoughnessTexture != InvalidTextureIndex)
+		if(material.properties.metallicRoughnessTexture < Textures.size())
+			Textures[material.properties.metallicRoughnessTexture].format = VK_FORMAT_R8G8B8A8_UNORM;
+		else
+			warn("Scene::loadMaterial: Material '{}' refers to an out-of-bounds metallicRoughness texture ({}).\n", material.name, material.properties.metallicRoughnessTexture);
 	Materials.push_back(material);
 	return true;
 }
@@ -533,6 +539,7 @@ bool Scene::save(const std::filesystem::path& path) {
 			auto submesh = JSON::object();
 			int	 offset = buffers.size();
 			submesh["name"] = sm.name;
+			submesh["material"] = sm.materialIndex.value;
 			submesh["vertexArray"] = offset + 0;
 			submesh["indexArray"] = offset + 1;
 			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(sm.getVertices().data()))});
@@ -546,7 +553,7 @@ bool Scene::save(const std::filesystem::path& path) {
 	auto& textures = root["textures"].asArray();
 	for(const auto& t : Textures) {
 		auto tex = JSON::object();
-		tex["source"] = t.source.lexically_relative(path.parent_path()).string();
+		tex["source"] = t.source.lexically_relative(path.parent_path()).string(); // FIXME: Can be empty (how?)
 		tex["format"] = t.format;
 		tex["sampler"] = t.samplerDescription;
 		textures.push_back(tex);
@@ -585,6 +592,8 @@ bool Scene::save(const std::filesystem::path& path) {
 }
 
 bool Scene::loadScene(const std::filesystem::path& path) {
+	QuickTimer qt(fmt::format("Loading Scene '{}'", path.string()));
+
 	std::ifstream file(path, std::ios::binary | std::ios::ate);
 	if(!file) {
 		error("Scene::loadScene error: Could not open file '{}'.\n", path.string());
@@ -620,7 +629,7 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 		for(const auto& n : root["nodes"]) {
 			_nodes.push_back({
 				.name = n("name", std::string("Unamed Node")),
-				.transform = n("transform", glm::mat4{1.0f}),
+				.transform = n["transform"].to<glm::mat4>(),
 				.parent = NodeIndex{static_cast<uint32_t>(n("parent", static_cast<int>(InvalidNodeIndex)))},
 				.children = {},
 				.mesh = MeshIndex{static_cast<uint32_t>(n("mesh", static_cast<int>(InvalidMeshIndex)))},
@@ -628,6 +637,11 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			for(const auto& c : n["children"]) {
 				_nodes.back().children.push_back(NodeIndex{static_cast<uint32_t>(c.asNumber().asInteger())});
 			}
+		}
+
+		Materials.clear();
+		for(const auto& m : root["materials"]) {
+			loadMaterial(m, 0);
 		}
 
 		Textures.clear();
@@ -639,19 +653,14 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			});
 		}
 
-		Materials.clear();
-		for(const auto& m : root["materials"]) {
-			loadMaterial(m, 0);
-		}
-
 		_meshes.clear();
 		for(const auto& m : root["meshes"]) {
-			_meshes.emplace_back();
-			auto& mesh = _meshes.back();
+			auto& mesh = _meshes.emplace_back();
 			mesh.name = m["name"].asString();
 			for(const auto& sm : m["submeshes"]) {
 				auto& submesh = mesh.SubMeshes.emplace_back();
 				submesh.name = sm["name"].asString();
+				submesh.materialIndex = MaterialIndex{static_cast<uint32_t>(sm("material", 0))};
 				auto vertexArrayIndex = sm["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
 				submesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
 											 reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
@@ -660,6 +669,8 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 											reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
 			}
 		}
+
+		computeBounds();
 	}
 	return true;
 }

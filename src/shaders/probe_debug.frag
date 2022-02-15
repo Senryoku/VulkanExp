@@ -23,7 +23,7 @@ layout(location = 0) out vec4 outColor;
 const int colorRes = 8; // FIXME
 const int depthRes = 16; // FIXME
 
-#define TYPE 2
+#define TYPE 0
 
 void main() {
     #if TYPE == 0

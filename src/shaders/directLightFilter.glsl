@@ -22,7 +22,7 @@ float gaussian(float stdDev, float dist) {
 const float maxDev = 32.0;           // FIXME: This is arbitrary.
 const float depthFactor = 1.0 / 1.0; // FIXME: This is arbitrary.
 const float baseHysteresis = 0.94;
-const float depthStdDev = 1.0;       // FIXME: Also arbitrary.
+const float depthStdDev = 0.1;       // FIXME: Also arbitrary.
 
 // FIXME: Surfaces close to the camera are black (related to the depth used in stdDev)
 // TODO: Use Depth from the Occlusion pass (not only the gbuffer) to drive the stdDev, or, even better, the variance (from a history buffer)? (similar to roughness usage in reflections).
@@ -88,8 +88,8 @@ void main()
         // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
         vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
         float diff = length(position - previousPosition);
-        if(diff < 1) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
-        float factor = 0.1 * length(position - previousPosition);
+        if(diff < 0.01) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
+        float factor = length(position - previousPosition);
         hysteresis *= 1.0 - clamp(factor, 0, 1);
 	}
 	final.rgb = clamp(final.rgb, 0, 1);

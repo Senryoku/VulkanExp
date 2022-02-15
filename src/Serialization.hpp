@@ -72,11 +72,3 @@ inline glm::mat4 JSON::value::to<glm::mat4>() const {
 		a[8].to<float>(), a[9].to<float>(), a[10].to<float>(), a[11].to<float>(), a[12].to<float>(), a[13].to<float>(), a[14].to<float>(), a[15].to<float>(),
 	};
 }
-
-template<>
-inline const glm::mat4& JSON::value::as<glm::mat4>() const {
-	assert(_type == Type::array);
-	assert(_value.as_array.size() == 16);
-	const auto& a = _value.as_array;
-	return *reinterpret_cast<const glm::mat4*>(a.data());
-}
