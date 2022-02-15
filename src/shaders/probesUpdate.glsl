@@ -51,7 +51,7 @@ void main()
     ivec3 probeIndex = probeLinearIndexToGridIndex(linearIndex, grid);
     ivec2 localFragCoord = ivec2(gl_LocalInvocationID.yz);
 
-    float gridCellSize = length((grid.extentMax - grid.extentMin) / grid.resolution);
+    float gridCellSize = length(probeGridCellSize(grid));
 
     vec4 result = vec4(0);
     vec3 texelDirection = octDecode(specializedNormalizeLocalTexelCoord(localFragCoord));

@@ -28,7 +28,7 @@ const float tmin = 0.01f;
 
 void main() 
 {
-    vec3 gridCellSize = abs(grid.extentMax - grid.extentMin) / grid.resolution;
+    vec3 gridCellSize = probeGridCellSize(grid);
     float maxDistance = length(gridCellSize);
     float tmax = 1.5f * maxDistance;
 

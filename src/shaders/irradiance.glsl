@@ -16,10 +16,13 @@ uint probeLinearIndex(ivec3 index, ProbeGrid grid) {
     return index.x + grid.resolution.x * index.y + grid.resolution.x * grid.resolution.y * index.z;
 }
 
+vec3 probeGridCellSize(ProbeGrid grid) {
+    return (grid.extentMax - grid.extentMin) / (grid.resolution - 1);
+}
+
 vec3 probeIndexToWorldPosition(ivec3 index, ProbeGrid grid) {
-    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
 	// TODO: Add per-probe offset (< half of the size of a grid cell)
-    return index * gridCellSize + grid.extentMin;
+    return index * probeGridCellSize(grid) + grid.extentMin;
 }
 
 vec3 probeIndexToWorldPosition(uint index, ProbeGrid grid) {
@@ -45,7 +48,6 @@ ivec2 probeIndexToDepthUVOffset(ivec3 index, ProbeGrid grid) {
 
     The points go from z = +1 down to z = -1 in a spiral. To generate samples on the +z hemisphere,
     just stop before i > N/2.
-
 */
 vec3 sphericalFibonacci(float i, float n) {
     const float PHI = sqrt(5) * 0.5 + 0.5;
@@ -53,12 +55,11 @@ vec3 sphericalFibonacci(float i, float n) {
     float phi = 2.0 * pi * madfrac(i, PHI - 1);
     float cosTheta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
     float sinTheta = sqrt(clamp(1.0 - cosTheta * cosTheta, 0, 1));
-
     return vec3(
         cos(phi) * sinTheta,
         sin(phi) * sinTheta,
-        cosTheta);
-
+        cosTheta
+    );
 #   undef madfrac
 }
 
@@ -143,7 +144,7 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 
 vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {
     // Convert position in grid coords
-    vec3 gridCellSize = (grid.extentMax - grid.extentMin) / grid.resolution;
+    vec3 gridCellSize = probeGridCellSize(grid);
     vec3 gridCoords = (position - grid.extentMin) / abs(gridCellSize);
     vec3 biasVector = (normal + toCamera) * grid.shadowBias;
     vec3 biasedPosition = position + biasVector;
