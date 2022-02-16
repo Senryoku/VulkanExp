@@ -33,7 +33,7 @@ Scene::~Scene() {
 }
 
 bool Scene::load(const std::filesystem::path& path) {
-	const auto canonicalPath = path.lexically_normal();
+	const auto canonicalPath = path.is_absolute() ? path.lexically_relative(std::filesystem::current_path()) : path.lexically_normal();
 	const auto ext = path.extension();
 	if(ext == ".scene")
 		return loadScene(canonicalPath);
