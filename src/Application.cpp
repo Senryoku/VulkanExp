@@ -60,8 +60,19 @@ void Application::duplicateSelectedNode() {
 	_scene.destroyAccelerationStructure(_device);
 	_scene.createAccelerationStructure(_device);
 	// We have to update the all descriptor sets referencing the acceleration structures.
-	// FIXME: This is way overkill
-	recreateSwapChain();
+	for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
+		for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+			DescriptorSetWriter dsw(set->getDescriptorSets()[i]);
+			dsw.add(0, {
+						   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+						   .accelerationStructureCount = 1,
+						   .pAccelerationStructures = &_scene.getTLAS(),
+					   });
+			dsw.update(_device);
+		}
+	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+	recordCommandBuffers();
+
 	vkDeviceWaitIdle(_device);
 }
 

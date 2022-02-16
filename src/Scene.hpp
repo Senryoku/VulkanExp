@@ -11,8 +11,7 @@ inline std::vector<Material> Materials;
 
 class Scene {
   public:
-	enum class RenderingMode
-	{
+	enum class RenderingMode {
 		Points = 0,
 		Line = 1,
 		LineLoop = 2,
@@ -22,8 +21,7 @@ class Scene {
 		TriangleFan = 6
 	};
 
-	enum class ComponentType
-	{
+	enum class ComponentType {
 		Byte = 5120,
 		UnsignedByte = 5121,
 		Short = 5122,
@@ -52,8 +50,11 @@ class Scene {
 
 	void addChild(NodeIndex parent, NodeIndex child) {
 		assert(_nodes[child].parent == InvalidNodeIndex);
+		assert(parent != child);
 		_nodes[parent].children.push_back(child);
 		_nodes[child].parent = parent;
+		markDirty(parent);
+		markDirty(child);
 	}
 
 	Scene();
