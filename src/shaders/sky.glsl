@@ -7,8 +7,8 @@
 const vec3 WaveLengths = vec3(0.650f, 0.570f, 0.475f);
 const vec3 InvWaveLengths = vec3(1.0f / pow(0.650f, 4.0f), 1.0f / pow(0.570f, 4.0f), 1.0f / pow(0.475f, 4.0f));
 const float AvegerageDensityAltitude = 0.25f; // [0, 1] factor of the atmosphere depth
-const float OuterRadius = 102500.0f;
 const float InnerRadius = 100000.0f;
+const float OuterRadius =   2500.0f + InnerRadius;
 const float Scale = 1.0 / (OuterRadius - InnerRadius);
 
 float traceSphereOutside(vec3 center, float radius, vec3 origin, vec3 direction)
@@ -47,7 +47,7 @@ float scale(float fCos)
 	return AvegerageDensityAltitude * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
 }
 
-const uint SampleCount = 32;
+const uint SampleCount = 64;
 
 const float Kr = 0.0025f;		// Rayleigh scattering constant
 const float Kr4PI = Kr * 4.0f * pi;
@@ -77,7 +77,7 @@ vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, boo
 		// Stop at the horizon (Intersection with the planet). 
 		if(height > InnerRadius) {
 			float planetDistance = traceSphereOutside(vec3(0), InnerRadius, position, rayDirection);
-			if(planetDistance >= 0) return max(0.1, dot(lightDir, normalize(position + planetDistance * rayDirection))) * vec3(0.1);
+			if(planetDistance >= 0) return max(0.1, dot(lightDir, normalize(position + planetDistance * rayDirection))) * vec3(0.05);
 		} else { // We're inside the planet, just display something to help orient ourself (or nothing) :D
 			//return dot(vec3(0, 1, 0), rayDirection) * vec3(0.25, 0, 0) + dot(vec3(0, -1, 0), rayDirection) * vec3(0, 0.25, 0);
 			return vec3(0);
