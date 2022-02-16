@@ -70,7 +70,9 @@ class Scene {
 	bool save(const std::filesystem::path& path);
 
 	void createAccelerationStructure(const Device& device);
+	void createTLAS(const Device& device);
 	void destroyAccelerationStructure(const Device& device);
+	void destroyTLAS(const Device& device);
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
 	inline std::vector<Node>&				 getNodes() { return _nodes; }
@@ -173,6 +175,7 @@ class Scene {
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
 	DeviceMemory									_accStructInstancesMemory;
+	std::vector<std::vector<size_t>>				_submeshesIndicesIntoBLASArray;
 
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;

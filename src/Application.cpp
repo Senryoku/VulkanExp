@@ -57,9 +57,10 @@ void Application::duplicateSelectedNode() {
 	// Recreate Acceleration Structure
 	// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
 	vkDeviceWaitIdle(_device);
-	_scene.destroyAccelerationStructure(_device);
-	_scene.createAccelerationStructure(_device);
+	_scene.destroyTLAS(_device);
+	_scene.createTLAS(_device);
 	// We have to update the all descriptor sets referencing the acceleration structures.
+	// FIXME: Also abstract this somehow? (Callback from createTLAS? setup by Scene?)
 	for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
 		for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 			DescriptorSetWriter dsw(set->getDescriptorSets()[i]);

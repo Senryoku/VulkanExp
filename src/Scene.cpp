@@ -789,13 +789,18 @@ bool Scene::update(const Device& device) {
 }
 
 void Scene::destroyAccelerationStructure(const Device& device) {
-	vkDestroyAccelerationStructureKHR(device, _topLevelAccelerationStructure, nullptr);
-	_topLevelAccelerationStructure = VK_NULL_HANDLE;
+	destroyTLAS(device);
+
 	for(const auto& blas : _bottomLevelAccelerationStructures)
 		vkDestroyAccelerationStructureKHR(device, blas, nullptr);
 	_staticBLASBuffer.destroy();
 	_staticBLASMemory.free();
 	_bottomLevelAccelerationStructures.clear();
+}
+
+void Scene::destroyTLAS(const Device& device) {
+	vkDestroyAccelerationStructureKHR(device, _topLevelAccelerationStructure, nullptr);
+	_topLevelAccelerationStructure = VK_NULL_HANDLE;
 	_tlasBuffer.destroy();
 	_tlasMemory.free();
 	_accStructInstances.clear();
@@ -837,8 +842,6 @@ void Scene::createAccelerationStructure(const Device& device) {
 		submeshesCount += m.SubMeshes.size();
 	submeshesCount *= 2; // FIXME
 
-	std::vector<uint32_t>									 submeshesIndices;
-	std::vector<VkTransformMatrixKHR>						 transforms;
 	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 rangeInfos;
@@ -853,15 +856,14 @@ void Scene::createAccelerationStructure(const Device& device) {
 	blasOffsets.reserve(submeshesCount);
 	buildSizesInfo.reserve(submeshesCount);
 
-	std::vector<std::vector<size_t>> submeshesIndicesIntoBLASArray;
-
 	const auto& meshes = getMeshes();
+	_submeshesIndicesIntoBLASArray.clear();
 
 	{
 		QuickTimer qt("BLAS building");
 		// Collect all submeshes and query the memory requirements
 		for(const auto& mesh : meshes) {
-			auto& indices = submeshesIndicesIntoBLASArray.emplace_back();
+			auto& indices = _submeshesIndicesIntoBLASArray.emplace_back();
 			/*
 			 * Right now there's a one-to-one relation between submeshes and geometries.
 			 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
@@ -967,102 +969,108 @@ void Scene::createAccelerationStructure(const Device& device) {
 			vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(buildInfos.size()), buildInfos.data(), pRangeInfos.data());
 		});
 	}
-	{
-		QuickTimer qt("TLAS building");
 
-		const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
-			transform = transform * n.transform;
-			for(const auto& c : n.children)
-				visitNode(getNodes()[c], transform);
+	createTLAS(device);
+}
 
-			if(n.mesh != -1) {
-				transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-				for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
-					// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-					VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-						.accelerationStructure = _bottomLevelAccelerationStructures[submeshesIndicesIntoBLASArray[n.mesh][i]],
-					};
-					auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+void Scene::createTLAS(const Device& device) {
+	QuickTimer qt("TLAS building");
 
-					submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
-					transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
-					_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
-						.transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform),
-						.instanceCustomIndex = meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable,
-						.mask = 0xFF,
-						.instanceShaderBindingTableRecordOffset = 0,
-						.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-						.accelerationStructureReference = BLASDeviceAddress,
-					});
-				}
+	std::vector<uint32_t>									 submeshesIndices;
+	std::vector<VkTransformMatrixKHR>						 transforms;
+	const auto&												 meshes = getMeshes();
+	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
+		transform = transform * n.transform;
+		for(const auto& c : n.children)
+			visitNode(getNodes()[c], transform);
+
+		if(n.mesh != -1) {
+			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+				// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
+				VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+					.accelerationStructure = _bottomLevelAccelerationStructures[_submeshesIndicesIntoBLASArray[n.mesh][i]],
+				};
+				auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+
+				submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
+				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
+				_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
+					.transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform),
+					.instanceCustomIndex = meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable,
+					.mask = 0xFF,
+					.instanceShaderBindingTableRecordOffset = 0,
+					.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+					.accelerationStructureReference = BLASDeviceAddress,
+				});
 			}
-		};
-		visitNode(getRoot(), glm::mat4(1.0f));
+		}
+	};
+	visitNode(getRoot(), glm::mat4(1.0f));
 
-		_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-										 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-		_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
-										   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
+	_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+									 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
+	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
+									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
 
-		VkAccelerationStructureGeometryKHR TLASGeometry{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-			.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
-			.geometry =
-				{
-					.instances =
-						{
-							.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-							.arrayOfPointers = VK_FALSE,
-							.data = _accStructInstancesBuffer.getDeviceAddress(),
-						},
-				},
-			.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
-		};
+	VkAccelerationStructureGeometryKHR TLASGeometry{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+		.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+		.geometry =
+			{
+				.instances =
+					{
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+						.arrayOfPointers = VK_FALSE,
+						.data = _accStructInstancesBuffer.getDeviceAddress(),
+					},
+			},
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR,
+	};
 
-		VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-			.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-			.geometryCount = 1,
-			.pGeometries = &TLASGeometry,
-		};
+	VkAccelerationStructureBuildGeometryInfoKHR TLASBuildGeometryInfo{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		.geometryCount = 1,
+		.pGeometries = &TLASGeometry,
+	};
 
-		const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
-		VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-		vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
+	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
+	VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
 
-		_tlasBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, TLASBuildSizesInfo.accelerationStructureSize);
-		_tlasMemory.allocate(device, _tlasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_tlasBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, TLASBuildSizesInfo.accelerationStructureSize);
+	_tlasMemory.allocate(device, _tlasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		VkAccelerationStructureCreateInfoKHR TLASCreateInfo{
-			.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-			.buffer = _tlasBuffer,
-			.size = TLASBuildSizesInfo.accelerationStructureSize,
-			.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-		};
+	VkAccelerationStructureCreateInfoKHR TLASCreateInfo{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+		.buffer = _tlasBuffer,
+		.size = TLASBuildSizesInfo.accelerationStructureSize,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+	};
 
-		VK_CHECK(vkCreateAccelerationStructureKHR(device, &TLASCreateInfo, nullptr, &_topLevelAccelerationStructure));
+	VK_CHECK(vkCreateAccelerationStructureKHR(device, &TLASCreateInfo, nullptr, &_topLevelAccelerationStructure));
 
-		_tlasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
-		_tlasScratchMemory.allocate(device, _tlasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+	_tlasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, TLASBuildSizesInfo.buildScratchSize);
+	_tlasScratchMemory.allocate(device, _tlasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 
-		TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-		TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
-		TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
+	TLASBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	TLASBuildGeometryInfo.dstAccelerationStructure = _topLevelAccelerationStructure;
+	TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
 
-		VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
-			.primitiveCount = TBLAPrimitiveCount,
-			.primitiveOffset = 0,
-			.firstVertex = 0,
-			.transformOffset = 0,
-		};
-		std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
+	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
+		.primitiveCount = TBLAPrimitiveCount,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0,
+	};
+	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
 
-		device.immediateSubmitCompute(
-			[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
-	}
+	device.immediateSubmitCompute(
+		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
 void Scene::updateTLAS(const Device& device) {
