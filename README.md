@@ -19,6 +19,8 @@
      - Refer to Materials by path/name (make sure names are unique on load)
    - Manually load textures
    - Manually create new materials
+ - Raster
+   - Group draw calls by (sub)meshes and use instanced draw.
  - Reflections
    - Start by using SSR and raytrace only as a fallback (will probably need a bit of restructuring, doing SSR in a raygen shader seems to be horrible)
  - Sun Direction in UBO
