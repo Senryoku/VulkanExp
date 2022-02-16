@@ -551,6 +551,11 @@ void Application::drawUI() {
 		}
 		if(ImGui::Checkbox("Enable Reflections", &_enableReflections)) {
 			_outdatedCommandBuffers = true;
+			if(!_enableReflections) {
+				VkClearColorValue color{0};
+				for(auto& image : _reflectionImages)
+					_device.immediateSubmitGraphics([&](const auto& cmdBuff) { vkCmdClearColorImage(cmdBuff, image, VK_IMAGE_LAYOUT_GENERAL, &color, 1, &Image::RangeColorMip0); });
+			}
 		}
 		if(ImGui::TreeNodeEx("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::InputFloat3("Camera Position", reinterpret_cast<float*>(&_camera.getPosition()));

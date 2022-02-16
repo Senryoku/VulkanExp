@@ -603,6 +603,7 @@ void Application::recordCommandBuffers() {
 			.layerCount = 1,
 		};
 
+		// Trace reflections if enabled
 		if(_enableReflections) {
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _reflectionPipeline);
 			const auto descriptors = {_reflectionDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
@@ -610,9 +611,8 @@ void Application::recordCommandBuffers() {
 			vkCmdTraceRaysKHR(b, &_reflectionShaderBindingTable.raygenEntry, &_reflectionShaderBindingTable.missEntry, &_reflectionShaderBindingTable.anyhitEntry,
 							  &_reflectionShaderBindingTable.callableEntry, _width, _height, 1);
 		}
+		// Trace direct light (Currently only the sun)
 		{
-			//_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-			// VK_ACCESS_SHADER_WRITE_BIT, 							  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			vkCmdBindPipeline(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline);
 			const auto descriptors = {_directLightDescriptorPool.getDescriptorSets()[i], _descriptorPool.getDescriptorSets()[i]};
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _directLightPipeline.getLayout(), 0, descriptors.size(), descriptors.begin(), 0, 0);
@@ -624,6 +624,7 @@ void Application::recordCommandBuffers() {
 		// Filter Direct Light & Reflections (Not physically based)
 		const auto groupSize = 32;
 		glm::ivec2 launchSize = {glm::ceil(static_cast<float>(_width) / groupSize), glm::ceil(static_cast<float>(_height) / groupSize)};
+
 		_directLightFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 		_directLightImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 									  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);

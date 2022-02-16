@@ -52,8 +52,7 @@ struct GLBHeader {
 	uint32_t length;
 };
 
-enum class GLBChunkType : uint32_t
-{
+enum class GLBChunkType : uint32_t {
 	JSON = 0x4E4F534A,
 	BIN = 0x004E4942,
 };
