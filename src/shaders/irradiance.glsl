@@ -139,7 +139,7 @@ vec2 spherePointToOctohedralUV(vec3 direction) {
 
 #extension GL_EXT_debug_printf : enable
 
-#define LINEAR_BLENDING
+//#define LINEAR_BLENDING
 #define USE_FALLBACK
 
 vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sampler2D colorTex, sampler2D depthTex) {

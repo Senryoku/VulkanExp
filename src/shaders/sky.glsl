@@ -24,7 +24,7 @@ float traceSphereOutside(vec3 center, float radius, vec3 origin, vec3 direction)
 	if(g > 0.0)
     {
 		float dis = (-sqrt(g) - b) / a;
-        return dis;
+        if(dis > 0) return dis;
 	}
     return -1;
 }
@@ -47,7 +47,7 @@ float scale(float fCos)
 	return AvegerageDensityAltitude * exp(-0.00287 + x*(0.459 + x*(3.83 + x*(-6.80 + x*5.25))));
 }
 
-const uint SampleCount = 50;
+const uint SampleCount = 32;
 
 const float Kr = 0.0025f;		// Rayleigh scattering constant
 const float Kr4PI = Kr * 4.0f * pi;
@@ -56,7 +56,7 @@ const float Km4PI = Km * 4.0f * pi;
 const float g = -0.990f;		// The Mie phase asymmetry factor
 
 // Original value for sunColor: vec3(20);
-const float sunBrightnessFactor = 10.0f; // FIXME: Hack
+const float sunBrightnessFactor = 1.0f; // FIXME: Hack
 vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, bool showSun) {
 	//sunColor = normalize(sunColor);
 	sunColor *= sunBrightnessFactor;
