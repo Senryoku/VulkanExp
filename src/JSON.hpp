@@ -139,9 +139,8 @@ class JSON {
 			_type = Type::number;
 			new(&_value.as_number) number{std::move(n)};
 		}
-		value(float f) : value(number(f)) {}
-		value(int i) : value(number(i)) {}
-		value(uint32_t i) : value(number(static_cast<int>(i))) {}
+		value(std::floating_point auto f) : value(number(f)) {}
+		value(std::integral auto i) : value(number(static_cast<int>(i))) {}
 		value(bool b) {
 			_type = Type::boolean;
 			_value.as_boolean = b;
@@ -191,6 +190,18 @@ class JSON {
 		bool contains(const std::string& key) const {
 			assert(_type == Type::object);
 			return _value.as_object.contains(key);
+		}
+
+		value& push(value&& val) {
+			assert(_type == Type::array);
+			_value.as_array.push_back(std::move(val));
+			return _value.as_array.back();
+		}
+
+		value& push(const value& val) {
+			assert(_type == Type::array);
+			_value.as_array.push_back(val);
+			return _value.as_array.back();
 		}
 
 		Type		  getType() const { return _type; }
@@ -625,6 +636,8 @@ class JSON {
 	inline const value& operator[](const string& key) const { return getRoot()[key]; }
 	inline value&		operator[](size_t idx) { return getRoot()[idx]; }
 	inline const value& operator[](size_t idx) const { return getRoot()[idx]; }
+
+	inline operator value() const { return getRoot(); }
 
   private:
 	inline static bool isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }

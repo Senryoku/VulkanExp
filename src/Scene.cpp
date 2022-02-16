@@ -495,67 +495,66 @@ bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& j
 }
 
 JSON::value toJSON(const Scene::Node& n) {
-	JSON::object o;
-	o["name"] = n.name;
-	o["transform"] = toJSON(n.transform);
-	o["parent"] = static_cast<int>(n.parent);
-	o["mesh"] = static_cast<int>(n.mesh);
-	auto& children = o["children"] = JSON::array();
+	JSON::object o{
+		{"name", n.name}, {"transform", toJSON(n.transform)}, {"parent", n.parent.value}, {"mesh", n.mesh.value}, {"children", JSON::array()},
+	};
+	auto& children = o["children"];
 	for(const auto& c : n.children)
-		children.asArray().push_back(static_cast<int>(c));
+		children.push(c.value);
 	return o;
 }
 
 bool Scene::save(const std::filesystem::path& path) {
 	QuickTimer qt(fmt::format("Save Scene to '{}'", path.string()));
-	JSON	   serialized;
-	auto&	   root = serialized.getRoot();
-	root = JSON::object();
+	JSON	   serialized{
+		  {"materials", JSON::array()},
+		  {"nodes", JSON::array()},
+		  {"meshes", JSON::array()},
+	  };
+	auto& root = serialized.getRoot();
 
-	root["materials"] = JSON::array();
 	auto& mats = root["materials"].asArray();
 	for(const auto& mat : Materials)
 		mats.push_back(toJSON(mat));
 
-	root["nodes"] = JSON::array();
 	auto& nodes = root["nodes"].asArray();
-	for(const auto& node : _nodes) {
+	for(const auto& node : _nodes)
 		nodes.push_back(toJSON(node));
-	}
 
 	std::vector<GLBChunk> buffers;
 	buffers.push_back({
 		.type = GLBChunkType::JSON,
 	}); // This will become the main JSON chunk header
-	root["meshes"] = JSON::array();
 	auto& meshes = root["meshes"].asArray();
 	for(const auto& m : _meshes) {
-		auto mesh = JSON::object();
-		mesh["name"] = m.name;
-		mesh["submeshes"] = JSON::array();
+		JSON mesh{
+			{"name", m.name},
+			{"submeshes", JSON::array()},
+		};
 		auto& submeshes = mesh["submeshes"].asArray();
 		for(const auto& sm : m.SubMeshes) {
-			auto submesh = JSON::object();
 			int	 offset = buffers.size();
-			submesh["name"] = sm.name;
-			submesh["material"] = sm.materialIndex.value;
-			submesh["vertexArray"] = offset + 0;
-			submesh["indexArray"] = offset + 1;
+			JSON submesh{
+				{"name", sm.name},
+				{"material", sm.materialIndex.value},
+				{"vertexArray", offset + 0},
+				{"indexArray", offset + 1},
+			};
 			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(sm.getVertices().data()))});
 			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getIndexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<uint32_t*>(sm.getIndices().data()))});
-			submeshes.push_back(submesh);
+			submeshes.push_back(std::move(submesh));
 		}
-		meshes.push_back(mesh);
+		meshes.push_back(std::move(mesh));
 	}
 
 	root["textures"] = JSON::array();
 	auto& textures = root["textures"].asArray();
 	for(const auto& t : Textures) {
-		auto tex = JSON::object();
-		tex["source"] = t.source.lexically_relative(path.parent_path()).string(); // FIXME: Can be empty (how?)
-		tex["format"] = t.format;
-		tex["sampler"] = t.samplerDescription;
-		textures.push_back(tex);
+		textures.push_back(JSON{
+			{"source", t.source.lexically_relative(path.parent_path()).string()},
+			{"format", static_cast<int>(t.format)},
+			{"sampler", t.samplerDescription},
+		});
 	}
 
 	std::ofstream file(path, std::ios::binary);
