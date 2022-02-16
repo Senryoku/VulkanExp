@@ -59,8 +59,7 @@ class JSON {
 		}
 
 	  private:
-		enum class Type
-		{
+		enum class Type {
 			real,
 			integer
 		};
@@ -82,8 +81,7 @@ class JSON {
 	using object = std::unordered_map<string, value>;
 	class value {
 	  public:
-		enum class Type
-		{
+		enum class Type {
 			object,
 			array,
 			string,
@@ -128,6 +126,10 @@ class JSON {
 		value(string&& s) {
 			_type = Type::string;
 			new(&_value.as_string) string{std::move(s)};
+		}
+		value(const char* s) {
+			_type = Type::string;
+			new(&_value.as_string) string{s};
 		}
 		value(const number& n) {
 			_type = Type::number;
@@ -600,8 +602,14 @@ class JSON {
 		return s;
 	}
 
+	struct KeyValue {
+		string key;
+		value  val;
+	};
+
 	JSON() = default;
 	JSON(const std::filesystem::path&);
+	JSON(const std::initializer_list<KeyValue>&);
 
 	bool parse(const std::filesystem::path&);
 	bool parse(std::istream&);
@@ -612,6 +620,11 @@ class JSON {
 
 	value&		 getRoot() { return _root; };
 	const value& getRoot() const { return _root; };
+
+	inline value&		operator[](const string& key) { return getRoot()[key]; }
+	inline const value& operator[](const string& key) const { return getRoot()[key]; }
+	inline value&		operator[](size_t idx) { return getRoot()[idx]; }
+	inline const value& operator[](size_t idx) const { return getRoot()[idx]; }
 
   private:
 	inline static bool isWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r' || c == '\t'; }
