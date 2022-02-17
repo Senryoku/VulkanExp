@@ -120,7 +120,7 @@ class Application {
 	RollingBuffer<float>	 _frameTimes;
 	RollingBuffer<float>	 _gbufferTimes;
 	RollingBuffer<float>	 _reflectionDirectLightTimes;
-	RollingBuffer<float>	 _reflectionFilterTimes;
+	RollingBuffer<float>	 _reflectionDirectLightFilterTimes;
 	RollingBuffer<float>	 _gatherTimes;
 	RollingBuffer<float>	 _presentTimes;
 

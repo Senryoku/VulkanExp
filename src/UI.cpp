@@ -394,7 +394,6 @@ void Application::drawUI() {
 			ImGui::InputText("Name", &_scene[_selectedNode].name);
 
 			// TEMP Button
-			// TODO: Ctrl+D shortcut?
 			if(ImGui::Button("Duplicate")) {
 				duplicateSelectedNode();
 			}
@@ -639,7 +638,7 @@ void Application::drawUI() {
 			plot("Full Time", _frameTimes);
 			plot("GBuffer Time", _gbufferTimes);
 			plot("Reflection & Direct Light Time", _reflectionDirectLightTimes);
-			plot("Reflection Filter Time", _reflectionFilterTimes);
+			plot("Reflection & Direct Light Filter Time", _reflectionDirectLightFilterTimes);
 			plot("Gather Time", _gatherTimes);
 			ImPlot::EndPlot();
 		}

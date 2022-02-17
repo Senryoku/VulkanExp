@@ -152,7 +152,7 @@ void Application::mainLoop() {
 					_frameTimes.add(0.000001f * (results[5].result - results[0].result));
 					_gbufferTimes.add(0.000001f * (results[2].result - results[1].result));
 					_reflectionDirectLightTimes.add(0.000001f * (results[3].result - results[2].result));
-					_reflectionFilterTimes.add(0.000001f * (results[4].result - results[3].result));
+					_reflectionDirectLightFilterTimes.add(0.000001f * (results[4].result - results[3].result));
 					_gatherTimes.add(0.000001f * (results[5].result - results[4].result));
 					pool.newSampleFlag = false;
 					static auto lastPresentTime = results[5].result;

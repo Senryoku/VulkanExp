@@ -19,10 +19,10 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const float maxDev = 32.0;                // FIXME: This is arbitrary.
-const float depthFactor = 1.0 / 0.5;      // FIXME: This is arbitrary.
+const float maxDev = 7.0;                    // FIXME: This is arbitrary.
+const float depthFactor = 1.0 / 0.5;         // FIXME: This is arbitrary.
 const float baseHysteresis = 0.94;
-const float depthStdDev = 0.01;           // FIXME: Also arbitrary.
+const float depthStdDev = 0.01;              // FIXME: Also arbitrary.
 const float historyDistanceThreshold = 0.05; // Invalidate history when the reprojecting is off by more than this threshold. (Also dependant on the scene, so... FIXME: Pass as uniform.)
 
 // FIXME: Surfaces close to the camera are black (related to the depth used in stdDev)

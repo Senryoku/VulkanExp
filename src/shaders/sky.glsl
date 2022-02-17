@@ -55,6 +55,7 @@ const float Km = 0.0010f;		// Mie scattering constant
 const float Km4PI = Km * 4.0f * pi;
 const float g = -0.990f;		// The Mie phase asymmetry factor
 
+// TODO: We should probably precompute this into a cubemap at some point (with a really slow update rate)
 // Original value for sunColor: vec3(20);
 const float sunBrightnessFactor = 1.0f; // FIXME: Hack
 vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, bool showSun) {
