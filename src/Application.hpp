@@ -335,7 +335,7 @@ class Application {
 
 	static void sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-		if(ImGui::GetIO().WantCaptureKeyboard || app->_controlCamera)
+		if(app->_controlCamera)
 			return;
 		auto it = app->_shortcuts.find({key, action, mods});
 		if(it != app->_shortcuts.end())

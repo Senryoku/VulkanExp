@@ -28,7 +28,7 @@ void Application::initWindow() {
 	glfwSetDropCallback(_window, sDropCallback);
 	glfwSetKeyCallback(_window, sKeyCallback);
 
-	_shortcuts[{GLFW_KEY_ESCAPE}] = [&]() { _drawUI = !_drawUI; };
+	_shortcuts[{GLFW_KEY_F1}] = [&]() { _drawUI = !_drawUI; };
 	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/defaut.scene"); };
 	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
 }
