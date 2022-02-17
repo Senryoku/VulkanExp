@@ -418,10 +418,10 @@ void Application::updateUniformBuffer(uint32_t currentImage) {
 			double lat = toRad(_latitude);
 			double lon = toRad(_longitude);
 			// See https://en.wikipedia.org/wiki/Solar_azimuth_angle#The_formula_based_on_the_subsolar_point_and_the_atan2_function (with some simplifations)
-			double latssp = declination; // latitude of the subsolar point
-			// FIXME: Time scale in completely wrong, but I assume T(GMT) is in hours in the original paper
-			// (https://www.sciencedirect.com/science/article/pii/S0960148121004031?via%3Dihub) so I'm not sure what's wrong
-			double lonssp = -15.0 * (_hour + _minute / 60.0 - _utctimezone - 12.0 + 0 / 60); // longitude of the subsolar point
+			// (Original paper: https://www.sciencedirect.com/science/article/pii/S0960148121004031?via%3Dihub)
+			double latssp = declination;																  // latitude of the subsolar point
+			double equationOfTime = 0;																	  // in minutes (omitted, but mentioned for completion)
+			double lonssp = toRad(-15.0 * (_hour + _minute / 60.0 - _utctimezone + equationOfTime / 60)); // longitude of the subsolar point
 			_light.direction = glm::vec4{
 				std::cos(latssp) * std::sin(lonssp - lon),
 				std::cos(lat) * std::sin(latssp) - std::sin(lat) * std::cos(latssp) * std::cos(lonssp - lon),
