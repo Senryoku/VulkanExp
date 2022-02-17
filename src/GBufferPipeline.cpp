@@ -1,6 +1,6 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
-void Application::createGBufferPipeline() {
+void Editor::createGBufferPipeline() {
 	RenderPassBuilder rpb;
 	// Attachments
 	rpb.add({
@@ -254,7 +254,7 @@ void Application::createGBufferPipeline() {
 	writeGBufferDescriptorSets();
 }
 
-void Application::writeGBufferDescriptorSets() {
+void Editor::writeGBufferDescriptorSets() {
 	// Write descriptor sets for each material, for each image in the swap chain.
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		for(size_t m = 0; m < Materials.size(); m++) {

@@ -1,8 +1,8 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
 #include <vulkan/Extension.hpp>
 
-void Application::initVulkan() {
+void Editor::initVulkan() {
 	if(!glfwVulkanSupported()) {
 		error("GLFW: Vulkan Not Supported\n");
 		return;
@@ -148,7 +148,7 @@ void Application::initVulkan() {
 }
 
 // Upload Scene data to GPU
-void Application::uploadScene() {
+void Editor::uploadScene() {
 	VK_CHECK(vkDeviceWaitIdle(_device));
 	_selectedNode = Scene::InvalidNodeIndex;
 	{
@@ -177,7 +177,7 @@ void Application::uploadScene() {
 	_scene.createAccelerationStructure(_device);
 }
 
-void Application::uploadMaterials() {
+void Editor::uploadMaterials() {
 	std::vector<Material::Properties> materialGpu;
 	for(const auto& material : Materials)
 		materialGpu.push_back(material.properties);
@@ -185,10 +185,10 @@ void Application::uploadMaterials() {
 	MaterialBuffer.copyFromStagingBuffer(_transfertCommandPool, _stagingBuffer, materialGpu.size() * sizeof(Material::Properties), _transfertQueue);
 }
 
-void Application::createInstance() {
+void Editor::createInstance() {
 	VkApplicationInfo appInfo{
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.pApplicationName = "VulkanExp",
+		.pApplicationName = "VulkanExpEditor",
 		.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0),
 		.pEngineName = "Lilia",
 		.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0),
@@ -219,7 +219,7 @@ void Application::createInstance() {
 	VK_CHECK(vkCreateInstance(&createInfo, nullptr, &_instance));
 }
 
-void Application::cleanupVulkan() {
+void Editor::cleanupVulkan() {
 	// We souldn't have to recreate the underlying buffer/memory on swapchain re-creation.
 	_directLightShaderBindingTable.destroy();
 	_reflectionShaderBindingTable.destroy();

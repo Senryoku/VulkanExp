@@ -1,8 +1,8 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
 #include "RaytracingDescriptors.hpp"
 
-void Application::createStorageImage() {
+void Editor::createStorageImage() {
 	_rayTraceStorageImages.resize(_swapChainImages.size());
 	_rayTraceStorageImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
@@ -29,7 +29,7 @@ void Application::createStorageImage() {
 	}
 }
 
-void Application::createRayTracingPipeline() {
+void Editor::createRayTracingPipeline() {
 	auto rayTracingPipelineProperties = _device.getPhysicalDevice().getRaytracingPipelineProperties();
 	if(rayTracingPipelineProperties.maxRecursionDepth <= 2) {
 		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 3 for this pipeline.");
@@ -112,7 +112,7 @@ void Application::createRayTracingPipeline() {
 	_raytracingShaderBindingTable.create(_device, {1, 2, 1, 0}, _rayTracingPipeline);
 }
 
-void Application::createRaytracingDescriptorSets() {
+void Editor::createRaytracingDescriptorSets() {
 	assert(_scene.getTLAS() != VK_NULL_HANDLE);
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
@@ -147,7 +147,7 @@ void Application::createRaytracingDescriptorSets() {
 	}
 }
 
-void Application::recordRayTracingCommands() {
+void Editor::recordRayTracingCommands() {
 	VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
 	for(size_t i = 0; i < _rayTraceCommandBuffers.getBuffers().size(); i++) {

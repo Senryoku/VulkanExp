@@ -1,7 +1,7 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 #include <RaytracingDescriptors.hpp>
 
-void Application::createDirectLightPipeline() {
+void Editor::createDirectLightPipeline() {
 	Shader raygenShader(_device, "./shaders_spv/directLight.rgen.spv");
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
 	Shader raymissShadowShader(_device, "./shaders_spv/shadow.rmiss.spv");

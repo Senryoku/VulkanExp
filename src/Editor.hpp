@@ -75,7 +75,7 @@ static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMesse
 	}
 }
 
-class Application {
+class Editor {
   public:
 	void run();
 
@@ -300,7 +300,7 @@ class Application {
 	static void sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
-		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
 		if(yoffset > 0)
 			app->_camera.speed *= 1.1f;
 		else
@@ -310,7 +310,7 @@ class Application {
 	static void sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		if(ImGui::GetIO().WantCaptureMouse)
 			return;
-		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
 		if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
 			app->trySelectNode();
@@ -322,7 +322,7 @@ class Application {
 	}
 
 	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]) {
-		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
 		vkDeviceWaitIdle(app->_device); // FIXME: Do better?
 		for(int i = 0; i < pathCount; ++i) {
 			print("Received path '{}'.\n", paths[i]);
@@ -334,7 +334,7 @@ class Application {
 	}
 
 	static void sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
 		if(app->_controlCamera)
 			return;
 		auto it = app->_shortcuts.find({key, action, mods});
@@ -474,7 +474,7 @@ class Application {
 	}
 
 	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-		auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
 		app->_framebufferResized = true;
 		app->_width = width;
 		app->_height = height;

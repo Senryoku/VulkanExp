@@ -1,8 +1,8 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 #include <fmt/core.h>
 
 int main() {
-	Application app;
+	Editor app;
 
 	// try {
 	app.run();

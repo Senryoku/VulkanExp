@@ -50,13 +50,13 @@
     <ClCompile Include="src\GBufferPipeline.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\IrradianceProbes.cpp" />
-    <ClCompile Include="src\AppRaytracing.cpp" />
+    <ClCompile Include="src\EditorRaytracing.cpp" />
     <ClCompile Include="src\ReflectionPipeline.cpp" />
     <ClCompile Include="src\Resources.cpp" />
     <ClCompile Include="src\STBImage.cpp" />
     <ClCompile Include="src\JSON.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Application.cpp" />
+    <ClCompile Include="src\Editor.cpp" />
     <ClCompile Include="src\ThreadPool.cpp" />
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\SwapchainManagement.cpp" />
@@ -83,7 +83,7 @@
     <ClInclude Include="ext\implot\implot.h" />
     <ClInclude Include="ext\implot\implot_internal.h" />
     <ClInclude Include="ext\stb_image.h" />
-    <ClInclude Include="src\Application.hpp" />
+    <ClInclude Include="src\Editor.hpp" />
     <ClInclude Include="src\Base64.hpp" />
     <ClInclude Include="src\Bounds.hpp" />
     <ClInclude Include="src\Camera.hpp" />

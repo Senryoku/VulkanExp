@@ -1,4 +1,4 @@
-#include <Application.hpp>
+#include <Editor.hpp>
 
 VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for(VkFormat format : candidates) {
@@ -15,7 +15,7 @@ VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<
 	throw std::runtime_error("Failed to find supported format.");
 }
 
-VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+VkSurfaceFormatKHR Editor::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 	for(const auto& availableFormat : availableFormats) {
 		if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 			return availableFormat;
@@ -25,7 +25,7 @@ VkSurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<VkSurf
 	return availableFormats[0];
 }
 
-VkPresentModeKHR Application::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+VkPresentModeKHR Editor::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
 	for(const auto& availablePresentMode : availablePresentModes) {
 		if(availablePresentMode == _preferedPresentMode) {
 			return availablePresentMode;
@@ -35,7 +35,7 @@ VkPresentModeKHR Application::chooseSwapPresentMode(const std::vector<VkPresentM
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+VkExtent2D Editor::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
 	if(capabilities.currentExtent.width != UINT32_MAX) {
 		return capabilities.currentExtent;
 	} else {
@@ -51,7 +51,7 @@ VkExtent2D Application::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabil
 	}
 }
 
-void Application::createSwapChain() {
+void Editor::createSwapChain() {
 	auto swapChainSupport = _physicalDevice.getSwapChainSupport(_surface);
 
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
@@ -187,7 +187,7 @@ void Application::createSwapChain() {
 	}
 }
 
-void Application::initUniformBuffers() {
+void Editor::initUniformBuffers() {
 	{
 		// Enough buffers for current and previous frame value and each swapchain image.
 		VkDeviceSize bufferSize = sizeof(CameraBuffer);
@@ -226,7 +226,7 @@ void Application::initUniformBuffers() {
 		updateUniformBuffer(i);
 }
 
-void Application::initProbeDebug() {
+void Editor::initProbeDebug() {
 	Shader probeVertShader(_device, "./shaders_spv/probe_instanced.vert.spv");
 	Shader probeFragShader(_device, "./shaders_spv/probe_debug.frag.spv");
 
@@ -471,7 +471,7 @@ void Application::initProbeDebug() {
 		_probeDebugFramebuffers[i].create(_device, _probeDebugRenderPass, {_swapChainImageViews[i], _depthImageView}, _swapChainExtent);
 }
 
-void Application::initSwapChain() {
+void Editor::initSwapChain() {
 	// Generic DescriptorSetLayouts
 	DescriptorSetLayoutBuilder builder; // Blue Noise DSL
 	builder
@@ -547,7 +547,7 @@ void Application::initSwapChain() {
 	recordCommandBuffers();
 }
 
-void Application::recordCommandBuffers() {
+void Editor::recordCommandBuffers() {
 	for(size_t i = 0; i < _commandBuffers.getBuffers().size(); i++) {
 		auto& b = _commandBuffers.getBuffers()[i];
 		b.begin();
@@ -704,7 +704,7 @@ void Application::recordCommandBuffers() {
 	}
 }
 
-void Application::recreateSwapChain() {
+void Editor::recreateSwapChain() {
 	int width = 0, height = 0;
 	glfwGetFramebufferSize(_window, &width, &height);
 	while(width == 0 || height == 0) {
@@ -721,7 +721,7 @@ void Application::recreateSwapChain() {
 	uiOnSwapChainReady();
 }
 
-void Application::cleanupSwapChain() {
+void Editor::cleanupSwapChain() {
 	_mainTimingQueryPools.clear();
 
 	_rayTraceCommandBuffers.free();

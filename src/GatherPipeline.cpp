@@ -1,7 +1,7 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
 // Create final gather pipeline (No actual geometry)
-void Application::createGatherPipeline() {
+void Editor::createGatherPipeline() {
 	RenderPassBuilder rpb;
 	// Attachments
 	rpb.add({

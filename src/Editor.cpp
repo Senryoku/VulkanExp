@@ -1,4 +1,4 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
 #include <ImGuizmo.h>
 #include <Raytracing.hpp>
@@ -6,7 +6,7 @@
 #include <voxels/Chunk.hpp>
 #include <vulkan/Extension.hpp>
 
-void Application::initWindow() {
+void Editor::initWindow() {
 	if(glfwInit() != GLFW_TRUE)
 		error("Error intialising GLFW.\n");
 
@@ -21,7 +21,7 @@ void Application::initWindow() {
 		error("Error while creating GLFW Window. ");
 
 	// Setup GLFW Callbacks
-	glfwSetWindowUserPointer(_window, this); // Allow access to our Application instance in callbacks
+	glfwSetWindowUserPointer(_window, this); // Allow access to our Editor instance in callbacks
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 	glfwSetMouseButtonCallback(_window, sMouseButtonCallback);
 	glfwSetScrollCallback(_window, sScrollCallback);
@@ -33,7 +33,7 @@ void Application::initWindow() {
 	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
 }
 
-void Application::duplicateSelectedNode() {
+void Editor::duplicateSelectedNode() {
 	if(_selectedNode == Scene::InvalidNodeIndex)
 		return;
 
@@ -77,7 +77,7 @@ void Application::duplicateSelectedNode() {
 	vkDeviceWaitIdle(_device);
 }
 
-void Application::run() {
+void Editor::run() {
 	// Make sure shaders are up-to-date
 	system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
 
@@ -136,7 +136,7 @@ void Application::run() {
 	cleanup();
 }
 
-void Application::mainLoop() {
+void Editor::mainLoop() {
 	while(!glfwWindowShouldClose(_window)) {
 		glfwPollEvents();
 
@@ -201,7 +201,7 @@ void Application::mainLoop() {
 	}
 }
 
-void Application::drawFrame() {
+void Editor::drawFrame() {
 	VkFence currentFence = _inFlightFences[_currentFrame];
 	VK_CHECK(vkWaitForFences(_device, 1, &currentFence, VK_TRUE, UINT64_MAX));
 
@@ -317,7 +317,7 @@ void Application::drawFrame() {
 	++_frameIndex;
 }
 
-void Application::cameraControl(float dt) {
+void Editor::cameraControl(float dt) {
 	static glm::vec3 cameraPosition{0.0f};
 	if(_controlCamera) {
 		if(glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
@@ -345,7 +345,7 @@ void Application::cameraControl(float dt) {
 	}
 }
 
-void Application::trySelectNode() {
+void Editor::trySelectNode() {
 	auto ratio = static_cast<float>(_height) / _width;
 	auto d = glm::normalize(static_cast<float>((2.0f * _mouse_x) / _width - 1.0f) * _camera.getRight() +
 							-ratio * static_cast<float>((2.0f * _mouse_y) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
@@ -362,7 +362,7 @@ double toRad(double degree) {
 	return (degree * (3.14159265359 / 180));
 }
 
-void Application::updateUniformBuffer(uint32_t currentImage) {
+void Editor::updateUniformBuffer(uint32_t currentImage) {
 	static auto lastTime = std::chrono::high_resolution_clock::now();
 	auto		currentTime = std::chrono::high_resolution_clock::now();
 	float		time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();

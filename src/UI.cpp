@@ -1,4 +1,4 @@
-#include "Application.hpp"
+#include "Editor.hpp"
 
 #include <ImGuiExtensions.hpp>
 #include <ImGuizmo.h>
@@ -22,7 +22,7 @@ struct DebugTexture {
 };
 static std::vector<DebugTexture> DebugTextureIDs;
 
-void Application::initImGui(uint32_t queueFamily) {
+void Editor::initImGui(uint32_t queueFamily) {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -99,7 +99,7 @@ void Application::initImGui(uint32_t queueFamily) {
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
-void Application::createImGuiRenderPass() {
+void Editor::createImGuiRenderPass() {
 	// UI
 	VkAttachmentReference colorAttachment = {
 		.attachment = 0,
@@ -132,7 +132,7 @@ void Application::createImGuiRenderPass() {
 	_imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainImageViews.size());
 }
 
-void Application::uiOnSwapChainReady() {
+void Editor::uiOnSwapChainReady() {
 	// Prepare new scene textures for display
 	for(TextureIndex i = TextureIndex{SceneUITextureIDs.size()}; i < Textures.size(); ++i) {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
@@ -158,7 +158,7 @@ void plot(const char* name, const RollingBuffer<T>& rb) {
 }
 
 // Re-record Dear IMGUI command buffer for this frame.
-void Application::recordUICommandBuffer(size_t imageIndex) {
+void Editor::recordUICommandBuffer(size_t imageIndex) {
 	auto					 imguiCmdBuff = _imguiCommandBuffers.getBuffers()[imageIndex].getHandle();
 	VkCommandBufferBeginInfo info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -182,7 +182,7 @@ void Application::recordUICommandBuffer(size_t imageIndex) {
 	VK_CHECK(vkEndCommandBuffer(imguiCmdBuff));
 }
 
-void Application::drawUI() {
+void Editor::drawUI() {
 	size_t	   treeUniqueIdx = 0;
 	const auto makeUnique = [&](const std::string& name) { return (name + "##" + std::to_string(++treeUniqueIdx)); };
 
@@ -676,7 +676,7 @@ void Application::drawUI() {
 	ImGui::End();
 }
 
-void Application::cleanupUI() {
+void Editor::cleanupUI() {
 	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

@@ -51,7 +51,7 @@
     <ClCompile Include="ext\imgui-docking\imgui_demo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Application.cpp">
+    <ClCompile Include="src\Editor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\UI.cpp">
@@ -93,7 +93,7 @@
     <ClCompile Include="src\vulkan\DescriptorSetLayout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\AppRaytracing.cpp">
+    <ClCompile Include="src\EditorRaytracing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Resources.cpp">
@@ -155,7 +155,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Application.hpp">
+    <ClInclude Include="src\Editor.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\vulkan\Device.hpp">
