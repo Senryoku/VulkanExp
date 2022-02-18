@@ -1,4 +1,4 @@
-#include "Editor.hpp"
+﻿#include "Editor.hpp"
 
 #include <ImGuiExtensions.hpp>
 #include <ImGuizmo.h>
@@ -391,69 +391,74 @@ void Editor::drawUI() {
 			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
 			ImGui::InputText("Name", &node.name);
 
-			// TEMP Button
+			// TEMP Buttons
 			if(ImGui::Button("Duplicate")) {
 				duplicateSelectedNode();
 			}
+			if(ImGui::Button("Delete")) {
+				_scene.getRegistry().destroy(_selectedNode);
+				_selectedNode = entt::null;
+				dirtyMaterials = true; // FIXME: Not the right flag, just happens to be enough for now
+			} else {
+				if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
+					float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+					// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
+					ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
+					updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
+					updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
+					updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
+					if(updatedTransform)
+						ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
 
-			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
-				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-				// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
-				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
-				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
-				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
-				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
-				if(updatedTransform)
-					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
-
-				if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				ImGui::SameLine();
-				if(ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				ImGui::SameLine();
-				if(ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-					mCurrentGizmoOperation = ImGuizmo::SCALE;
-
-				if(mCurrentGizmoOperation != ImGuizmo::SCALE) {
-					if(ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-						mCurrentGizmoMode = ImGuizmo::LOCAL;
+					if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+						mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 					ImGui::SameLine();
-					if(ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-						mCurrentGizmoMode = ImGuizmo::WORLD;
-				}
-				if(ImGui::IsKeyPressed(GLFW_KEY_X))
-					useSnap = !useSnap;
-				ImGui::Checkbox("", &useSnap);
-				ImGui::SameLine();
-				switch(mCurrentGizmoOperation) {
-					case ImGuizmo::TRANSLATE:
-						// snap = config.mSnapTranslation;
-						ImGui::InputFloat3("Snap", &snap.x);
-						break;
-					case ImGuizmo::ROTATE:
-						// snap = config.mSnapRotation;
-						ImGui::InputFloat("Angle Snap", &snap.x);
-						break;
-					case ImGuizmo::SCALE:
-						// snap = config.mSnapScale;
-						ImGui::InputFloat("Scale Snap", &snap.x);
-						break;
-				}
+					if(ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+						mCurrentGizmoOperation = ImGuizmo::ROTATE;
+					ImGui::SameLine();
+					if(ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+						mCurrentGizmoOperation = ImGuizmo::SCALE;
 
-				ImGui::TreePop();
-			}
-			if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
-				auto& mesh = _scene[meshComp->index];
-				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
-						auto& submesh = mesh.SubMeshes[i];
-						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-							dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
-							ImGui::TreePop();
-						}
+					if(mCurrentGizmoOperation != ImGuizmo::SCALE) {
+						if(ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+							mCurrentGizmoMode = ImGuizmo::LOCAL;
+						ImGui::SameLine();
+						if(ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+							mCurrentGizmoMode = ImGuizmo::WORLD;
 					}
+					if(ImGui::IsKeyPressed(GLFW_KEY_X))
+						useSnap = !useSnap;
+					ImGui::Checkbox("", &useSnap);
+					ImGui::SameLine();
+					switch(mCurrentGizmoOperation) {
+						case ImGuizmo::TRANSLATE:
+							// snap = config.mSnapTranslation;
+							ImGui::InputFloat3("Snap", &snap.x);
+							break;
+						case ImGuizmo::ROTATE:
+							// snap = config.mSnapRotation;
+							ImGui::InputFloat("Angle Snap", &snap.x);
+							break;
+						case ImGuizmo::SCALE:
+							// snap = config.mSnapScale;
+							ImGui::InputFloat("Scale Snap", &snap.x);
+							break;
+					}
+
 					ImGui::TreePop();
+				}
+				if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
+					auto& mesh = _scene[meshComp->index];
+					if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+						for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
+							auto& submesh = mesh.SubMeshes[i];
+							if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+								dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
+								ImGui::TreePop();
+							}
+						}
+						ImGui::TreePop();
+					}
 				}
 			}
 		} else {
