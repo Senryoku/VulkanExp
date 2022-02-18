@@ -827,32 +827,6 @@ void Scene::uploadMeshOffsetTable(const Device& device) {
 	VK_CHECK(vkQueueWaitIdle(queue));
 }
 
-void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity) {
-	auto& node = registry.get<NodeComponent>(entity);
-	print("Scene::onDestroyNodeComponent '{}' ({})\n", node.name, entity);
-	auto child = node.first;
-	while(child != entt::null) {
-		auto tmp = registry.get<NodeComponent>(child).next;
-		registry.destroy(child); // Mmmh...?
-		child = tmp;
-	}
-
-	if(node.parent != entt::null) {
-		auto& parent = registry.get<NodeComponent>(node.parent);
-		if(parent.first == entity)
-			parent.first = node.next;
-		--parent.children;
-	}
-	if(node.prev != entt::null) {
-		auto& prev = registry.get<NodeComponent>(node.prev);
-		prev.next = node.next;
-	}
-	if(node.next != entt::null) {
-		auto& next = registry.get<NodeComponent>(node.next);
-		next.prev = node.prev;
-	}
-}
-
 bool Scene::update(const Device& device) {
 	if(_dirtyNodes.empty())
 		return false;
@@ -1219,4 +1193,67 @@ entt::entity Scene::intersectNodes(Ray& ray) {
 		}
 	});
 	return bestNode;
+}
+
+void Scene::removeFromHierarchy(entt::entity entity) {
+	auto& node = _registry.get<NodeComponent>(entity);
+	auto& parentNode = _registry.get<NodeComponent>(node.parent);
+	if(node.prev != entt::null)
+		_registry.get<NodeComponent>(node.prev).next = node.next;
+	if(node.next != entt::null)
+		_registry.get<NodeComponent>(node.next).prev = node.prev;
+	if(parentNode.first == entity)
+		parentNode.first = node.next;
+	--parentNode.children;
+	node.next = entt::null;
+	node.prev = entt::null;
+	node.parent = entt::null;
+}
+
+void Scene::addChild(entt::entity parent, entt::entity child) {
+	assert(parent != child);
+	auto& parentNode = _registry.get<NodeComponent>(parent);
+	auto& childNode = _registry.get<NodeComponent>(child);
+	assert(childNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+	if(parentNode.first == entt::null) {
+		parentNode.first = child;
+	} else {
+		auto lastChild = parentNode.first;
+		while(_registry.get<NodeComponent>(lastChild).next != entt::null) {
+			lastChild = _registry.get<NodeComponent>(lastChild).next;
+		}
+		_registry.get<NodeComponent>(lastChild).next = child;
+		childNode.prev = lastChild;
+	}
+	childNode.parent = parent;
+	++parentNode.children;
+	markDirty(parent);
+	markDirty(child);
+}
+
+void Scene::addSibling(entt::entity target, entt::entity other) {
+	assert(target != other);
+	auto& targetNode = _registry.get<NodeComponent>(target);
+	auto& otherNode = _registry.get<NodeComponent>(other);
+	assert(otherNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+	auto& parentNode = _registry.get<NodeComponent>(targetNode.parent);
+	++parentNode.children;
+	otherNode.parent = targetNode.parent;
+	if(targetNode.next != entt::null)
+		_registry.get<NodeComponent>(targetNode.next).prev = other;
+	otherNode.next = targetNode.next;
+	otherNode.prev = target;
+	targetNode.next = other;
+}
+
+void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity) {
+	auto& node = registry.get<NodeComponent>(entity);
+	print("Scene::onDestroyNodeComponent '{}' ({})\n", node.name, entity);
+	removeFromHierarchy(entity);
+	auto child = node.first;
+	while(child != entt::null) {
+		auto tmp = registry.get<NodeComponent>(child).next;
+		registry.destroy(child); // Mmmh...?
+		child = tmp;
+	}
 }

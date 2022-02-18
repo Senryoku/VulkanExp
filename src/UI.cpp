@@ -323,19 +323,22 @@ void Editor::drawUI() {
 				if(payload) {
 					auto droppedEntity = *static_cast<entt::entity*>(payload->Data);
 					if(droppedEntity != n) {
-						// TODO: Adjust local transform so the world one stays the same?
-						auto& droppedNode = _scene.getRegistry().get<NodeComponent>(droppedEntity);
-						auto& parentNode = _scene.getRegistry().get<NodeComponent>(droppedNode.parent);
-						if(droppedNode.prev != entt::null)
-							_scene.getRegistry().get<NodeComponent>(droppedNode.prev).next = droppedNode.next;
-						if(droppedNode.next != entt::null)
-							_scene.getRegistry().get<NodeComponent>(droppedNode.next).prev = droppedNode.prev;
-						if(parentNode.first == droppedEntity)
-							parentNode.first = droppedNode.next;
-						--parentNode.children;
-						droppedNode.parent = entt::null;
-						_scene.addSibling(entity, droppedEntity);
-						_dirtyHierarchy = true;
+						// Make sure entity is not a descendant of droppedEntity
+						bool  isDescendant = false;
+						auto* currNode = &_scene.getRegistry().get<NodeComponent>(entity);
+						while(currNode->parent != entt::null) {
+							if(currNode->parent == droppedEntity) {
+								isDescendant = true;
+								break;
+							}
+							currNode = &_scene.getRegistry().get<NodeComponent>(currNode->parent);
+						}
+						if(!isDescendant) {
+							// TODO: Adjust local transform so the world one stays the same?
+							_scene.removeFromHierarchy(droppedEntity);
+							_scene.addChild(entity, droppedEntity);
+							_dirtyHierarchy = true;
+						}
 					}
 				}
 				ImGui::EndDragDropTarget();

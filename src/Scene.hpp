@@ -52,40 +52,9 @@ class Scene {
 		Double = 5130,
 	};
 
-	void addChild(entt::entity parent, entt::entity child) {
-		assert(parent != child);
-		auto& parentNode = _registry.get<NodeComponent>(parent);
-		auto& childNode = _registry.get<NodeComponent>(child);
-		assert(childNode.parent == entt::null); // We should probably handle this case, but we don't right now!
-		if(parentNode.first == entt::null) {
-			parentNode.first = child;
-		} else {
-			auto lastChild = parentNode.first;
-			while(_registry.get<NodeComponent>(lastChild).next != entt::null) {
-				lastChild = _registry.get<NodeComponent>(lastChild).next;
-			}
-			_registry.get<NodeComponent>(lastChild).next = child;
-			childNode.prev = lastChild;
-		}
-		childNode.parent = parent;
-		++parentNode.children;
-		markDirty(parent);
-		markDirty(child);
-	}
-	void addSibling(entt::entity target, entt::entity other) {
-		assert(target != other);
-		auto& targetNode = _registry.get<NodeComponent>(target);
-		auto& otherNode = _registry.get<NodeComponent>(other);
-		assert(otherNode.parent == entt::null); // We should probably handle this case, but we don't right now!
-		auto& parentNode = _registry.get<NodeComponent>(targetNode.parent);
-		++parentNode.children;
-		otherNode.parent = targetNode.parent;
-		if(targetNode.next != entt::null)
-			_registry.get<NodeComponent>(targetNode.next).prev = other;
-		otherNode.next = targetNode.next;
-		otherNode.prev = target;
-		targetNode.next = other;
-	}
+	void removeFromHierarchy(entt::entity);
+	void addChild(entt::entity parent, entt::entity child);
+	void addSibling(entt::entity target, entt::entity other);
 
 	Scene();
 	Scene(const std::filesystem::path& path);
