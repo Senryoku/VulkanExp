@@ -319,18 +319,29 @@ void Editor::drawUI() {
 			// Drag & Drop nodes to edit parent/children links
 			// TODO: Allow re-ordering between children (needs dummy?).
 			if(ImGui::BeginDragDropTarget()) {
-				auto payload = ImGui::AcceptDragDropPayload("NodeIndex");
+				auto payload = ImGui::AcceptDragDropPayload("Entity");
 				if(payload) {
-					auto droppedNode = *static_cast<entt::entity*>(payload->Data);
-					if(droppedNode != n) {
-						// TODO!
-						warn("Entity/Node Drag&Drop not re-implemented yet!\n");
+					auto droppedEntity = *static_cast<entt::entity*>(payload->Data);
+					if(droppedEntity != n) {
+						// TODO: Adjust local transform so the world one stays the same?
+						auto& droppedNode = _scene.getRegistry().get<NodeComponent>(droppedEntity);
+						auto& parentNode = _scene.getRegistry().get<NodeComponent>(droppedNode.parent);
+						if(droppedNode.prev != entt::null)
+							_scene.getRegistry().get<NodeComponent>(droppedNode.prev).next = droppedNode.next;
+						if(droppedNode.next != entt::null)
+							_scene.getRegistry().get<NodeComponent>(droppedNode.next).prev = droppedNode.prev;
+						if(parentNode.first == droppedEntity)
+							parentNode.first = droppedNode.next;
+						--parentNode.children;
+						droppedNode.parent = entt::null;
+						_scene.addSibling(entity, droppedEntity);
+						_dirtyHierarchy = true;
 					}
 				}
 				ImGui::EndDragDropTarget();
 			}
 			if(ImGui::BeginDragDropSource()) {
-				ImGui::SetDragDropPayload("Entity", &n, sizeof(n));
+				ImGui::SetDragDropPayload("Entity", &entity, sizeof(entity));
 				ImGui::EndDragDropSource();
 			}
 
