@@ -84,6 +84,7 @@ vec3 reinhard(vec3 v)
 // Avoid really high spots
 vec3 colorCompression(vec3 v) {
 	// This is pretty aggressive.
+	// TODO: Review other solutions
 	return reinhard(v);
 	//return v;
 }

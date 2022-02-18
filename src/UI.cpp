@@ -380,11 +380,7 @@ void Editor::drawUI() {
 	}
 	ImGui::End();
 
-	bool					   updatedTransform = false;
-	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-	static ImGuizmo::MODE	   mCurrentGizmoMode(ImGuizmo::LOCAL);
-	static bool				   useSnap(false);
-	glm::vec3				   snap{1.0};
+	bool updatedTransform = false;
 
 	if(ImGui::Begin("Node")) {
 		if(_selectedNode != entt::null) {
@@ -395,70 +391,61 @@ void Editor::drawUI() {
 			if(ImGui::Button("Duplicate")) {
 				duplicateSelectedNode();
 			}
-			if(ImGui::Button("Delete")) {
-				_scene.getRegistry().destroy(_selectedNode);
-				_selectedNode = entt::null;
-				dirtyMaterials = true; // FIXME: Not the right flag, just happens to be enough for now
-			} else {
-				if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
-					float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-					// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
-					ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
-					updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
-					updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
-					updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
-					if(updatedTransform)
-						ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
+			ImGui::SameLine();
+			if(ImGui::Button("Delete"))
+				deleteSelectedNode();
+		}
+		if(_selectedNode != entt::null) {
+			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
+			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
+				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+				// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
+				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
+				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
+				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
+				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
+				if(updatedTransform)
+					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
 
-					if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-						mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-					ImGui::SameLine();
-					if(ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-						mCurrentGizmoOperation = ImGuizmo::ROTATE;
-					ImGui::SameLine();
-					if(ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-						mCurrentGizmoOperation = ImGuizmo::SCALE;
+				if(ImGui::RadioButton("Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
+					_currentGizmoOperation = ImGuizmo::TRANSLATE;
+				ImGui::SameLine();
+				if(ImGui::RadioButton("Rotate (R)", _currentGizmoOperation == ImGuizmo::ROTATE))
+					_currentGizmoOperation = ImGuizmo::ROTATE;
+				ImGui::SameLine();
+				if(ImGui::RadioButton("Scale (Y)", _currentGizmoOperation == ImGuizmo::SCALE))
+					_currentGizmoOperation = ImGuizmo::SCALE;
 
-					if(mCurrentGizmoOperation != ImGuizmo::SCALE) {
-						if(ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-							mCurrentGizmoMode = ImGuizmo::LOCAL;
-						ImGui::SameLine();
-						if(ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-							mCurrentGizmoMode = ImGuizmo::WORLD;
-					}
-					if(ImGui::IsKeyPressed(GLFW_KEY_X))
-						useSnap = !useSnap;
-					ImGui::Checkbox("", &useSnap);
-					ImGui::SameLine();
-					switch(mCurrentGizmoOperation) {
-						case ImGuizmo::TRANSLATE:
-							// snap = config.mSnapTranslation;
-							ImGui::InputFloat3("Snap", &snap.x);
-							break;
-						case ImGuizmo::ROTATE:
-							// snap = config.mSnapRotation;
-							ImGui::InputFloat("Angle Snap", &snap.x);
-							break;
-						case ImGuizmo::SCALE:
-							// snap = config.mSnapScale;
-							ImGui::InputFloat("Scale Snap", &snap.x);
-							break;
-					}
-
-					ImGui::TreePop();
+				ImGui::Checkbox("Snap", &_useSnap);
+				ImGui::SameLine();
+				switch(_currentGizmoOperation) {
+					case ImGuizmo::TRANSLATE:
+						// snap = config.mSnapTranslation;
+						ImGui::InputFloat3("Snap", &_snapOffset.x);
+						break;
+					case ImGuizmo::ROTATE:
+						// snap = config.mSnapRotation;
+						ImGui::InputFloat("Angle Snap", &_snapOffset.x);
+						break;
+					case ImGuizmo::SCALE:
+						// snap = config.mSnapScale;
+						ImGui::InputFloat("Scale Snap", &_snapOffset.x);
+						break;
 				}
-				if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
-					auto& mesh = _scene[meshComp->index];
-					if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-						for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
-							auto& submesh = mesh.SubMeshes[i];
-							if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-								dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
-								ImGui::TreePop();
-							}
+
+				ImGui::TreePop();
+			}
+			if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
+				auto& mesh = _scene[meshComp->index];
+				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
+						auto& submesh = mesh.SubMeshes[i];
+						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+							dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
+							ImGui::TreePop();
 						}
-						ImGui::TreePop();
 					}
+					ImGui::TreePop();
 				}
 			}
 		} else {
@@ -519,20 +506,14 @@ void Editor::drawUI() {
 				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
 		}
 
-		if(ImGui::IsKeyPressed(GLFW_KEY_T) || ImGui::IsKeyPressed(GLFW_KEY_Z))
-			mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		if(ImGui::IsKeyPressed(GLFW_KEY_R))
-			mCurrentGizmoOperation = ImGuizmo::ROTATE;
-		if(ImGui::IsKeyPressed(GLFW_KEY_Y))
-			mCurrentGizmoOperation = ImGuizmo::SCALE;
 		ImGuiIO& io = ImGui::GetIO();
 		int		 x, y;
 		glfwGetWindowPos(_window, &x, &y);
 		ImGuizmo::SetRect(x, y, io.DisplaySize.x, io.DisplaySize.y);
 		glm::mat4 delta;
 		bool	  gizmoUpdated =
-			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), mCurrentGizmoOperation,
-								 mCurrentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), useSnap ? &snap.x : nullptr);
+			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
+								 ImGuizmo::MODE::LOCAL, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
 		if(gizmoUpdated) {
 			node.transform = glm::inverse(parentTransform) * worldTransform;
 		}

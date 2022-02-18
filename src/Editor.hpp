@@ -36,14 +36,19 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+
+#include <imgui.h>
+
+#include <ImGuizmo/ImGuizmo.h>
+
 #include <IrradianceProbes.hpp>
 #include <KeyboardShortcut.hpp>
 #include <Light.hpp>
+#include <PipelineCache.hpp>
 #include <QuickTimer.hpp>
 #include <RollingBuffer.hpp>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
-#include <vulkan/PipelineCache.hpp>
 
 struct CameraBuffer {
 	glm::mat4 view;
@@ -146,6 +151,7 @@ class Editor {
 	inline static constexpr char const* PipelineCacheFilepath = "./vulkan_pipeline.cache";
 	PipelineCache						_pipelineCache;
 
+	bool							 _dirtyHierarchy = false;		  // Node Hierachy has changed shape
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
 	Image							 _depthImage;
 	ImageView						 _depthImageView;
@@ -270,7 +276,10 @@ class Editor {
 	Camera														_camera{glm::vec3(-14.0f, 15.0f, 18.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double														_mouse_x = 0, _mouse_y = 0;
 
-	entt::entity _selectedNode = entt::null;
+	entt::entity		_selectedNode = entt::null;
+	bool				_useSnap = false;
+	glm::vec3			_snapOffset{1.0f};
+	ImGuizmo::OPERATION _currentGizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 
 	void createInstance();
 	void createSwapChain();
@@ -288,6 +297,7 @@ class Editor {
 
 	void trySelectNode();
 	void duplicateSelectedNode();
+	void deleteSelectedNode();
 
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing

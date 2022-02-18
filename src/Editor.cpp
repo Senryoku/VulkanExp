@@ -31,6 +31,19 @@ void Editor::initWindow() {
 	_shortcuts[{GLFW_KEY_F1}] = [&]() { _drawUI = !_drawUI; };
 	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/defaut.scene"); };
 	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
+	_shortcuts[{GLFW_KEY_X, GLFW_PRESS}] = [&]() { _useSnap = !_useSnap; };
+	_shortcuts[{GLFW_KEY_T, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::TRANSLATE; };
+	_shortcuts[{GLFW_KEY_Z, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::TRANSLATE; };
+	_shortcuts[{GLFW_KEY_R, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::ROTATE; };
+	_shortcuts[{GLFW_KEY_Y, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::SCALE; };
+	_shortcuts[{GLFW_KEY_DELETE, GLFW_PRESS}] = [&]() { deleteSelectedNode(); };
+}
+
+void Editor::deleteSelectedNode() {
+	_scene.getRegistry().destroy(_selectedNode);
+	_selectedNode = entt::null;
+
+	_dirtyHierarchy = true;
 }
 
 void Editor::duplicateSelectedNode() {
@@ -62,27 +75,7 @@ void Editor::duplicateSelectedNode() {
 	_scene.addSibling(_selectedNode, copiedNode);
 	_selectedNode = copiedNode;
 
-	// Recreate Acceleration Structure
-	// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
-	vkDeviceWaitIdle(_device);
-	_scene.destroyTLAS(_device);
-	_scene.createTLAS(_device);
-	// We have to update the all descriptor sets referencing the acceleration structures.
-	// FIXME: Also abstract this somehow? (Callback from createTLAS? setup by Scene?)
-	for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
-		for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-			DescriptorSetWriter dsw(set->getDescriptorSets()[i]);
-			dsw.add(0, {
-						   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-						   .accelerationStructureCount = 1,
-						   .pAccelerationStructures = &_scene.getTLAS(),
-					   });
-			dsw.update(_device);
-		}
-	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
-	recordCommandBuffers();
-
-	vkDeviceWaitIdle(_device);
+	_dirtyHierarchy = true;
 }
 
 void Editor::run() {
@@ -157,6 +150,28 @@ void Editor::mainLoop() {
 			_dirtyShaders = false;
 		}
 
+		if(_dirtyHierarchy) {
+			// Recreate Acceleration Structure
+			vkDeviceWaitIdle(_device); // TODO: Better sync?
+			_scene.destroyTLAS(_device);
+			_scene.createTLAS(_device);
+			// We have to update the all descriptor sets referencing the acceleration structures.
+			// FIXME: Also abstract this somehow? (Callback from createTLAS? setup by Scene?)
+			for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
+				for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+					DescriptorSetWriter dsw(set->getDescriptorSets()[i]);
+					dsw.add(0, {
+								   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+								   .accelerationStructureCount = 1,
+								   .pAccelerationStructures = &_scene.getTLAS(),
+							   });
+					dsw.update(_device);
+				}
+			_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+			_outdatedCommandBuffers = true;
+			_dirtyHierarchy = false;
+		}
+
 		for(auto& pool : _mainTimingQueryPools) {
 			if(pool.newSampleFlag) {
 				auto results = pool.get();
@@ -206,6 +221,7 @@ void Editor::mainLoop() {
 				fencesHandles.push_back(fence);
 			VK_CHECK(vkWaitForFences(_device, static_cast<uint32_t>(fencesHandles.size()), fencesHandles.data(), VK_TRUE, UINT64_MAX));
 			recordCommandBuffers();
+			recordRayTracingCommands();
 			_outdatedCommandBuffers = false;
 		}
 
