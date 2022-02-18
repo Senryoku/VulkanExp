@@ -23,7 +23,7 @@
 Scene::Scene() {
 	_registry.on_destroy<NodeComponent>().connect<&Scene::onDestroyNodeComponent>(this);
 	_root = _registry.create();
-	_registry.emplace<NodeComponent>(_root);
+	_registry.emplace<NodeComponent>(_root).name = "Root";
 }
 
 Scene::Scene(const std::filesystem::path& path) {
@@ -140,7 +140,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	}
 	const auto& object = json.getRoot();
 
-	const auto textureOffset = Textures.size();
+	const auto textureOffset = static_cast<uint32_t>(Textures.size());
 
 	loadTextures(path, object);
 
@@ -310,7 +310,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 		auto meshIndex = node("mesh", -1);
 		if(meshIndex != -1)
-			_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(meshIndex)});
+			_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(meshOffset + meshIndex)});
 	}
 
 	for(const auto& scene : object["scenes"]) {
@@ -349,7 +349,6 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 
 	auto  rootEntity = _registry.create();
 	auto& n = _registry.emplace<NodeComponent>(rootEntity);
-	_registry.emplace<MeshComponent>(rootEntity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
 	addChild(_root, rootEntity);
 
 	std::vector<glm::vec2> uvs;
@@ -361,6 +360,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		m = &_meshes.back();
 
 		auto entity = _registry.create();
+		_registry.emplace<NodeComponent>(entity);
 		_registry.emplace<MeshComponent>(entity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
 		addChild(rootEntity, entity);
 
@@ -505,7 +505,7 @@ bool Scene::save(const std::filesystem::path& path) {
 	QuickTimer qt(fmt::format("Save Scene to '{}'", path.string()));
 	JSON	   serialized{
 		  {"materials", JSON::array()},
-		  {"nodes", JSON::array()},
+		  {"entities", JSON::array()},
 		  {"meshes", JSON::array()},
 	  };
 	auto& root = serialized.getRoot();
@@ -514,8 +514,9 @@ bool Scene::save(const std::filesystem::path& path) {
 	for(const auto& mat : Materials)
 		mats.push_back(toJSON(mat));
 
-	auto& nodes = root["entities"].asArray();
-	auto  view = _registry.view<NodeComponent>();
+	auto&									 entities = root["entities"].asArray();
+	auto									 view = _registry.view<NodeComponent>();
+	std::unordered_map<entt::entity, size_t> entitiesIndices;
 	for(const auto& entity : view) {
 		auto& n = _registry.get<NodeComponent>(entity);
 		JSON  nodeJSON{
@@ -527,6 +528,16 @@ bool Scene::save(const std::filesystem::path& path) {
 		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
 			nodeJSON["mesh"] = static_cast<int>(mesh->index);
 		}
+		entitiesIndices[entity] = entities.size(); // Maps entity id to index in the file array, used to create children array
+		entities.push_back(nodeJSON);
+	}
+	// Add childrens
+	size_t index = 0;
+	for(const auto& entity : view) {
+		auto& n = _registry.get<NodeComponent>(entity);
+		for(auto c = n.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
+			entities[index]["children"].push(entitiesIndices[c]);
+		++index;
 	}
 
 	std::vector<GLBChunk> buffers;
@@ -601,6 +612,8 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 	QuickTimer qt(fmt::format("Loading Scene '{}'", path.string()));
 
 	// FIXME
+	_registry.clear();
+	_root = entt::null;
 	Materials.clear();
 	Textures.clear();
 	_meshes.clear();
@@ -665,13 +678,9 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 					if(idx > 0)
 						childNode.prev = entities[children[idx - 1]];
 					if(idx < children.size() - 1)
-						childNode.prev = entities[children[idx + 2]];
+						childNode.next = entities[children[idx + 1]];
 				}
 			}
-		}
-
-		for(const auto& m : root["materials"]) {
-			loadMaterial(m, 0);
 		}
 
 		for(const auto& t : root["textures"]) {
@@ -680,6 +689,10 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 				.format = static_cast<VkFormat>(t["format"].as<int>()),
 				.samplerDescription = t["sampler"].asObject(),
 			});
+		}
+
+		for(const auto& m : root["materials"]) {
+			loadMaterial(m, 0);
 		}
 
 		for(const auto& m : root["meshes"]) {
@@ -698,9 +711,17 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			}
 		}
 
+		// Find root (FIXME: There's probably a better way to do this. Should we order the nodes when saving so the root is always the first node in the array? It's also probably a
+		// win for performance, mmh...)
+		for(auto e : entities)
+			if(_registry.get<NodeComponent>(e).parent == entt::null) { // Note: This means that we don't support out-of-tree entities, but it's probably fine.
+				_root = e;
+				break;
+			}
 		computeBounds();
+		return true;
 	}
-	return true;
+	return false;
 }
 
 void Scene::allocateMeshes(const Device& device) {
@@ -725,7 +746,7 @@ void Scene::allocateMeshes(const Device& device) {
 			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
 			memReqs.push_back(vertexBufferMemReq);
 			memReqs.push_back(indexBufferMemReq);
-			sm.indexIntoOffsetTable = _offsetTable.size();
+			sm.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
 			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
 											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
 			totalVertexSize += vertexBufferMemReq.size;
@@ -765,7 +786,7 @@ void Scene::updateMeshOffsetTable() {
 		for(auto& sm : m.SubMeshes) {
 			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
 			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
-			sm.indexIntoOffsetTable = _offsetTable.size();
+			sm.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
 			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
 											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
 			totalVertexSize += vertexBufferMemReq.size;

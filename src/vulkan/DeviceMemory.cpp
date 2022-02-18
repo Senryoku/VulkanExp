@@ -10,9 +10,7 @@ DeviceMemory::~DeviceMemory() {
 
 void DeviceMemory::allocate(VkDevice device, const VkMemoryAllocateInfo& allocationInfo) {
 	assert(_handle == VK_NULL_HANDLE);
-	if(vkAllocateMemory(device, &allocationInfo, nullptr, &_handle) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to allocate memory!");
-	}
+	VK_CHECK(vkAllocateMemory(device, &allocationInfo, nullptr, &_handle));
 	_device = device;
 }
 
@@ -34,7 +32,7 @@ void DeviceMemory::allocate(VkDevice device, uint32_t memoryTypeIndex, size_t si
 void DeviceMemory::allocate(const Device& device, Buffer& buffer, uint32_t memoryTypeIndex, VkMemoryAllocateFlags flags) {
 	const auto memReq = buffer.getMemoryRequirements();
 	allocate(device, device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, memoryTypeIndex), memReq.size, flags);
-	vkBindBufferMemory(device, buffer, _handle, 0);
+	VK_CHECK(vkBindBufferMemory(device, buffer, _handle, 0));
 	buffer.setMemory(*this);
 }
 
