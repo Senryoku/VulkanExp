@@ -270,7 +270,7 @@ class Editor {
 	Camera														_camera{glm::vec3(-14.0f, 15.0f, 18.0f), glm::normalize(glm::vec3(1.0, -1.0f, -1.0f))};
 	double														_mouse_x = 0, _mouse_y = 0;
 
-	Scene::NodeIndex _selectedNode = Scene::InvalidNodeIndex;
+	entt::entity _selectedNode = entt::null;
 
 	void createInstance();
 	void createSwapChain();

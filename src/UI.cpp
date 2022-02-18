@@ -310,42 +310,39 @@ void Editor::drawUI() {
 	bool dirtyMaterials = false;
 
 	if(ImGui::Begin("Objects")) {
-		auto&										nodes = _scene.getNodes();
-		const std::function<void(Scene::NodeIndex)> displayNode = [&](Scene::NodeIndex n) {
-			bool open = ImGui::TreeNodeEx(makeUnique(nodes[n].name).c_str(),
-										  (n == _selectedNode ? ImGuiTreeNodeFlags_Selected : 0) |
-											  (nodes[n].children.empty() ? ImGuiTreeNodeFlags_Leaf : (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen)));
+		const std::function<void(entt::entity)> displayNode = [&](entt::entity entity) {
+			auto& n = _scene.getRegistry().get<NodeComponent>(entity);
+
+			bool open =
+				ImGui::TreeNodeEx(makeUnique(n.name).c_str(), (entity == _selectedNode ? ImGuiTreeNodeFlags_Selected : 0) |
+																  (n.children == 0 ? ImGuiTreeNodeFlags_Leaf : (ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen)));
 			// Drag & Drop nodes to edit parent/children links
-			// TODO: Allow re-ordering between children (needs dummy ).
+			// TODO: Allow re-ordering between children (needs dummy?).
 			if(ImGui::BeginDragDropTarget()) {
 				auto payload = ImGui::AcceptDragDropPayload("NodeIndex");
 				if(payload) {
-					auto droppedNode = *static_cast<Scene::NodeIndex*>(payload->Data);
+					auto droppedNode = *static_cast<entt::entity*>(payload->Data);
 					if(droppedNode != n) {
-						// Remove previous parent-child link
-						nodes[nodes[droppedNode].parent].children.erase(
-							std::find(nodes[nodes[droppedNode].parent].children.begin(), nodes[nodes[droppedNode].parent].children.end(), droppedNode));
-						nodes[droppedNode].parent = Scene::InvalidNodeIndex;
-						_scene.addChild(n, droppedNode);
+						// TODO!
+						warn("Entity/Node Drag&Drop not re-implemented yet!\n");
 					}
 				}
 				ImGui::EndDragDropTarget();
 			}
 			if(ImGui::BeginDragDropSource()) {
-				ImGui::SetDragDropPayload("NodeIndex", &n, sizeof(n));
+				ImGui::SetDragDropPayload("Entity", &n, sizeof(n));
 				ImGui::EndDragDropSource();
 			}
 
 			if(ImGui::IsItemClicked())
-				_selectedNode = n;
+				_selectedNode = entity;
 			if(open) {
-				for(const auto& c : nodes[n].children) {
+				for(auto c = n.first; c != entt::null; c = _scene.getRegistry().get<NodeComponent>(c).next)
 					displayNode(c);
-				}
 				ImGui::TreePop();
 			}
 		};
-		displayNode(Scene::NodeIndex{0});
+		displayNode(_scene.getRoot());
 	}
 	ImGui::End();
 
@@ -367,7 +364,7 @@ void Editor::drawUI() {
 	ImGui::End();
 
 	if(ImGui::Begin("Meshes")) {
-		for(Scene::MeshIndex i = Scene::MeshIndex(0u); i < _scene.getMeshes().size(); ++i) {
+		for(MeshIndex i = MeshIndex(0u); i < _scene.getMeshes().size(); ++i) {
 			auto& m = _scene.getMeshes()[i];
 			if(ImGui::TreeNodeEx(makeUnique(m.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 				for(auto& sm : m.SubMeshes) {
@@ -390,8 +387,9 @@ void Editor::drawUI() {
 	glm::vec3				   snap{1.0};
 
 	if(ImGui::Begin("Node")) {
-		if(_selectedNode != Scene::InvalidNodeIndex) {
-			ImGui::InputText("Name", &_scene[_selectedNode].name);
+		if(_selectedNode != entt::null) {
+			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
+			ImGui::InputText("Name", &node.name);
 
 			// TEMP Button
 			if(ImGui::Button("Duplicate")) {
@@ -401,12 +399,12 @@ void Editor::drawUI() {
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
 				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
 				// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
-				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&_scene[_selectedNode].transform), matrixTranslation, matrixRotation, matrixScale);
+				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
 				if(updatedTransform)
-					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&_scene[_selectedNode].transform));
+					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
 
 				if(ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -445,11 +443,11 @@ void Editor::drawUI() {
 
 				ImGui::TreePop();
 			}
-			if(_scene[_selectedNode].mesh != Scene::InvalidMeshIndex) {
-				auto&& mesh = _scene[_scene[_selectedNode].mesh];
+			if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
+				auto& mesh = _scene[meshComp->index];
 				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
-						auto&& submesh = mesh.SubMeshes[i];
+						auto& submesh = mesh.SubMeshes[i];
 						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 							dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
 							ImGui::TreePop();
@@ -474,14 +472,16 @@ void Editor::drawUI() {
 	}
 
 	// On screen gizmos
-	if(_selectedNode != Scene::InvalidNodeIndex) {
-		glm::mat4		 worldTransform = _scene[_selectedNode].transform;
-		glm::mat4		 parentTransform{1.0f};
-		Scene::NodeIndex parentNode = _scene[_selectedNode].parent;
-		while(parentNode != Scene::InvalidNodeIndex) {
-			worldTransform = _scene[parentNode].transform * worldTransform;
-			parentTransform = _scene[parentNode].transform * parentTransform;
-			parentNode = _scene[parentNode].parent;
+	if(_selectedNode != entt::null) {
+		auto&		 node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
+		glm::mat4	 worldTransform = node.transform;
+		glm::mat4	 parentTransform{1.0f};
+		entt::entity parent = node.parent;
+		while(parent != entt::null) {
+			auto parentNode = _scene.getRegistry().get<NodeComponent>(parent);
+			worldTransform = parentNode.transform * worldTransform;
+			parentTransform = parentNode.transform * parentTransform;
+			parent = parentNode.parent;
 		}
 
 		// Dummy Window for "on field" widgets
@@ -491,8 +491,8 @@ void Editor::drawUI() {
 		ImGui::Begin("SelectedObject", nullptr,
 					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
 
-		if(_scene[_selectedNode].mesh != Scene::InvalidMeshIndex) {
-			auto				  aabb = _scene[_scene[_selectedNode].mesh].getBounds().getPoints();
+		if(auto* mesh = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); mesh != nullptr) {
+			auto				  aabb = _scene[mesh->index].getBounds().getPoints();
 			auto				  winpos = ImGui::GetMainViewport()->Pos;
 			glm::vec2			  glmwinpos{winpos.x, winpos.y};
 			std::array<ImVec2, 8> screen_aabb;
@@ -529,14 +529,14 @@ void Editor::drawUI() {
 			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), mCurrentGizmoOperation,
 								 mCurrentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), useSnap ? &snap.x : nullptr);
 		if(gizmoUpdated) {
-			_scene[_selectedNode].transform = glm::inverse(parentTransform) * worldTransform;
+			node.transform = glm::inverse(parentTransform) * worldTransform;
 		}
 		updatedTransform = gizmoUpdated || updatedTransform;
 
 		ImGui::End(); // Dummy Window
 	}
 
-	if(_selectedNode != Scene::InvalidNodeIndex && updatedTransform) {
+	if(_selectedNode != entt::null && updatedTransform) {
 		_scene.markDirty(_selectedNode);
 	}
 

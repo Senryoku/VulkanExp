@@ -3,6 +3,7 @@
 ## Todos
 
 ### Bugs
+  - TLAS update slowed down significantly? (is it really because of EnTT, or did I mess something else up?)
   - Probably a lot.
 
 ### Major Features
@@ -72,4 +73,4 @@ Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
  - GLM 0.9.9.9 [https://glm.g-truc.net] (included in ext/)
  - Dear ImGui docking branch [https://github.com/ocornut/imgui] (included in ext/)
  - FMT 7.1.3 [https://fmt.dev/]
- - OpenVR (included, not used yet)
+ - EnTT 3.9.0 [https://github.com/skypjack/entt] (included in ext/)

@@ -14,6 +14,7 @@
     ],
     "nodes": [
         {
+			"name": "Test Spheres",
             "children": [
                 5,
                 4,
@@ -29,18 +30,23 @@
             ]
         },
         {
+			"name": "SpheresMesh0",
             "mesh": 0
         },
         {
+			"name": "SpheresMesh1",
             "mesh": 1
         },
         {
+			"name": "SpheresMesh2",
             "mesh": 2
         },
         {
+			"name": "SpheresMesh3",
             "mesh": 3
         },
         {
+			"name": "SpheresMesh4",
             "mesh": 4
         }
     ],

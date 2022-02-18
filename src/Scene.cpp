@@ -21,16 +21,16 @@
 #include <vulkan/Material.hpp>
 
 Scene::Scene() {
-	_nodes.push_back({.name = "Root"});
+	_registry.on_destroy<NodeComponent>().connect<&Scene::onDestroyNodeComponent>(this);
+	_root = _registry.create();
+	_registry.emplace<NodeComponent>(_root);
 }
 
 Scene::Scene(const std::filesystem::path& path) {
 	load(path);
 }
 
-Scene::~Scene() {
-	// free();
-}
+Scene::~Scene() {}
 
 bool Scene::load(const std::filesystem::path& path) {
 	const auto canonicalPath = path.is_absolute() ? path.lexically_relative(std::filesystem::current_path()) : path.lexically_normal();
@@ -284,10 +284,16 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 		}
 	}
 
-	const NodeIndex nodesOffset{static_cast<NodeIndex::UnderlyingType>(_nodes.size())};
+	std::vector<entt::entity>	  entities;
+	std::vector<std::vector<int>> entitiesChildren;
+	entities.reserve(object["nodes"].asArray().size());
+	entitiesChildren.reserve(object["nodes"].asArray().size());
 
 	for(const auto& node : object["nodes"]) {
-		Node n;
+		auto entity = _registry.create();
+		entities.push_back(entity);
+		entitiesChildren.emplace_back();
+		auto& n = _registry.emplace<NodeComponent>(entity);
 		n.name = node("name", std::string("Unamed Node"));
 		if(node.contains("matrix")) {
 			n.transform = node["matrix"].to<glm::mat4>();
@@ -298,33 +304,35 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			n.transform = translation * rotation * scale;
 		}
 
-		if(node.contains("children")) {
-			for(const auto& c : node["children"]) {
-				n.children.push_back(NodeIndex{nodesOffset + c.as<int>()});
-			}
-		}
-		n.mesh = MeshIndex{static_cast<MeshIndex::UnderlyingType>(node("mesh", -1))};
-		if(n.mesh != -1)
-			n.mesh = MeshIndex{n.mesh + meshOffset};
-		_nodes.push_back(n);
+		if(node.contains("children"))
+			for(const auto& c : node["children"])
+				entitiesChildren.back().push_back(c.as<int>());
+
+		auto meshIndex = node("mesh", -1);
+		if(meshIndex != -1)
+			_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(meshIndex)});
 	}
-	// Assign parent indices
-	for(NodeIndex i = nodesOffset; i < _nodes.size(); ++i)
-		for(auto& c : _nodes[i].children) {
-			assert(_nodes[c].parent == -1);
-			_nodes[c].parent = i;
-		}
 
 	for(const auto& scene : object["scenes"]) {
-		Node& rootNode = _nodes.emplace_back(Node{.name = scene("name", std::string("Unamed Scene"))});
-		addChild(NodeIndex{0}, NodeIndex(_nodes.size() - 1));
-		markDirty(NodeIndex(_nodes.size() - 1));
-		if(scene.contains("nodes")) {
-			for(const auto& n : scene["nodes"]) {
-				addChild(NodeIndex(_nodes.size() - 1), NodeIndex(nodesOffset + n.as<int>()));
-			}
-		}
+		auto entity = _registry.create();
+		entities.push_back(entity);
+		entitiesChildren.emplace_back();
+		auto& node = _registry.emplace<NodeComponent>(entity);
+		addChild(_root, entity);
+		node.name = scene("name", std::string("Unamed Scene"));
+		if(scene.contains("nodes"))
+			for(const auto& n : scene["nodes"])
+				entitiesChildren.back().push_back(n.as<int>());
 	}
+
+	// Update nodes relationships now that they're all available
+	for(size_t entityIndex = 0; entityIndex < entitiesChildren.size(); ++entityIndex) {
+		for(const auto& childIdx : entitiesChildren[entityIndex])
+			addChild(entities[entityIndex], entities[childIdx]);
+	}
+
+	computeBounds();  // FIXME?
+	markDirty(_root); // Also probably unnecessary
 
 	return true;
 }
@@ -339,10 +347,10 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	Mesh*	 m = nullptr;
 	SubMesh* sm = nullptr;
 
-	Node&	  rootNode = _nodes.emplace_back(Node{.name = path.string()});
-	NodeIndex rootIndex(_nodes.size() - 1);
-	addChild(NodeIndex{0u}, rootIndex);
-	markDirty(rootIndex);
+	auto  rootEntity = _registry.create();
+	auto& n = _registry.emplace<NodeComponent>(rootEntity);
+	_registry.emplace<MeshComponent>(rootEntity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
+	addChild(_root, rootEntity);
 
 	std::vector<glm::vec2> uvs;
 	std::vector<glm::vec3> normals;
@@ -352,15 +360,16 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		_meshes.emplace_back();
 		m = &_meshes.back();
 
-		_nodes.emplace_back(Node{.mesh = static_cast<MeshIndex>(_meshes.size() - 1)});
-		addChild(rootIndex, NodeIndex(_nodes.size() - 1));
+		auto entity = _registry.create();
+		_registry.emplace<MeshComponent>(entity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
+		addChild(rootEntity, entity);
 
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
 	};
 	const auto nextSubMesh = [&]() {
 		if(sm)
-			vertexOffset += sm->getVertices().size();
+			vertexOffset += static_cast<uint32_t>(sm->getVertices().size());
 		m->SubMeshes.push_back({});
 		sm = &m->SubMeshes.back();
 	};
@@ -381,20 +390,20 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 				// Texture Coordinates
 				char*	  cur = line.data() + 3;
 				glm::vec2 uv;
-				for(size_t i = 0; i < 2; ++i)
+				for(glm::vec2::length_type i = 0; i < 2; ++i)
 					uv[i] = static_cast<float>(std::strtof(cur, &cur));
 				uvs.push_back(uv);
 			} else if(line[1] == 'n') {
 				// Normals
 				char*	  cur = line.data() + 3;
 				glm::vec3 n;
-				for(size_t i = 0; i < 3; ++i)
+				for(glm::vec3::length_type i = 0; i < 3; ++i)
 					n[i] = static_cast<float>(std::strtof(cur, &cur));
 				normals.push_back(glm::normalize(n));
 			} else {
 				// Vertices
 				char* cur = line.data() + 2;
-				for(size_t i = 0; i < 3; ++i)
+				for(glm::vec3::length_type i = 0; i < 3; ++i)
 					v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
 				sm->getVertices().push_back(v);
 			}
@@ -451,11 +460,9 @@ bool Scene::loadMaterial(const std::filesystem::path& path) {
 	JSON		json{path};
 	const auto& object = json.getRoot();
 
-	const auto textureOffset = Textures.size();
+	const auto textureOffset = static_cast<uint32_t>(Textures.size());
 
 	loadTextures(path, object);
-
-	const auto materialOffset = Materials.size();
 
 	if(object.contains("materials"))
 		for(const auto& mat : object["materials"])
@@ -494,16 +501,6 @@ bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& j
 	return true;
 }
 
-JSON::value toJSON(const Scene::Node& n) {
-	JSON::object o{
-		{"name", n.name}, {"transform", toJSON(n.transform)}, {"parent", n.parent.value}, {"mesh", n.mesh.value}, {"children", JSON::array()},
-	};
-	auto& children = o["children"];
-	for(const auto& c : n.children)
-		children.push(c.value);
-	return o;
-}
-
 bool Scene::save(const std::filesystem::path& path) {
 	QuickTimer qt(fmt::format("Save Scene to '{}'", path.string()));
 	JSON	   serialized{
@@ -517,9 +514,20 @@ bool Scene::save(const std::filesystem::path& path) {
 	for(const auto& mat : Materials)
 		mats.push_back(toJSON(mat));
 
-	auto& nodes = root["nodes"].asArray();
-	for(const auto& node : _nodes)
-		nodes.push_back(toJSON(node));
+	auto& nodes = root["entities"].asArray();
+	auto  view = _registry.view<NodeComponent>();
+	for(const auto& entity : view) {
+		auto& n = _registry.get<NodeComponent>(entity);
+		JSON  nodeJSON{
+			 {"name", n.name},
+			 {"transform", toJSON(n.transform)},
+			 {"parent", -1},
+			 {"children", JSON::array()},
+		 };
+		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
+			nodeJSON["mesh"] = static_cast<int>(mesh->index);
+		}
+	}
 
 	std::vector<GLBChunk> buffers;
 	buffers.push_back({
@@ -533,7 +541,7 @@ bool Scene::save(const std::filesystem::path& path) {
 		};
 		auto& submeshes = mesh["submeshes"].asArray();
 		for(const auto& sm : m.SubMeshes) {
-			int	 offset = buffers.size();
+			int	 offset = static_cast<int>(buffers.size());
 			JSON submesh{
 				{"name", sm.name},
 				{"material", sm.materialIndex.value},
@@ -592,6 +600,11 @@ bool Scene::save(const std::filesystem::path& path) {
 bool Scene::loadScene(const std::filesystem::path& path) {
 	QuickTimer qt(fmt::format("Loading Scene '{}'", path.string()));
 
+	// FIXME
+	Materials.clear();
+	Textures.clear();
+	_meshes.clear();
+
 	std::ifstream file(path, std::ios::binary | std::ios::ate);
 	if(!file) {
 		error("Scene::loadScene error: Could not open file '{}'.\n", path.string());
@@ -622,27 +635,45 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			buffers.emplace_back().assign(chunk.data, chunk.data + chunk.length);
 		}
 
-		_nodes.clear();
-		const auto& root = json.getRoot(); // FIXME: See loadglTF
-		for(const auto& n : root["nodes"]) {
-			_nodes.push_back({
-				.name = n("name", std::string("Unamed Node")),
-				.transform = n["transform"].to<glm::mat4>(),
-				.parent = NodeIndex{static_cast<uint32_t>(n("parent", static_cast<int>(InvalidNodeIndex)))},
-				.children = {},
-				.mesh = MeshIndex{static_cast<uint32_t>(n("mesh", static_cast<int>(InvalidMeshIndex)))},
-			});
-			for(const auto& c : n["children"]) {
-				_nodes.back().children.push_back(NodeIndex{static_cast<uint32_t>(c.asNumber().asInteger())});
+		std::vector<entt::entity>		 entities;
+		std::vector<std::vector<size_t>> entitiesChildren;
+		const auto&						 root = json.getRoot(); // FIXME: See loadglTF
+		for(const auto& n : root["entities"]) {
+			auto entity = _registry.create();
+			entities.push_back(entity);
+			auto& node = _registry.emplace<NodeComponent>(entity);
+			node.name = n["name"].asString();
+			node.transform = n["transform"].to<glm::mat4>();
+			entitiesChildren.emplace_back();
+			for(const auto& c : n["children"])
+				entitiesChildren.back().push_back(c.asNumber().asInteger());
+
+			if(n.contains("mesh"))
+				_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(n["mesh"].asNumber().asInteger())});
+		}
+
+		// Update nodes relationships now that they're all available
+		for(size_t entityIndex = 0; entityIndex < entitiesChildren.size(); ++entityIndex) {
+			auto& parentNode = _registry.get<NodeComponent>(entities[entityIndex]);
+			auto& children = entitiesChildren[entityIndex];
+			if(children.size() > 0) {
+				parentNode.first = entities[children[0]];
+				parentNode.children = children.size();
+				for(size_t idx = 0; idx < entitiesChildren[entityIndex].size(); ++idx) {
+					auto& childNode = _registry.get<NodeComponent>(entities[children[idx]]);
+					childNode.parent = entities[entityIndex];
+					if(idx > 0)
+						childNode.prev = entities[children[idx - 1]];
+					if(idx < children.size() - 1)
+						childNode.prev = entities[children[idx + 2]];
+				}
 			}
 		}
 
-		Materials.clear();
 		for(const auto& m : root["materials"]) {
 			loadMaterial(m, 0);
 		}
 
-		Textures.clear();
 		for(const auto& t : root["textures"]) {
 			Textures.push_back(Texture{
 				.source = path.parent_path() / t["source"].asString(),
@@ -651,7 +682,6 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			});
 		}
 
-		_meshes.clear();
 		for(const auto& m : root["meshes"]) {
 			auto& mesh = _meshes.emplace_back();
 			mesh.name = m["name"].asString();
@@ -774,6 +804,32 @@ void Scene::uploadMeshOffsetTable(const Device& device) {
 	auto queue = device.getQueue(device.getPhysicalDevice().getTransfertQueueFamilyIndex(), 0);
 	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 	VK_CHECK(vkQueueWaitIdle(queue));
+}
+
+void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity) {
+	auto& node = registry.get<NodeComponent>(entity);
+	print("Scene::onDestroyNodeComponent '{}' ({})\n", node.name, entity);
+	auto child = node.first;
+	while(child != entt::null) {
+		auto tmp = registry.get<NodeComponent>(child).next;
+		registry.destroy(child); // Mmmh...?
+		child = tmp;
+	}
+
+	if(node.parent != entt::null) {
+		auto& parent = registry.get<NodeComponent>(node.parent);
+		if(parent.first == entity)
+			parent.first = node.next;
+		--parent.children;
+	}
+	if(node.prev != entt::null) {
+		auto& prev = registry.get<NodeComponent>(node.prev);
+		prev.next = node.next;
+	}
+	if(node.next != entt::null) {
+		auto& next = registry.get<NodeComponent>(node.next);
+		next.prev = node.prev;
+	}
 }
 
 bool Scene::update(const Device& device) {
@@ -975,29 +1031,25 @@ void Scene::createAccelerationStructure(const Device& device) {
 void Scene::createTLAS(const Device& device) {
 	QuickTimer qt("TLAS building");
 
-	std::vector<uint32_t>									 submeshesIndices;
-	std::vector<VkTransformMatrixKHR>						 transforms;
-	const auto&												 meshes = getMeshes();
-	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
-		transform = transform * n.transform;
-		for(const auto& c : n.children)
-			visitNode(getNodes()[c], transform);
-
-		if(n.mesh != -1) {
+	std::vector<uint32_t>			  submeshesIndices;
+	std::vector<VkTransformMatrixKHR> transforms;
+	const auto&						  meshes = getMeshes();
+	forEachNode([&](entt::entity entity, glm::mat4 transform) {
+		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+			for(size_t i = 0; i < meshes[mesh->index].SubMeshes.size(); ++i) {
 				// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 				VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
 					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-					.accelerationStructure = _bottomLevelAccelerationStructures[_submeshesIndicesIntoBLASArray[n.mesh][i]],
+					.accelerationStructure = _bottomLevelAccelerationStructures[_submeshesIndicesIntoBLASArray[mesh->index][i]],
 				};
 				auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
 
-				submeshesIndices.push_back(meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable);
+				submeshesIndices.push_back(meshes[mesh->index].SubMeshes[i].indexIntoOffsetTable);
 				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
 				_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 					.transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform),
-					.instanceCustomIndex = meshes[n.mesh].SubMeshes[i].indexIntoOffsetTable,
+					.instanceCustomIndex = meshes[mesh->index].SubMeshes[i].indexIntoOffsetTable,
 					.mask = 0xFF,
 					.instanceShaderBindingTableRecordOffset = 0,
 					.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
@@ -1005,9 +1057,7 @@ void Scene::createTLAS(const Device& device) {
 				});
 			}
 		}
-	};
-	visitNode(getRoot(), glm::mat4(1.0f));
-
+	});
 	_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 									 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
 	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
@@ -1077,22 +1127,17 @@ void Scene::updateTLAS(const Device& device) {
 	// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
 	QuickTimer qt("TLAS update");
 
-	uint32_t												 index = 0;
-	const auto&												 meshes = getMeshes();
-	const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
-		transform = transform * n.transform;
-		for(const auto& c : n.children)
-			visitNode(getNodes()[c], transform);
-		// This is a leaf
-		if(n.mesh != -1) {
+	uint32_t	index = 0;
+	const auto& meshes = getMeshes();
+	forEachNode([&](entt::entity entity, glm::mat4 transform) {
+		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
 			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[n.mesh].SubMeshes.size(); ++i) {
+			for(size_t i = 0; i < meshes[mesh->index].SubMeshes.size(); ++i) {
 				_accStructInstances[index].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform);
 				++index;
 			}
 		}
-	};
-	visitNode(getRoot(), glm::mat4(1.0f));
+	});
 	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
@@ -1133,29 +1178,24 @@ void Scene::updateTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-Scene::NodeIndex Scene::intersectNodes(Ray& ray) {
-	Hit												   best;
-	Node*											   bestNode = nullptr;
-	const auto&										   meshes = getMeshes();
-	const std::function<void(Scene::Node&, glm::mat4)> visitNode = [&](Scene::Node& n, glm::mat4 transform) {
-		transform = transform * n.transform;
-		for(const auto& c : n.children)
-			visitNode(getNodes()[c], transform);
-		if(n.mesh != -1) {
-			auto hit = intersect(ray, transform * meshes[n.mesh].getBounds());
+entt::entity Scene::intersectNodes(Ray& ray) {
+	Hit			 best;
+	entt::entity bestNode = entt::null;
+	const auto&	 meshes = getMeshes();
+	// Note: If we had cached/precomputed node bounds (without the need of meshes), we could speed this up a lot (basically an acceleration structure).
+	forEachNode([&](entt::entity entity, glm::mat4 transform) {
+		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
+			auto hit = intersect(ray, transform * meshes[mesh->index].getBounds());
 			if(hit.hit && hit.depth < best.depth) {
 				Ray localRay = glm::inverse(transform) * ray;
-				hit = intersect(localRay, meshes[n.mesh]);
+				hit = intersect(localRay, meshes[mesh->index]);
 				hit.depth = glm::length(glm::vec3(transform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - ray.origin);
 				if(hit.hit && hit.depth < best.depth) {
 					best = hit;
-					bestNode = &n;
+					bestNode = entity;
 				}
 			}
 		}
-	};
-	visitNode(getRoot(), glm::mat4(1.0f));
-	if(!bestNode)
-		return InvalidNodeIndex;
-	return NodeIndex(bestNode - getNodes().data());
+	});
+	return bestNode;
 }

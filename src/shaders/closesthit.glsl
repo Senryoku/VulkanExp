@@ -203,7 +203,7 @@ void main()
 #ifndef NO_REFLECTION
 	if(payload.recursionDepth == 0) {
 		++payload.recursionDepth;
-		const uint SAMPLE_COUNT = 8u;
+		const uint SAMPLE_COUNT = 32u;
 		float totalWeight = 0.0;   
 		vec3 prefilteredColor = vec3(0.0);     
 		for(uint i = 0u; i < SAMPLE_COUNT; ++i)
@@ -213,7 +213,9 @@ void main()
 			vec3 H  = ImportanceSampleGGX(Xi, normal, roughness);
 			vec3 L  = normalize(2.0 * dot(-gl_WorldRayDirectionEXT, H) * H + gl_WorldRayDirectionEXT);
 		#else
-			vec2 noise = texture(sampler2D(blueNoiseTextures[(SAMPLE_COUNT * ubo.frameIndex + i) % 64], blueNoiseSampler), vec2((gl_LaunchIDEXT.xy + ubo.frameIndex / (SAMPLE_COUNT * 64)) / 64.0)).xy;
+			// It makes no sense to change this from frame to frame as long as we don't have temporal accumulation (which we won't add as long as this stays only used a debug view only)
+			//vec2 noise = texture(sampler2D(blueNoiseTextures[(SAMPLE_COUNT * ubo.frameIndex + i) % 64], blueNoiseSampler), vec2((gl_LaunchIDEXT.xy + ubo.frameIndex / (SAMPLE_COUNT * 64.0)) / 64.0)).xy;
+			vec2 noise = texture(sampler2D(blueNoiseTextures[i % 64], blueNoiseSampler), vec2((gl_LaunchIDEXT.xy) / 64.0)).xy;
 			float theta = roughness * (noise.x - 0.5) * pi;
 			float phi = (noise.y - 0.5) * 2.0f * pi;
 			vec3 L = rotateAxis(reflectDir, tangent, theta);

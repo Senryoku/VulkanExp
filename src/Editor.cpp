@@ -34,25 +34,33 @@ void Editor::initWindow() {
 }
 
 void Editor::duplicateSelectedNode() {
-	if(_selectedNode == Scene::InvalidNodeIndex)
+	if(_selectedNode == entt::null)
 		return;
 
-	std::function<Scene::NodeIndex(Scene::NodeIndex)> copyNode = [&](Scene::NodeIndex target) {
-		_scene.getNodes().push_back(_scene[target]);
-		auto&			 copy = _scene.getNodes().back();
-		Scene::NodeIndex index(_scene.getNodes().size() - 1);
-		copy.parent = Scene::InvalidNodeIndex;
-		copy.children.clear();
-		for(const auto& c : _scene[target].children) {
-			auto childIndex = copyNode(c);
-			_scene.addChild(index, childIndex);
+	std::function<entt::entity(entt::entity)> copyNode = [&](entt::entity src) {
+		auto&	   registry = _scene.getRegistry();
+		const auto dst = registry.create();
+		// Opaque copy of all components
+		for(auto&& curr : registry.storage()) {
+			if(auto& storage = curr.second; storage.contains(src)) {
+				storage.emplace(dst, storage.get(src));
+			}
 		}
-		return index;
+		auto& srcNode = registry.get<NodeComponent>(src);
+		auto& dstNode = registry.get<NodeComponent>(dst);
+		dstNode.children = 0;
+		dstNode.parent = entt::null;
+		dstNode.first = entt::null;
+		dstNode.next = entt::null;
+		dstNode.prev = entt::null;
+		for(auto c = srcNode.first; c != entt::null; c = registry.get<NodeComponent>(c).next)
+			_scene.addChild(dst, copyNode(c));
+		return dst;
 	};
 
-	auto parent = _scene[_selectedNode].parent;
-	_selectedNode = copyNode(_selectedNode);
-	_scene.addChild(parent, _selectedNode);
+	auto copiedNode = copyNode(_selectedNode);
+	_scene.addSibling(_selectedNode, copiedNode);
+	_selectedNode = copiedNode;
 
 	// Recreate Acceleration Structure
 	// FIXME: This should abstracted away, like simply setting a flag and letting the main loop update the structures.
@@ -87,6 +95,7 @@ void Editor::run() {
 	{
 		QuickTimer qt("Scene loading");
 
+		/*
 		Chunk chunk;
 		for(int i = 0; i < Chunk::Size; ++i)
 			for(int j = 0; j < Chunk::Size; ++j)
@@ -100,8 +109,11 @@ void Editor::run() {
 		_scene.loadMaterial("data/materials/cavern-deposits/cavern-deposits.mat");
 		_scene.getMeshes().emplace_back(generateMesh(chunk));
 		_scene.getMeshes().back().computeBounds();
+		*/
+		/*
 		_scene.getNodes().emplace_back(Scene::Node{.name = "Chunk", .mesh = static_cast<Scene::MeshIndex>(_scene.getMeshes().size() - 1)});
 		_scene.addChild(Scene::NodeIndex{0}, Scene::NodeIndex(_scene.getNodes().size() - 1));
+		*/
 		// TODO: Bounds are probably not correct
 
 		//_scene.load("./data/models/Sponza/Sponza.gltf");
@@ -350,8 +362,7 @@ void Editor::trySelectNode() {
 	auto d = glm::normalize(static_cast<float>((2.0f * _mouse_x) / _width - 1.0f) * _camera.getRight() +
 							-ratio * static_cast<float>((2.0f * _mouse_y) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
 	Ray	 r{.origin = _camera.getPosition(), .direction = d};
-	auto node = _scene.intersectNodes(r);
-	if(node != Scene::InvalidNodeIndex) {
+	if(auto node = _scene.intersectNodes(r); node != entt::null) {
 		_selectedNode = node;
 	}
 }

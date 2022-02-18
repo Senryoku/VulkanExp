@@ -6,8 +6,28 @@
 #include <Raytracing.hpp>
 #include <TaggedType.hpp>
 
+#include <entt.hpp>
+
 // TODO: Move this :)
 inline std::vector<Material> Materials;
+
+struct NodeComponent {
+	std::string	 name{"Unamed Node"};
+	glm::mat4	 transform{1.0f};
+	std::size_t	 children{0};
+	entt::entity first{entt::null};
+	entt::entity prev{entt::null};
+	entt::entity next{entt::null};
+	entt::entity parent{entt::null};
+};
+
+struct MeshIndexTag {};
+using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
+inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
+
+struct MeshComponent {
+	MeshIndex index; // FIXME: Use something else.
+};
 
 class Scene {
   public:
@@ -32,29 +52,39 @@ class Scene {
 		Double = 5130,
 	};
 
-	struct NodeIndexTag {};
-	struct MeshIndexTag {};
-
-	using NodeIndex = TaggedIndex<uint32_t, NodeIndexTag>;
-	inline static const NodeIndex InvalidNodeIndex{static_cast<uint32_t>(-1)};
-	using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
-	inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
-
-	struct Node {
-		std::string			   name = "Unamed Node";
-		glm::mat4			   transform = glm::mat4(1.0); // Relative to parent
-		NodeIndex			   parent = InvalidNodeIndex;
-		std::vector<NodeIndex> children;				// Indices in _nodes
-		MeshIndex			   mesh = InvalidMeshIndex; // Index in global mesh array
-	};
-
-	void addChild(NodeIndex parent, NodeIndex child) {
-		assert(_nodes[child].parent == InvalidNodeIndex);
+	void addChild(entt::entity parent, entt::entity child) {
 		assert(parent != child);
-		_nodes[parent].children.push_back(child);
-		_nodes[child].parent = parent;
+		auto& parentNode = _registry.get<NodeComponent>(parent);
+		auto& childNode = _registry.get<NodeComponent>(child);
+		assert(childNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+		if(parentNode.first == entt::null) {
+			parentNode.first = child;
+		} else {
+			auto lastChild = parentNode.first;
+			while(_registry.get<NodeComponent>(lastChild).next != entt::null) {
+				lastChild = _registry.get<NodeComponent>(lastChild).next;
+			}
+			_registry.get<NodeComponent>(lastChild).next = child;
+			childNode.prev = lastChild;
+		}
+		childNode.parent = parent;
+		++parentNode.children;
 		markDirty(parent);
 		markDirty(child);
+	}
+	void addSibling(entt::entity target, entt::entity other) {
+		assert(target != other);
+		auto& targetNode = _registry.get<NodeComponent>(target);
+		auto& otherNode = _registry.get<NodeComponent>(other);
+		assert(otherNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+		auto& parentNode = _registry.get<NodeComponent>(targetNode.parent);
+		++parentNode.children;
+		otherNode.parent = targetNode.parent;
+		if(targetNode.next != entt::null)
+			_registry.get<NodeComponent>(targetNode.next).prev = other;
+		otherNode.next = targetNode.next;
+		otherNode.prev = target;
+		targetNode.next = other;
 	}
 
 	Scene();
@@ -75,58 +105,45 @@ class Scene {
 	void destroyTLAS(const Device& device);
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
-	inline std::vector<Node>&				 getNodes() { return _nodes; }
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
-	inline const std::vector<Node>&			 getNodes() const { return _nodes; }
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 
-	inline void markDirty(NodeIndex node) { _dirtyNodes.push_back(node); }
+	inline void markDirty(entt::entity node) { _dirtyNodes.push_back(node); }
 	bool		update(const Device& device);
 	void		updateTLAS(const Device& device);
 
-	// Returns a dummy node with stands for the current scene (since it can have multiple children).
-	inline const Node& getRoot() const { return _nodes[0]; }
-	inline Node&	   getRoot() { return _nodes[0]; }
+	inline entt::entity getRoot() const { return _root; }
 
-	NodeIndex intersectNodes(Ray& ray);
+	entt::entity intersectNodes(Ray& ray);
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
 	const Bounds&		 computeBounds() {
 		   bool init = false;
 
-		   std::function<void(const Node&, glm::mat4)> visitNode = [&](const Node& n, glm::mat4 transform) {
-			   transform = transform * n.transform;
-			   for(const auto& c : n.children)
-				   visitNode(_nodes[c], transform);
-			   if(n.mesh != InvalidMeshIndex)
+		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
+			   if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
 				   if(!init) {
-					   _bounds = transform * _meshes[n.mesh].computeBounds();
+					   _bounds = transform * _meshes[mesh->index].computeBounds();
 					   init = true;
 				   } else
-					   _bounds += transform * _meshes[n.mesh].computeBounds();
-		   };
-		   visitNode(getRoot(), glm::mat4(1.0f));
+					   _bounds += transform * _meshes[mesh->index].computeBounds();
+			   }
+		   });
 
 		   return _bounds;
 	}
 
-	Node& operator[](NodeIndex index) {
-		assert(index != InvalidNodeIndex);
-		return _nodes[index];
-	}
-
-	const Node& operator[](NodeIndex index) const {
-		assert(index != InvalidNodeIndex);
-		return _nodes[index];
-	}
+	// Depth-First traversal of the node hierarchy
+	// Callback will be call for each entity with the entity and its world transformation as parameters.
+	void forEachNode(const std::function<void(entt::entity entity, glm::mat4)>& call) { visitNode(getRoot(), glm::mat4(1.0f), call); }
 
 	Mesh& operator[](MeshIndex index) {
 		assert(index != InvalidMeshIndex);
 		return _meshes[index];
 	}
 	const Mesh& operator[](MeshIndex index) const {
-		assert(index != InvalidNodeIndex);
+		assert(index != InvalidMeshIndex);
 		return _meshes[index];
 	}
 
@@ -156,13 +173,15 @@ class Scene {
 	void uploadMeshOffsetTable(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////
 
+	entt::registry&		  getRegistry() { return _registry; }
+	const entt::registry& getRegistry() const { return _registry; }
+
   private:
-	std::vector<std::filesystem::path> _loadedFiles; // Path of all currently loaded files.
-
 	std::vector<Mesh> _meshes;
-	std::vector<Node> _nodes;
 
-	std::vector<NodeIndex> _dirtyNodes;
+	entt::registry			  _registry;
+	entt::entity			  _root = entt::null;
+	std::vector<entt::entity> _dirtyNodes; // FIXME: May not be useful anymore.
 
 	Bounds _bounds;
 
@@ -183,6 +202,19 @@ class Scene {
 
 	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
 	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
+
+	// Called on NodeComponent destruction
+	void onDestroyNodeComponent(entt::registry& registry, entt::entity node);
+
+	// Used for depth-first traversal of the node hierarchy
+	void visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call) {
+		const auto& node = _registry.get<NodeComponent>(entity);
+		transform = transform * node.transform;
+		for(auto c = node.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
+			visitNode(c, transform, call);
+
+		call(entity, transform);
+	};
 };
 
-JSON::value toJSON(const Scene::Node&);
+JSON::value toJSON(const NodeComponent&);

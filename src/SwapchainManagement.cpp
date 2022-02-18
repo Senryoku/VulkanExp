@@ -565,11 +565,14 @@ void Editor::recordCommandBuffers() {
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
 			_gbufferPipeline.bind(b);
 
-			const std::function<void(const Scene::Node&, glm::mat4)> visitNode = [&](const Scene::Node& n, glm::mat4 transform) {
-				transform = transform * n.transform;
-				if(n.mesh != -1) {
+			// TODO: Reorganise this to batch (sub)meshes draw calls (instanced)
+			_scene.forEachNode([&](entt::entity entity, glm::mat4 transform) {
+				auto& n = _scene.getRegistry().get<NodeComponent>(entity);
+				auto* mesh = _scene.getRegistry().try_get<MeshComponent>(entity);
+				if(auto* mesh = _scene.getRegistry().try_get<MeshComponent>(entity); mesh != nullptr) {
 					GBufferPushConstant pc{transform, glm::vec4{1.0}, 0, 0};
-					for(const auto& submesh : _scene.getMeshes()[n.mesh].SubMeshes) {
+					const auto&			meshObject = _scene.getMeshes()[mesh->index];
+					for(const auto& submesh : meshObject.SubMeshes) {
 						if(submesh.materialIndex != InvalidMaterialIndex) {
 							pc.baseColorFactor = glm::vec4(Materials[submesh.materialIndex].properties.baseColorFactor, 1.0);
 							pc.metalness = Materials[submesh.materialIndex].properties.metallicFactor;
@@ -577,19 +580,15 @@ void Editor::recordCommandBuffers() {
 							vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
 													&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
 						} else
-							warn("Application::recordCommandBuffers: Submesh '{}' (Mesh '{}', Node '{}') doesn't have a material.\n", submesh.name, _scene.getMeshes()[n.mesh].name,
-								 n.name);
+							warn("Application::recordCommandBuffers: Submesh '{}' (Mesh '{}', Node '{}') doesn't have a material.\n", submesh.name, meshObject.name,
+								 _scene.getRegistry().get<NodeComponent>(entity).name);
 						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GBufferPushConstant), &pc);
 						b.bind<1>({submesh.getVertexBuffer()});
 						vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 						vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
 					}
 				}
-
-				for(const auto& c : n.children)
-					visitNode(_scene.getNodes()[c], transform);
-			};
-			visitNode(_scene.getRoot(), glm::mat4(1.0f));
+			});
 
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 2);
 			b.endRenderPass();

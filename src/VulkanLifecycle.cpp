@@ -150,7 +150,7 @@ void Editor::initVulkan() {
 // Upload Scene data to GPU
 void Editor::uploadScene() {
 	VK_CHECK(vkDeviceWaitIdle(_device));
-	_selectedNode = Scene::InvalidNodeIndex;
+	_selectedNode = entt::null;
 	{
 		QuickTimer qt("Mesh Generation");
 		for(auto& m : _scene.getMeshes())
