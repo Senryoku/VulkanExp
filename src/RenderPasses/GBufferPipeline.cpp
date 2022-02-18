@@ -1,6 +1,12 @@
 #include "Editor.hpp"
 
-void Editor::createGBufferPipeline() {
+void Editor::createGBufferPass() {
+	createGBufferRenderPass();
+	createGBufferFramebuffers();
+	createGBufferPipeline();
+}
+
+void Editor::createGBufferRenderPass() {
 	RenderPassBuilder rpb;
 	// Attachments
 	rpb.add({
@@ -70,7 +76,9 @@ void Editor::createGBufferPipeline() {
 			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 		});
 	_gbufferRenderPass = rpb.build(_device);
+}
 
+void Editor::createGBufferFramebuffers() {
 	_gbufferFramebuffers.resize(_swapChainImageViews.size());
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
@@ -81,6 +89,12 @@ void Editor::createGBufferPipeline() {
 										   _depthImageView,
 									   },
 									   _swapChainExtent);
+}
+
+void Editor::createGBufferPipeline() {
+	assert(_gbufferRenderPass.isValid());
+	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
+		assert(_gbufferFramebuffers[i].isValid());
 
 	Shader vertShader(_device, "./shaders_spv/GBuffer.vert.spv");
 	Shader fragShader(_device, "./shaders_spv/GBuffer.frag.spv");

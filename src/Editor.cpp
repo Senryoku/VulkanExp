@@ -155,19 +155,7 @@ void Editor::mainLoop() {
 			vkDeviceWaitIdle(_device); // TODO: Better sync?
 			_scene.destroyTLAS(_device);
 			_scene.createTLAS(_device);
-			// We have to update the all descriptor sets referencing the acceleration structures.
-			// FIXME: Also abstract this somehow? (Callback from createTLAS? setup by Scene?)
-			for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
-				for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-					DescriptorSetWriter dsw(set->getDescriptorSets()[i]);
-					dsw.add(0, {
-								   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-								   .accelerationStructureCount = 1,
-								   .pAccelerationStructures = &_scene.getTLAS(),
-							   });
-					dsw.update(_device);
-				}
-			_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+			onTLASCreation();
 			_outdatedCommandBuffers = true;
 			_dirtyHierarchy = false;
 		}
@@ -459,4 +447,74 @@ void Editor::updateUniformBuffer(uint32_t currentImage) {
 		size_t offset = static_cast<size_t>(currentImage) * _lightUboStride;
 		_lightUniformBuffersMemory.fill(reinterpret_cast<char*>(&_light), sizeof(LightBuffer), offset);
 	}
+}
+
+void Editor::onTLASCreation() {
+	// FIXME: Also abstract this somehow? (Callback from createTLAS? setup by Scene?)
+	// We have to update the all descriptor sets referencing the acceleration structures.
+	for(auto set : {&_directLightDescriptorPool, &_reflectionDescriptorPool, &_rayTracingDescriptorPool})
+		for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+			DescriptorSetWriter dsw(set->getDescriptorSets()[i]);
+			dsw.add(0, {
+						   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+						   .accelerationStructureCount = 1,
+						   .pAccelerationStructures = &_scene.getTLAS(),
+					   });
+			dsw.update(_device);
+		}
+	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+}
+
+void Editor::sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+	if(ImGui::GetIO().WantCaptureMouse)
+		return;
+	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	if(yoffset > 0)
+		app->_camera.speed *= 1.1f;
+	else
+		app->_camera.speed *= (1.f / 1.1f);
+};
+
+void Editor::sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if(ImGui::GetIO().WantCaptureMouse)
+		return;
+	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
+		app->trySelectNode();
+	} else if(button == GLFW_MOUSE_BUTTON_RIGHT) {
+		app->_controlCamera = action == GLFW_PRESS;
+		glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
+		glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+	}
+}
+
+void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]) {
+	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	vkDeviceWaitIdle(app->_device); // FIXME: Do better?
+	for(int i = 0; i < pathCount; ++i) {
+		print("Received path '{}'.\n", paths[i]);
+		app->_scene.load(paths[i]);
+	}
+	// FIXME: This is way overkill
+	app->uploadScene();
+	app->onTLASCreation();
+	// Since the number of material may have changed, we have to re-create GBuffer descriptor layout and sets
+	app->_gbufferPipeline.destroy();
+	app->_gbufferDescriptorPool.destroy();
+	app->_gbufferDescriptorSetLayouts.clear();
+	app->createGBufferPipeline();
+	app->writeDirectLightDescriptorSets();
+	app->writeReflectionDescriptorSets();
+	app->writeRaytracingDescriptorSets();
+	app->_outdatedCommandBuffers = true;
+}
+
+void Editor::sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	if(app->_controlCamera)
+		return;
+	auto it = app->_shortcuts.find({key, action, mods});
+	if(it != app->_shortcuts.end())
+		it->second();
 }

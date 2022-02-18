@@ -1,7 +1,7 @@
 #include "Editor.hpp"
 #include <RaytracingDescriptors.hpp>
 
-void Editor::createDirectLightPipeline() {
+void Editor::createDirectLightPass() {
 	Shader raygenShader(_device, "./shaders_spv/directLight.rgen.spv");
 	Shader raymissShader(_device, "./shaders_spv/miss.rmiss.spv");
 	Shader raymissShadowShader(_device, "./shaders_spv/shadow.rmiss.spv");
@@ -90,39 +90,7 @@ void Editor::createDirectLightPipeline() {
 									  });
 	_directLightDescriptorPool.allocate(layoutsToAllocate);
 
-	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_device, _directLightDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);
-		// Camera
-		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				   {
-					   .buffer = _cameraUniformBuffers[i],
-					   .offset = 0,
-					   .range = sizeof(CameraBuffer),
-				   });
-		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 0],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 1],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _gbufferImageViews[3 * i + 2],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-		// Result
-		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				   {
-					   .imageView = _directLightImageViews[i],
-					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-				   });
-
-		writer.update(_device);
-	}
+	writeDirectLightDescriptorSets();
 
 	DescriptorSetLayoutBuilder filterDSLB;
 	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
@@ -221,5 +189,41 @@ void Editor::createDirectLightPipeline() {
 					 })
 				.update(_device);
 		}
+	}
+}
+
+void Editor::writeDirectLightDescriptorSets() {
+	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
+		auto writer = baseSceneWriter(_device, _directLightDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);
+		// Camera
+		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				   {
+					   .buffer = _cameraUniformBuffers[i],
+					   .offset = 0,
+					   .range = sizeof(CameraBuffer),
+				   });
+		writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _gbufferImageViews[3 * i + 0],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+		writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _gbufferImageViews[3 * i + 1],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+		writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _gbufferImageViews[3 * i + 2],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+		// Result
+		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _directLightImageViews[i],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+
+		writer.update(_device);
 	}
 }

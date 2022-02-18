@@ -515,10 +515,10 @@ void Editor::initSwapChain() {
 
 	initUniformBuffers();
 
-	createGBufferPipeline();
-	createGatherPipeline();
-	createDirectLightPipeline();
-	createReflectionPipeline();
+	createGBufferPass();
+	createGatherPass();
+	createDirectLightPass();
+	createReflectionPass();
 
 	_commandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
 	_copyCommandBuffers.allocate(_device, _commandPool, _gbufferFramebuffers.size());
