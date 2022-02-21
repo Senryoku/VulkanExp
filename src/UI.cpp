@@ -187,7 +187,22 @@ void Editor::drawUI() {
 	const auto makeUnique = [&](const std::string& name) { return (name + "##" + std::to_string(++treeUniqueIdx)); };
 
 	const auto displayMaterial = [&](MaterialIndex* matIdx, bool dropTarget = false) {
-		bool  modified = false;
+		bool modified = false;
+		if(*matIdx == InvalidMaterialIndex) {
+			ImGui::Text("No Material.");
+			if(dropTarget && ImGui::BeginDragDropTarget()) {
+				auto payload = ImGui::AcceptDragDropPayload("MaterialIndex");
+				if(payload) {
+					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
+					*matIdx = droppedMat;
+					_scene.updateMeshOffsetTable();
+					_scene.uploadMeshOffsetTable(_device);
+					recordCommandBuffers();
+				}
+				ImGui::EndDragDropTarget();
+			}
+			return false;
+		}
 		auto& mat = Materials[*matIdx];
 		if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 			if(dropTarget && ImGui::BeginDragDropTarget()) {

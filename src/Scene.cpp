@@ -373,6 +373,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	};
 
 	nextMesh();
+	nextSubMesh();
 
 	std::string line;
 	Vertex		v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};

@@ -320,38 +320,11 @@ void Editor::recordCommandBuffers() {
 			_mainTimingQueryPools[i].writeTimestamp(b, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
 			_gbufferPipeline.bind(b);
 
-			/*
-			// TODO: Reorganise this to batch (sub)meshes draw calls (instanced)
-			_scene.forEachNode([&](entt::entity entity, glm::mat4 transform) {
-				auto& n = _scene.getRegistry().get<NodeComponent>(entity);
-				auto* mesh = _scene.getRegistry().try_get<MeshComponent>(entity);
-				if(auto* mesh = _scene.getRegistry().try_get<MeshComponent>(entity); mesh != nullptr) {
-					GBufferPushConstant pc{transform, glm::vec4{1.0}, 0, 0};
-					const auto&			meshObject = _scene.getMeshes()[mesh->index];
-					for(const auto& submesh : meshObject.SubMeshes) {
-						if(submesh.materialIndex != InvalidMaterialIndex) {
-							pc.baseColorFactor = glm::vec4(Materials[submesh.materialIndex].properties.baseColorFactor, 1.0);
-							pc.metalness = Materials[submesh.materialIndex].properties.metallicFactor;
-							pc.roughness = Materials[submesh.materialIndex].properties.roughnessFactor;
-							vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
-													&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + submesh.materialIndex], 0, nullptr);
-						} else
-							warn("Application::recordCommandBuffers: Submesh '{}' (Mesh '{}', Node '{}') doesn't have a material.\n", submesh.name, meshObject.name,
-								 _scene.getRegistry().get<NodeComponent>(entity).name);
-						vkCmdPushConstants(b, _gbufferPipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GBufferPushConstant), &pc);
-						b.bind<2>({submesh.getVertexBuffer(), _scene.getInstanceBuffer()});
-						vkCmdBindIndexBuffer(b, submesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-						vkCmdDrawIndexed(b, static_cast<uint32_t>(submesh.getIndices().size()), 1, 0, 0, 0);
-					}
-				}
-			});
-			*/
-
 			// Bind the instance data SSBO
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 1, 1,
 									&_gbufferDescriptorPool.getDescriptorSets()[_commandBuffers.getBuffers().size() * Materials.size() + i], 0, nullptr);
 
-			auto	 meshRenderers = _scene.getRegistry().view<MeshRendererComponent>();
+			auto	 meshRenderers = _scene.getRegistry().view<MeshRendererComponent>(); // Pre-Sorted
 			auto	 currentMaterial = InvalidMaterialIndex;
 			auto	 currentMesh = InvalidMeshIndex;
 			uint32_t indexCount = 0;
@@ -361,7 +334,7 @@ void Editor::recordCommandBuffers() {
 			for(const auto& entity : meshRenderers) {
 				const auto& meshRenderer = _scene.getRegistry().get<MeshRendererComponent>(entity);
 				if(meshRenderer.meshIndex != currentMesh) {
-					// Issue a draw call
+					// Issue a draw call for instanceCount instances before switching to the next mesh.
 					if(currentMesh != InvalidMeshIndex) {
 						vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
 						instanceBaseOffset += instanceCount;
@@ -373,6 +346,7 @@ void Editor::recordCommandBuffers() {
 					std::array<VkBuffer, 1> buffers{_scene.getMeshes()[currentMesh].getVertexBuffer()};
 					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 					vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+					// Count the instances before issuing a draw call.
 				}
 				if(meshRenderer.materialIndex != currentMaterial) {
 					// Next Material
