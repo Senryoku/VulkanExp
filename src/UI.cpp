@@ -187,7 +187,22 @@ void Editor::drawUI() {
 	const auto makeUnique = [&](const std::string& name) { return (name + "##" + std::to_string(++treeUniqueIdx)); };
 
 	const auto displayMaterial = [&](MaterialIndex* matIdx, bool dropTarget = false) {
-		bool  modified = false;
+		bool modified = false;
+		if(*matIdx == InvalidMaterialIndex) {
+			ImGui::Text("No Material.");
+			if(dropTarget && ImGui::BeginDragDropTarget()) {
+				auto payload = ImGui::AcceptDragDropPayload("MaterialIndex");
+				if(payload) {
+					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
+					*matIdx = droppedMat;
+					_scene.updateMeshOffsetTable();
+					_scene.uploadMeshOffsetTable(_device);
+					recordCommandBuffers();
+				}
+				ImGui::EndDragDropTarget();
+			}
+			return false;
+		}
 		auto& mat = Materials[*matIdx];
 		if(ImGui::TreeNodeEx(makeUnique(mat.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 			if(dropTarget && ImGui::BeginDragDropTarget()) {
@@ -381,13 +396,9 @@ void Editor::drawUI() {
 		for(MeshIndex i = MeshIndex(0u); i < _scene.getMeshes().size(); ++i) {
 			auto& m = _scene.getMeshes()[i];
 			if(ImGui::TreeNodeEx(makeUnique(m.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-				for(auto& sm : m.SubMeshes) {
-					if(ImGui::TreeNodeEx(makeUnique(sm.name).c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DefaultOpen)) {
-						ImGui::Text("Vertices: %d", sm.getVertices().size());
-						ImGui::Text("Indices: %d", sm.getIndices().size());
-						ImGui::TreePop();
-					}
-				}
+				ImGui::Text("Vertices: %d", m.getVertices().size());
+				ImGui::Text("Indices: %d", m.getIndices().size());
+				dirtyMaterials = displayMaterial(&m.defaultMaterialIndex, true) || dirtyMaterials;
 				ImGui::TreePop();
 			}
 		}
@@ -449,16 +460,11 @@ void Editor::drawUI() {
 
 				ImGui::TreePop();
 			}
-			if(auto* meshComp = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); meshComp != nullptr) {
-				auto& mesh = _scene[meshComp->index];
-				if(ImGui::TreeNodeEx(makeUnique(mesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-					for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
-						auto& submesh = mesh.SubMeshes[i];
-						if(ImGui::TreeNodeEx(makeUnique(submesh.name).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-							dirtyMaterials = displayMaterial(&submesh.materialIndex, true) || dirtyMaterials;
-							ImGui::TreePop();
-						}
-					}
+			if(auto* meshComp = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); meshComp != nullptr) {
+				auto& mesh = _scene[meshComp->meshIndex];
+				if(ImGui::TreeNodeEx("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+					ImGui::Text("Mesh: %s", mesh.name.c_str());
+					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;
 					ImGui::TreePop();
 				}
 			}
@@ -497,8 +503,8 @@ void Editor::drawUI() {
 		ImGui::Begin("SelectedObject", nullptr,
 					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
 
-		if(auto* mesh = _scene.getRegistry().try_get<MeshComponent>(_selectedNode); mesh != nullptr) {
-			auto				  aabb = _scene[mesh->index].getBounds().getPoints();
+		if(auto* mesh = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); mesh != nullptr) {
+			auto				  aabb = _scene[mesh->meshIndex].getBounds().getPoints();
 			auto				  winpos = ImGui::GetMainViewport()->Pos;
 			glm::vec2			  glmwinpos{winpos.x, winpos.y};
 			std::array<ImVec2, 8> screen_aabb;

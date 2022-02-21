@@ -153,14 +153,12 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	const MeshIndex meshOffset{static_cast<MeshIndex::UnderlyingType>(_meshes.size())};
 
 	for(const auto& m : object["meshes"]) {
-		auto& mesh = _meshes.emplace_back();
-		mesh.path = path;
-		mesh.name = m("name", std::string("NoName"));
+		auto baseName = m("name", std::string("UnamedMesh"));
 		for(const auto& p : m["primitives"]) {
-			auto& submesh = mesh.SubMeshes.emplace_back();
-			submesh.name = m("name", std::string("NoName"));
+			auto& mesh = _meshes.emplace_back();
+			mesh.name = baseName + "_" + p("name", std::string("Unamed"));
 			if(p.asObject().contains("material")) {
-				submesh.materialIndex.value = materialOffset + p["material"].as<int>();
+				mesh.defaultMaterialIndex.value = materialOffset + p["material"].as<int>();
 			}
 
 			if(p.contains("mode"))
@@ -212,7 +210,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				size_t normalStride = normalBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
 
 				assert(positionAccessor["count"].as<int>() == normalAccessor["count"].as<int>());
-				submesh.getVertices().reserve(positionAccessor["count"].as<int>());
+				mesh.getVertices().reserve(positionAccessor["count"].as<int>());
 				for(size_t i = 0; i < positionAccessor["count"].as<int>(); ++i) {
 					Vertex v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
 					v.pos = *reinterpret_cast<const glm::vec3*>(positionBuffer.data() + positionCursor);
@@ -233,23 +231,23 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						texCoordCursor += texCoordStride;
 					}
 
-					submesh.getVertices().push_back(v);
+					mesh.getVertices().push_back(v);
 				}
 			} else {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
 			}
 
 			if(positionAccessor.contains("min") && positionAccessor.contains("max")) {
-				submesh.setBounds({
+				mesh.setBounds({
 					.min = positionAccessor["min"].to<glm::vec3>(),
 					.max = positionAccessor["max"].to<glm::vec3>(),
 				});
 			} else {
-				submesh.computeBounds();
+				mesh.computeBounds();
 			}
-			if(!submesh.getBounds().isValid())
-				submesh.computeBounds();
-			assert(submesh.getBounds().isValid());
+			if(!mesh.getBounds().isValid())
+				mesh.computeBounds();
+			assert(mesh.getBounds().isValid());
 
 			const auto& indicesAccessor = object["accessors"][p["indices"].as<int>()];
 			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
@@ -265,7 +263,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 					default: assert(false);
 				}
 				size_t stride = indicesBufferView("byteStride", defaultStride);
-				submesh.getIndices().reserve(indicesAccessor["count"].as<int>());
+				mesh.getIndices().reserve(indicesAccessor["count"].as<int>());
 				for(size_t i = 0; i < indicesAccessor["count"].as<int>(); ++i) {
 					uint32_t idx = 0;
 					switch(compType) {
@@ -274,7 +272,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						default: assert(false);
 					}
 					idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
-					submesh.getIndices().push_back(idx);
+					mesh.getIndices().push_back(idx);
 					cursor += stride;
 				}
 
@@ -310,7 +308,10 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 		auto meshIndex = node("mesh", -1);
 		if(meshIndex != -1)
-			_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(meshOffset + meshIndex)});
+			_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																 .meshIndex = MeshIndex(meshOffset + meshIndex),
+																 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
+															 });
 	}
 
 	for(const auto& scene : object["scenes"]) {
@@ -344,8 +345,9 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		return false;
 	}
 
-	Mesh*	 m = nullptr;
-	SubMesh* sm = nullptr;
+	entt::entity meshEntity = entt::null;
+	entt::entity sm = entt::null;
+	Mesh*		 m = nullptr;
 
 	auto  rootEntity = _registry.create();
 	auto& n = _registry.emplace<NodeComponent>(rootEntity);
@@ -356,25 +358,22 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 	uint32_t			   vertexOffset = 0;
 
 	const auto nextMesh = [&]() {
-		_meshes.emplace_back();
-		m = &_meshes.back();
-
-		auto entity = _registry.create();
-		_registry.emplace<NodeComponent>(entity);
-		_registry.emplace<MeshComponent>(entity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
-		addChild(rootEntity, entity);
-
-		m->SubMeshes.push_back({});
-		sm = &m->SubMeshes.back();
+		meshEntity = _registry.create();
+		_registry.emplace<NodeComponent>(meshEntity);
+		addChild(rootEntity, meshEntity);
 	};
 	const auto nextSubMesh = [&]() {
-		if(sm)
-			vertexOffset += static_cast<uint32_t>(sm->getVertices().size());
-		m->SubMeshes.push_back({});
-		sm = &m->SubMeshes.back();
+		if(m)
+			vertexOffset += static_cast<uint32_t>(m->getVertices().size());
+		m = &_meshes.emplace_back();
+		auto submeshEntity = _registry.create();
+		_registry.emplace<NodeComponent>(submeshEntity);
+		addChild(meshEntity, submeshEntity);
+		_registry.emplace<MeshRendererComponent>(submeshEntity, MeshIndex{static_cast<MeshIndex>(_meshes.size() - 1)});
 	};
 
 	nextMesh();
+	nextSubMesh();
 
 	std::string line;
 	Vertex		v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
@@ -405,7 +404,7 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 				char* cur = line.data() + 2;
 				for(glm::vec3::length_type i = 0; i < 3; ++i)
 					v.pos[i] = static_cast<float>(std::strtof(cur, &cur));
-				sm->getVertices().push_back(v);
+				m->getVertices().push_back(v);
 			}
 		} else if(line[0] == 'f') {
 			char* cur = line.data() + 2;
@@ -414,32 +413,32 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 				assert(vertexIndex > 0 && vertexIndex != std::numeric_limits<long int>::max());
 				vertexIndex -= 1;			 // Indices starts at 1 in .obj
 				vertexIndex -= vertexOffset; // Indices are absolutes in the obj file, we're relative to the current submesh
-				sm->getIndices().push_back(vertexIndex);
+				m->getIndices().push_back(vertexIndex);
 				// Assuming vertices, uvs and normals have already been defined.
 				if(*cur == '/') {
 					++cur;
 					// Texture coordinate index
 					auto uvIndex = std::strtol(cur, &cur, 10);
 					if(uvIndex > 0 && uvIndex != std::numeric_limits<long int>::max())
-						sm->getVertices()[vertexIndex].texCoord = uvs[uvIndex - 1];
+						m->getVertices()[vertexIndex].texCoord = uvs[uvIndex - 1];
 					// Normal index
 					if(*cur == '/') {
 						++cur;
 						auto normalIndex = std::strtol(cur, &cur, 10);
 						if(normalIndex > 0 && normalIndex != std::numeric_limits<long int>::max())
-							sm->getVertices()[vertexIndex].normal = normals[normalIndex - 1];
+							m->getVertices()[vertexIndex].normal = normals[normalIndex - 1];
 					}
 				}
 			}
 		} else if(line[0] == 'o') {
 			// Next Mesh
-			if(sm->getVertices().size() > 0)
+			if(m->getVertices().size() > 0)
 				nextMesh();
 		} else if(line[0] == 'g') {
 			// Next SubMesh
-			if(sm->getVertices().size() > 0) {
-				sm->computeVertexNormals();
-				sm->computeBounds();
+			if(m->getVertices().size() > 0) {
+				m->computeVertexNormals();
+				m->computeBounds();
 				nextSubMesh();
 			}
 		} else {
@@ -447,8 +446,8 @@ bool Scene::loadOBJ(const std::filesystem::path& path) {
 		}
 	}
 	// FIXME: Something's broken (see Raytracing debug view: Almost all black)
-	sm->computeVertexNormals();
-	sm->computeBounds();
+	m->computeVertexNormals();
+	m->computeBounds();
 	return true;
 }
 
@@ -525,8 +524,11 @@ bool Scene::save(const std::filesystem::path& path) {
 			 {"parent", -1},
 			 {"children", JSON::array()},
 		 };
-		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
-			nodeJSON["mesh"] = static_cast<int>(mesh->index);
+		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+			nodeJSON["meshRenderer"] = JSON{
+				{"meshIndex", static_cast<int>(mesh->meshIndex)},
+				{"materialIndex", static_cast<int>(mesh->materialIndex)},
+			};
 		}
 		entitiesIndices[entity] = entities.size(); // Maps entity id to index in the file array, used to create children array
 		entities.push_back(nodeJSON);
@@ -546,23 +548,15 @@ bool Scene::save(const std::filesystem::path& path) {
 	}); // This will become the main JSON chunk header
 	auto& meshes = root["meshes"].asArray();
 	for(const auto& m : _meshes) {
+		int	 offset = static_cast<int>(buffers.size());
 		JSON mesh{
 			{"name", m.name},
-			{"submeshes", JSON::array()},
+			{"material", m.defaultMaterialIndex.value},
+			{"vertexArray", offset + 0},
+			{"indexArray", offset + 1},
 		};
-		auto& submeshes = mesh["submeshes"].asArray();
-		for(const auto& sm : m.SubMeshes) {
-			int	 offset = static_cast<int>(buffers.size());
-			JSON submesh{
-				{"name", sm.name},
-				{"material", sm.materialIndex.value},
-				{"vertexArray", offset + 0},
-				{"indexArray", offset + 1},
-			};
-			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(sm.getVertices().data()))});
-			buffers.push_back(GLBChunk{static_cast<uint32_t>(sm.getIndexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<uint32_t*>(sm.getIndices().data()))});
-			submeshes.push_back(std::move(submesh));
-		}
+		buffers.push_back(GLBChunk{static_cast<uint32_t>(m.getVertexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<Vertex*>(m.getVertices().data()))});
+		buffers.push_back(GLBChunk{static_cast<uint32_t>(m.getIndexByteSize()), GLBChunkType::BIN, reinterpret_cast<char*>(const_cast<uint32_t*>(m.getIndices().data()))});
 		meshes.push_back(std::move(mesh));
 	}
 
@@ -661,8 +655,12 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			for(const auto& c : n["children"])
 				entitiesChildren.back().push_back(c.asNumber().asInteger());
 
-			if(n.contains("mesh"))
-				_registry.emplace<MeshComponent>(entity, MeshComponent{.index = MeshIndex(n["mesh"].asNumber().asInteger())});
+			if(n.contains("meshRenderer")) {
+				_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																	 .meshIndex = MeshIndex(n["meshRenderer"]["meshIndex"].asNumber().asInteger()),
+																	 .materialIndex = MaterialIndex(n["meshRenderer"]["materialIndex"].asNumber().asInteger()),
+																 });
+			}
 		}
 
 		// Update nodes relationships now that they're all available
@@ -698,17 +696,13 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 		for(const auto& m : root["meshes"]) {
 			auto& mesh = _meshes.emplace_back();
 			mesh.name = m["name"].asString();
-			for(const auto& sm : m["submeshes"]) {
-				auto& submesh = mesh.SubMeshes.emplace_back();
-				submesh.name = sm["name"].asString();
-				submesh.materialIndex = MaterialIndex{static_cast<uint32_t>(sm("material", 0))};
-				auto vertexArrayIndex = sm["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
-				submesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
-											 reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
-				auto indexArrayIndex = sm["indexArray"].as<int>() - 1;
-				submesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
-											reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
-			}
+			mesh.defaultMaterialIndex = MaterialIndex{static_cast<uint32_t>(m("material", 0))};
+			auto vertexArrayIndex = m["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
+			mesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
+									  reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
+			auto indexArrayIndex = m["indexArray"].as<int>() - 1;
+			mesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
+									 reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
 		}
 
 		// Find root (FIXME: There's probably a better way to do this. Should we order the nodes when saving so the root is always the first node in the array? It's also probably a
@@ -741,29 +735,23 @@ void Scene::allocateMeshes(const Device& device) {
 	size_t							  totalIndexSize = 0;
 	std::vector<VkMemoryRequirements> memReqs;
 	for(auto& m : getMeshes()) {
-		for(auto& sm : m.SubMeshes) {
-			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
-			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
-			memReqs.push_back(vertexBufferMemReq);
-			memReqs.push_back(indexBufferMemReq);
-			sm.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
-			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
-			totalVertexSize += vertexBufferMemReq.size;
-			totalIndexSize += indexBufferMemReq.size;
-		}
+		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
+		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
+		memReqs.push_back(vertexBufferMemReq);
+		memReqs.push_back(indexBufferMemReq);
+		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
+		_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.defaultMaterialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+										   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+		totalVertexSize += vertexBufferMemReq.size;
+		totalIndexSize += indexBufferMemReq.size;
 	}
 	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
 	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
-	size_t submeshIdx = 0;
-	for(const auto& m : getMeshes()) {
-		for(const auto& sm : m.SubMeshes) {
-			vkBindBufferMemory(device, sm.getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
-			NextVertexMemoryOffset += memReqs[2 * submeshIdx].size;
-			vkBindBufferMemory(device, sm.getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
-			NextIndexMemoryOffset += memReqs[2 * submeshIdx + 1].size;
-			++submeshIdx;
-		}
+	for(auto meshIdx = 0; meshIdx < getMeshes().size(); ++meshIdx) {
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
+		NextVertexMemoryOffset += memReqs[2 * meshIdx].size;
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
+		NextIndexMemoryOffset += memReqs[2 * meshIdx + 1].size;
 	}
 	// Create views to the entire dataset
 	VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
@@ -783,15 +771,13 @@ void Scene::updateMeshOffsetTable() {
 	size_t totalIndexSize = 0;
 	_offsetTable.clear();
 	for(auto& m : getMeshes()) {
-		for(auto& sm : m.SubMeshes) {
-			auto vertexBufferMemReq = sm.getVertexBuffer().getMemoryRequirements();
-			auto indexBufferMemReq = sm.getIndexBuffer().getMemoryRequirements();
-			sm.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
-			_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(sm.materialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-											   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
-			totalVertexSize += vertexBufferMemReq.size;
-			totalIndexSize += indexBufferMemReq.size;
-		}
+		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
+		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
+		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
+		_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.defaultMaterialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+										   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+		totalVertexSize += vertexBufferMemReq.size;
+		totalIndexSize += indexBufferMemReq.size;
 	}
 }
 
@@ -853,6 +839,8 @@ void Scene::destroyTLAS(const Device& device) {
 	_topLevelAccelerationStructure = VK_NULL_HANDLE;
 	_tlasBuffer.destroy();
 	_tlasMemory.free();
+	_instancesBuffer.destroy();
+	_instancesMemory.free();
 	_accStructInstances.clear();
 	_accStructInstancesBuffer.destroy();
 	_accStructInstancesMemory.free();
@@ -887,10 +875,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 	VkTransformMatrixKHR rootTransformMatrix = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
 
-	size_t submeshesCount = 0;
-	for(const auto& m : getMeshes())
-		submeshesCount += m.SubMeshes.size();
-	submeshesCount *= 2; // FIXME
+	size_t meshesCount = getMeshes().size();
 
 	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
@@ -901,81 +886,76 @@ void Scene::createAccelerationStructure(const Device& device) {
 	std::vector<uint32_t>									 blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
 	size_t													 totalBLASSize = 0;
 	std::vector<VkAccelerationStructureBuildSizesInfoKHR>	 buildSizesInfo;
-	geometries.reserve(submeshesCount); // Avoid reallocation since buildInfos will refer to this.
-	rangeInfos.reserve(submeshesCount); // Avoid reallocation since pRangeInfos will refer to this.
-	blasOffsets.reserve(submeshesCount);
-	buildSizesInfo.reserve(submeshesCount);
+	geometries.reserve(meshesCount); // Avoid reallocation since buildInfos will refer to this.
+	rangeInfos.reserve(meshesCount); // Avoid reallocation since pRangeInfos will refer to this.
+	blasOffsets.reserve(meshesCount);
+	buildSizesInfo.reserve(meshesCount);
 
 	const auto& meshes = getMeshes();
-	_submeshesIndicesIntoBLASArray.clear();
 
 	{
 		QuickTimer qt("BLAS building");
 		// Collect all submeshes and query the memory requirements
 		for(const auto& mesh : meshes) {
-			auto& indices = _submeshesIndicesIntoBLASArray.emplace_back();
 			/*
-			 * Right now there's a one-to-one relation between submeshes and geometries.
+			 * Right now there's a one-to-one relation between meshes and geometries.
 			 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
 			 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
 			 * This should be doable using the gl_GeometryIndexEXT built-in.
 			 */
-			for(size_t i = 0; i < mesh.SubMeshes.size(); ++i) {
-				indices.push_back(geometries.size());
-				geometries.push_back({
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-					.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-					.geometry =
-						VkAccelerationStructureGeometryDataKHR{
-							.triangles =
-								VkAccelerationStructureGeometryTrianglesDataKHR{
-									.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-									.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-									.vertexData = mesh.SubMeshes[i].getVertexBuffer().getDeviceAddress(),
-									.vertexStride = sizeof(Vertex),
-									.maxVertex = static_cast<uint32_t>(mesh.SubMeshes[i].getVertices().size()),
-									.indexType = VK_INDEX_TYPE_UINT32,
-									.indexData = mesh.SubMeshes[i].getIndexBuffer().getDeviceAddress(),
-									.transformData = 0,
-								},
-						},
-					.flags = 0,
-				});
+			geometries.push_back({
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+				.geometry =
+					VkAccelerationStructureGeometryDataKHR{
+						.triangles =
+							VkAccelerationStructureGeometryTrianglesDataKHR{
+								.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+								.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+								.vertexData = mesh.getVertexBuffer().getDeviceAddress(),
+								.vertexStride = sizeof(Vertex),
+								.maxVertex = static_cast<uint32_t>(mesh.getVertices().size()),
+								.indexType = VK_INDEX_TYPE_UINT32,
+								.indexData = mesh.getIndexBuffer().getDeviceAddress(),
+								.transformData = 0,
+							},
+					},
+				.flags = 0,
+			});
 
-				VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-					.pNext = VK_NULL_HANDLE,
-					.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-					.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-					.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-					.srcAccelerationStructure = VK_NULL_HANDLE,
-					.geometryCount = 1,
-					.pGeometries = &geometries.back(),
-					.ppGeometries = nullptr,
-				};
+			VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+				.pNext = VK_NULL_HANDLE,
+				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+				.srcAccelerationStructure = VK_NULL_HANDLE,
+				.geometryCount = 1,
+				.pGeometries = &geometries.back(),
+				.ppGeometries = nullptr,
+			};
 
-				const uint32_t primitiveCount = static_cast<uint32_t>(mesh.SubMeshes[i].getIndices().size() / 3);
+			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
 
-				VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-				vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
-														&accelerationStructureBuildSizesInfo);
-				buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
+			VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+			vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
+													&accelerationStructureBuildSizesInfo);
+			buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
 
-				uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
-				blasOffsets.push_back(alignedSize);
-				totalBLASSize += alignedSize;
+			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
+			blasOffsets.push_back(alignedSize);
+			totalBLASSize += alignedSize;
 
-				scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
+			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
 
-				buildInfos.push_back(accelerationBuildGeometryInfo);
+			buildInfos.push_back(accelerationBuildGeometryInfo);
 
-				rangeInfos.push_back({
-					.primitiveCount = primitiveCount,
-					.primitiveOffset = 0,
-					.firstVertex = 0,
-					.transformOffset = 0,
-				});
-			}
+			rangeInfos.push_back({
+				.primitiveCount = primitiveCount,
+				.primitiveOffset = 0,
+				.firstVertex = 0,
+				.transformOffset = 0,
+			});
 		}
 
 		_staticBLASBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
@@ -1026,38 +1006,39 @@ void Scene::createAccelerationStructure(const Device& device) {
 void Scene::createTLAS(const Device& device) {
 	QuickTimer qt("TLAS building");
 
-	std::vector<uint32_t>			  submeshesIndices;
-	std::vector<VkTransformMatrixKHR> transforms;
-	const auto&						  meshes = getMeshes();
+	const auto& meshes = getMeshes();
 	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
-			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[mesh->index].SubMeshes.size(); ++i) {
-				// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-				VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
-					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-					.accelerationStructure = _bottomLevelAccelerationStructures[_submeshesIndicesIntoBLASArray[mesh->index][i]],
-				};
-				auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+			auto				 tmp = glm::transpose(transform);
+			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
+			VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
+				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+				.accelerationStructure = _bottomLevelAccelerationStructures[mesh->meshIndex],
+			};
+			auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
 
-				submeshesIndices.push_back(meshes[mesh->index].SubMeshes[i].indexIntoOffsetTable);
-				transforms.push_back(*reinterpret_cast<VkTransformMatrixKHR*>(&transform));
-				_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
-					.transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform),
-					.instanceCustomIndex = meshes[mesh->index].SubMeshes[i].indexIntoOffsetTable,
-					.mask = 0xFF,
-					.instanceShaderBindingTableRecordOffset = 0,
-					.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
-					.accelerationStructureReference = BLASDeviceAddress,
-				});
-			}
+			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
+				.transform = transposedTransform,
+				.instanceCustomIndex = meshes[mesh->meshIndex].indexIntoOffsetTable,
+				.mask = 0xFF,
+				.instanceShaderBindingTableRecordOffset = 0,
+				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+				.accelerationStructureReference = BLASDeviceAddress,
+			});
 		}
 	});
 	_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 									 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
+	// FIXME: This should probably not be HOST_VISIBLE and use a staging buffer to update.
 	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
 									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
+
+	_instancesBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, _accStructInstances.size() * sizeof(InstanceData));
+	// FIXME: This should probably not be HOST_VISIBLE and use a staging buffer to update.
+	_instancesMemory.allocate(device, _instancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	updateTransforms();
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -1125,15 +1106,16 @@ void Scene::updateTLAS(const Device& device) {
 	uint32_t	index = 0;
 	const auto& meshes = getMeshes();
 	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
-			transform = glm::transpose(transform); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			for(size_t i = 0; i < meshes[mesh->index].SubMeshes.size(); ++i) {
-				_accStructInstances[index].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&transform);
-				++index;
-			}
+		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+			auto				 tmp = glm::transpose(transform);
+			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+			_accStructInstances[index].transform = transposedTransform;
+			++index;
 		}
 	});
 	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
+
+	updateTransforms();
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -1173,17 +1155,41 @@ void Scene::updateTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
+void Scene::updateTransforms() {
+	// Sort by material then by mesh
+	_registry.sort<MeshRendererComponent>([](const auto& lhs, const auto& rhs) {
+		if(lhs.materialIndex == rhs.materialIndex)
+			return lhs.meshIndex < rhs.meshIndex;
+		return lhs.materialIndex < rhs.materialIndex;
+	});
+	auto meshRenderers = _registry.view<MeshRendererComponent, NodeComponent>();
+	// TODO: Optimize by only updating dirtyNode when possible
+	_instancesData.clear();
+	_instancesData.reserve(meshRenderers.size_hint());
+	for(auto&& [entity, meshRenderer, node] : meshRenderers.each()) {
+		auto transform = node.transform;
+		auto parent = node.parent;
+		while(parent != entt::null) {
+			const auto& parentNode = _registry.get<NodeComponent>(parent);
+			transform = parentNode.transform * transform;
+			parent = parentNode.parent;
+		}
+		_instancesData.push_back({transform});
+	}
+	_instancesMemory.fill(_instancesData.data(), _instancesData.size());
+}
+
 entt::entity Scene::intersectNodes(Ray& ray) {
 	Hit			 best;
 	entt::entity bestNode = entt::null;
 	const auto&	 meshes = getMeshes();
 	// Note: If we had cached/precomputed node bounds (without the need of meshes), we could speed this up a lot (basically an acceleration structure).
 	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
-			auto hit = intersect(ray, transform * meshes[mesh->index].getBounds());
+		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+			auto hit = intersect(ray, transform * meshes[mesh->meshIndex].getBounds());
 			if(hit.hit && hit.depth < best.depth) {
 				Ray localRay = glm::inverse(transform) * ray;
-				hit = intersect(localRay, meshes[mesh->index]);
+				hit = intersect(localRay, meshes[mesh->meshIndex]);
 				hit.depth = glm::length(glm::vec3(transform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - ray.origin);
 				if(hit.hit && hit.depth < best.depth) {
 					best = hit;
@@ -1197,14 +1203,16 @@ entt::entity Scene::intersectNodes(Ray& ray) {
 
 void Scene::removeFromHierarchy(entt::entity entity) {
 	auto& node = _registry.get<NodeComponent>(entity);
-	auto& parentNode = _registry.get<NodeComponent>(node.parent);
 	if(node.prev != entt::null)
 		_registry.get<NodeComponent>(node.prev).next = node.next;
 	if(node.next != entt::null)
 		_registry.get<NodeComponent>(node.next).prev = node.prev;
-	if(parentNode.first == entity)
-		parentNode.first = node.next;
-	--parentNode.children;
+	if(node.parent != entt::null) {
+		auto& parentNode = _registry.get<NodeComponent>(node.parent);
+		if(parentNode.first == entity)
+			parentNode.first = node.next;
+		--parentNode.children;
+	}
 	node.next = entt::null;
 	node.prev = entt::null;
 	node.parent = entt::null;

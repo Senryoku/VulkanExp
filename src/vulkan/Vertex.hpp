@@ -21,8 +21,8 @@ struct Vertex {
 
 		return bindingDescription;
 	}
-	static constexpr std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{
+	static const std::array<VkVertexInputAttributeDescription, 5>& getAttributeDescriptions() {
+		const static std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{
 			VkVertexInputAttributeDescription{
 				.location = 0,
 				.binding = 0,
@@ -54,7 +54,6 @@ struct Vertex {
 				.offset = offsetof(Vertex, texCoord),
 			},
 		};
-
 		return attributeDescriptions;
 	}
 };

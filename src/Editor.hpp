@@ -56,13 +56,6 @@ struct CameraBuffer {
 	uint32_t  frameIndex;
 };
 
-struct GBufferPushConstant {
-	glm::mat4 transform;
-	glm::vec4 baseColorFactor{1.0f};
-	float	  metalness;
-	float	  roughness;
-};
-
 static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
 											 VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -90,14 +83,17 @@ class Editor {
 
 	const std::vector<const char*> _validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-	const std::vector<const char*> _requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-																VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-																VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-																VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-																VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-																VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-																VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
-																VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME};
+	const std::vector<const char*> _requiredDeviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+		VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+	};
 
 #ifdef NDEBUG
 	const bool _enableValidationLayers = false;
@@ -213,6 +209,7 @@ class Editor {
 	void createDirectLightPass();
 	void writeDirectLightDescriptorSets();
 	void createGatherPass();
+	void createProbeDebugPass();
 
 	LightBuffer _light;
 	bool		_deriveLightPositionFromTime = false;
@@ -291,7 +288,6 @@ class Editor {
 	void createSwapChain();
 	void initSwapChain();
 	void initUniformBuffers();
-	void initProbeDebug();
 	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();
