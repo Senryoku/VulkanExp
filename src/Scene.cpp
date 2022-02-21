@@ -524,7 +524,10 @@ bool Scene::save(const std::filesystem::path& path) {
 			 {"children", JSON::array()},
 		 };
 		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
-			nodeJSON["mesh"] = static_cast<int>(mesh->meshIndex);
+			nodeJSON["meshRenderer"] = JSON{
+				{"meshIndex", static_cast<int>(mesh->meshIndex)},
+				{"materialIndex", static_cast<int>(mesh->materialIndex)},
+			};
 		}
 		entitiesIndices[entity] = entities.size(); // Maps entity id to index in the file array, used to create children array
 		entities.push_back(nodeJSON);
@@ -651,9 +654,12 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			for(const auto& c : n["children"])
 				entitiesChildren.back().push_back(c.asNumber().asInteger());
 
-			if(n.contains("mesh"))
-				_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{.meshIndex = MeshIndex(n["mesh"].asNumber().asInteger()),
-																					   .materialIndex = getMeshes()[n["mesh"].asNumber().asInteger()].defaultMaterialIndex});
+			if(n.contains("meshRenderer")) {
+				_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																	 .meshIndex = MeshIndex(n["meshRenderer"]["meshIndex"].asNumber().asInteger()),
+																	 .materialIndex = MaterialIndex(n["meshRenderer"]["materialIndex"].asNumber().asInteger()),
+																 });
+			}
 		}
 
 		// Update nodes relationships now that they're all available
@@ -687,18 +693,15 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 		}
 
 		for(const auto& m : root["meshes"]) {
-			auto name = m["name"].asString();
-			for(const auto& sm : m["submeshes"]) {
-				auto& mesh = _meshes.emplace_back();
-				mesh.name = name + m["name"].asString();
-				mesh.defaultMaterialIndex = MaterialIndex{static_cast<uint32_t>(sm("material", 0))};
-				auto vertexArrayIndex = sm["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
-				mesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
-										  reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
-				auto indexArrayIndex = sm["indexArray"].as<int>() - 1;
-				mesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
-										 reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
-			}
+			auto& mesh = _meshes.emplace_back();
+			mesh.name = m["name"].asString();
+			mesh.defaultMaterialIndex = MaterialIndex{static_cast<uint32_t>(m("material", 0))};
+			auto vertexArrayIndex = m["vertexArray"].as<int>() - 1; // Skipping the JSON chunk
+			mesh.getVertices().assign(reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data()),
+									  reinterpret_cast<Vertex*>(buffers[vertexArrayIndex].data() + buffers[vertexArrayIndex].size()));
+			auto indexArrayIndex = m["indexArray"].as<int>() - 1;
+			mesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
+									 reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
 		}
 
 		// Find root (FIXME: There's probably a better way to do this. Should we order the nodes when saving so the root is always the first node in the array? It's also probably a

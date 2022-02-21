@@ -500,7 +500,6 @@ void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[
 	}
 	// FIXME: This is way overkill
 	app->uploadScene();
-	app->onTLASCreation();
 	// Since the number of material may have changed, we have to re-create GBuffer descriptor layout and sets
 	app->_gbufferPipeline.destroy();
 	app->_gbufferDescriptorPool.destroy();
@@ -509,6 +508,7 @@ void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[
 	app->writeDirectLightDescriptorSets();
 	app->writeReflectionDescriptorSets();
 	app->writeRaytracingDescriptorSets();
+	app->onTLASCreation();
 	app->_outdatedCommandBuffers = true;
 }
 
