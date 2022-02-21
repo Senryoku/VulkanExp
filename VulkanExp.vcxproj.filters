@@ -153,6 +153,9 @@
     <ClCompile Include="ext\imgui-docking\misc\cpp\imgui_stdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\RenderPasses\ProbeDebugPipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Editor.hpp">
@@ -378,5 +381,7 @@
     <None Include="src\shaders\directLightFilter.glsl" />
     <None Include="src\shaders\directLightFilterX.comp" />
     <None Include="src\shaders\directLightFilterY.comp" />
+    <None Include="src\shaders\InstanceData.glsl" />
+    <None Include="src\shaders\unpackMaterial.glsl" />
   </ItemGroup>
 </Project>

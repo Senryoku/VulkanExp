@@ -36,7 +36,7 @@ layout(set = 1, binding = 1) uniform texture2D blueNoiseTextures[64];
 
 #include "irradiance.glsl"
 #include "Vertex.glsl"
-#include "Material.glsl"
+#include "unpackMaterial.glsl"
 #include "rayPayload.glsl"
 
 layout(location = 0) rayPayloadInEXT rayPayload payload;

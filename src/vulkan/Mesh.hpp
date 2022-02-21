@@ -9,15 +9,15 @@
 #include "Material.hpp"
 #include "Vertex.hpp"
 
-class SubMesh {
+class Mesh {
   public:
-	SubMesh() = default;
-	SubMesh(const SubMesh&) = delete;
-	SubMesh(SubMesh&&) noexcept = default;
+	Mesh() = default;
+	Mesh(const Mesh&) = delete;
+	Mesh(Mesh&&) noexcept = default;
 
 	std::string	  name;
 	uint32_t	  indexIntoOffsetTable = -1;
-	MaterialIndex materialIndex{static_cast<uint32_t>(0)};
+	MaterialIndex defaultMaterialIndex{static_cast<uint32_t>(0)};
 
 	void init(const Device& device) {
 		if(_indexBuffer && _vertexBuffer) {
@@ -60,7 +60,7 @@ class SubMesh {
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
-	void				 computeBounds();
+	const Bounds&		 computeBounds();
 
 	void normalizeVertices();
 	void computeVertexNormals();
@@ -72,33 +72,5 @@ class SubMesh {
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
 
-	Bounds _bounds;
-};
-
-class Mesh {
-  public:
-	Mesh() = default;
-	Mesh(const Mesh&) = delete;
-	Mesh(Mesh&&) = default;
-
-	std::string			  name;
-	std::filesystem::path path; // Path to file containing this mesh (May be empty)
-	std::vector<SubMesh>  SubMeshes;
-
-	void destroy() { SubMeshes.clear(); }
-	~Mesh() { destroy(); }
-
-	inline const Bounds& getBounds() const { return _bounds; }
-	inline void			 setBounds(const Bounds& b) { _bounds = b; }
-	inline const Bounds& computeBounds() {
-		_bounds = SubMeshes[0].getBounds();
-		for(auto& sm : SubMeshes) {
-			sm.computeBounds();
-			_bounds += sm.getBounds();
-		}
-		return _bounds;
-	}
-
-  private:
 	Bounds _bounds;
 };

@@ -8,7 +8,7 @@
 #include <Logger.hpp>
 #include <stringutils.hpp>
 
-void SubMesh::normalizeVertices() {
+void Mesh::normalizeVertices() {
 	glm::vec3 acc{0};
 	for(const auto& v : _vertices)
 		acc += v.pos;
@@ -17,7 +17,7 @@ void SubMesh::normalizeVertices() {
 		v.pos -= acc;
 }
 
-void SubMesh::computeVertexNormals() {
+void Mesh::computeVertexNormals() {
 	// Here, normals are the average of adjacent triangles' normals
 	// (so we have exactly one normal per vertex)
 	for(auto& v : _vertices) {
@@ -44,11 +44,12 @@ void SubMesh::computeVertexNormals() {
 	}
 }
 
-void SubMesh::computeBounds() {
+const Bounds& Mesh::computeBounds() {
 	Bounds b{.min = _vertices[0].pos, .max = _vertices[0].pos};
 	for(const auto& v : _vertices) {
 		b.min = glm::min(b.min, v.pos);
 		b.max = glm::max(b.max, v.pos);
 	}
 	_bounds = b;
+	return _bounds;
 }

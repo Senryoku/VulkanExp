@@ -463,6 +463,8 @@ void Editor::onTLASCreation() {
 			dsw.update(_device);
 		}
 	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+	// GBuffer also uses the transform buffer that was just re-created
+	writeGBufferDescriptorSets();
 }
 
 void Editor::sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
@@ -511,8 +513,9 @@ void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[
 }
 
 void Editor::sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-	if(app->_controlCamera)
+	auto	 app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	ImGuiIO& io = ImGui::GetIO();
+	if(io.WantCaptureMouse || app->_controlCamera)
 		return;
 	auto it = app->_shortcuts.find({key, action, mods});
 	if(it != app->_shortcuts.end())

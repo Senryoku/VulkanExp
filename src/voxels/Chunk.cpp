@@ -43,16 +43,14 @@ Mesh generateMesh(const Chunk& chunk) {
 			   k + n[2] >= static_cast<int>(Chunk::Size);
 	};
 
-	m.SubMeshes.emplace_back();
-
 	// TODO: Optimize faces (merge triangles)
 	for(size_t i = 0; i < Chunk::Size; ++i)
 		for(size_t j = 0; j < Chunk::Size; ++j)
 			for(size_t k = 0; k < Chunk::Size; ++k) {
 				// Add non-empty voxels
 				if(chunk(i, j, k).type != Voxel::Empty) {
-					// TODO: Choose SubMesh depending on voxels type (i.e. material)
-					auto& sm = m.SubMeshes[0];
+					// TODO: Choose Mesh depending on voxels type (i.e. material)
+					auto& sm = m;
 					// Always consider voxel on the edge
 					bool is_visible = is_edge(i, j, k);
 					for(const auto& n : normals)

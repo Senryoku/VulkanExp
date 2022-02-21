@@ -106,38 +106,48 @@ void Editor::createGBufferPipeline() {
 
 	DescriptorSetLayoutBuilder builder;
 	builder
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)			   // Camera
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Albedo
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Normal
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)  // Metal Roughness
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // Emissive
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)			  // Camera
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Albedo
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Normal
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Metal Roughness
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		  // Material
 	_gbufferDescriptorSetLayouts.push_back(builder.build(_device));
+
+	DescriptorSetLayoutBuilder instanceSetBuilder;
+	instanceSetBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); // Instance transform SSBO
+	_gbufferDescriptorSetLayouts.push_back(instanceSetBuilder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> layouts;
 	for(const auto& layout : _gbufferDescriptorSetLayouts)
 		layouts.push_back(layout);
 
-	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size() * Materials.size());
+	uint32_t			  materialDescriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size() * Materials.size());
+	uint32_t			  instanceDescriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size());
 	DescriptorPoolBuilder poolBuilder;
-	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * descriptorSetsCount).add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 * descriptorSetsCount);
-	_gbufferDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * materialDescriptorSetsCount)
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * materialDescriptorSetsCount)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, materialDescriptorSetsCount + instanceDescriptorSetsCount);
+	_gbufferDescriptorPool = poolBuilder.build(_device, materialDescriptorSetsCount + instanceDescriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		for(const auto& material : Materials) {
 			descriptorSetsLayoutsToAllocate.push_back(_gbufferDescriptorSetLayouts[0]);
 		}
+	for(size_t i = 0; i < _swapChainImages.size(); ++i)
+		descriptorSetsLayoutsToAllocate.push_back(_gbufferDescriptorSetLayouts[1]);
 	_gbufferDescriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	auto										   bindingDescription = {Vertex::getBindingDescription()};
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions{Vertex::getAttributeDescriptions().begin(), Vertex::getAttributeDescriptions().end()};
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &bindingDescription, // Optional
+		.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size()),
+		.pVertexBindingDescriptions = bindingDescription.begin(),
 		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-		.pVertexAttributeDescriptions = attributeDescriptions.data(), // Optional
+		.pVertexAttributeDescriptions = attributeDescriptions.data(),
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{
@@ -237,13 +247,7 @@ void Editor::createGBufferPipeline() {
 		.pDynamicStates = dynamicStates,
 	};
 
-	std::vector<VkPushConstantRange> pushConstants{{
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.offset = 0,
-		.size = sizeof(GBufferPushConstant),
-	}};
-
-	_gbufferPipeline.getLayout().create(_device, layouts, pushConstants);
+	_gbufferPipeline.getLayout().create(_device, layouts);
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -308,7 +312,23 @@ void Editor::writeGBufferDescriptorSets() {
 						.imageView = emissive.gpuImage->imageView,
 						.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 					});
+			dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					{
+						.buffer = MaterialBuffer,
+						.offset = m * sizeof(Material::Properties),
+						.range = sizeof(Material::Properties),
+					});
 			dsw.update(_device);
 		}
+	}
+	for(size_t i = 0; i < _swapChainImages.size(); i++) {
+		DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[_swapChainImages.size() * Materials.size() + i]);
+		dsw.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				{
+					.buffer = _scene.getInstanceBuffer(),
+					.offset = 0,
+					.range = VK_WHOLE_SIZE,
+				});
+		dsw.update(_device);
 	}
 }

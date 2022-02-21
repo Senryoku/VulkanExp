@@ -1,19 +1,16 @@
-#version 450
+#version 460
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
 	uint frameIndex;
 } ubo;
 
-layout(push_constant) uniform constants
-{
-	mat4 model;
-    vec4 baseColorFactor;
-    float metalnessFactor;
-    float roughnessFactor;
-} PushConstants;
+#include "InstanceData.glsl"
+layout(set = 1, binding = 0) readonly buffer InstanceDataBlock {
+    InstanceData instances[];
+};
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -26,22 +23,19 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec4 tangent;
 layout(location = 3) out vec3 bitangent;
 layout(location = 4) out vec2 texCoord;
-layout(location = 5) out float metalnessFactor;
-layout(location = 6) out float roughnessFactor;
-layout(location = 7) out flat vec3 origin;
-layout(location = 8) out vec3 color;
+layout(location = 5) out flat vec3 origin;
+//layout(location = 8) out vec3 color;
 
 void main() {
-    vec4 worldPosition = PushConstants.model * vec4(inPosition, 1.0);
+    mat4 model = instances[gl_InstanceIndex].transform;
+    vec4 worldPosition = model * vec4(inPosition, 1.0);
     vec4 viewPosition = ubo.view * worldPosition;
     gl_Position = ubo.proj * viewPosition;
     position = worldPosition.xyz;
-    normal = transpose(inverse(mat3(PushConstants.model))) * inNormal; // transpose(inverse()) is only important in case of non-uniform transformation
-    tangent = vec4(mat3(PushConstants.model) * inTangent.xyz, inTangent.w);
+    normal = transpose(inverse(mat3(model))) * inNormal; // transpose(inverse()) is only important in case of non-uniform transformation
+    tangent = vec4(mat3(model) * inTangent.xyz, inTangent.w);
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
-    metalnessFactor = PushConstants.metalnessFactor;
-    roughnessFactor = PushConstants.roughnessFactor;
     origin = (inverse(ubo.view) * vec4(0,0,0,1)).xyz;
-    color = PushConstants.baseColorFactor.rgb * inColor;
+    //color = PushConstants.baseColorFactor.rgb * inColor;
 }
