@@ -11,12 +11,12 @@ layout(set = 0, binding = 5) readonly buffer MaterialsBlock { uint Materials[]; 
 #include "unpackMaterial.glsl"
 
 layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 normal;
-layout(location = 2) in vec4 tangent;
-layout(location = 3) in vec3 bitangent;
-layout(location = 4) in vec2 texCoord;
-layout(location = 5) in flat vec3 origin;
-//layout(location = 8) in vec3 color;
+layout(location = 1) in vec3 color;
+layout(location = 2) in vec3 normal;
+layout(location = 3) in vec4 tangent;
+layout(location = 4) in vec3 bitangent;
+layout(location = 5) in vec2 texCoord;
+layout(location = 6) in flat vec3 origin;
 
 layout(location = 0) out vec4 outPositionDepth;
 layout(location = 1) out vec4 outNormalMetalness;
@@ -24,7 +24,7 @@ layout(location = 2) out vec4 outAlbedoRoughness;
 
 void main() {
     Material material = unpackMaterial(0);
-    vec3 albedo = material.baseColorFactor;
+    vec3 albedo = color * material.baseColorFactor;
     if(material.albedoTexture != -1) {
         vec4 texColor = texture(texSampler, texCoord);
         if(texColor.a < 0.05) discard; // FIXME: This is a really bad way of handling transparency :)
