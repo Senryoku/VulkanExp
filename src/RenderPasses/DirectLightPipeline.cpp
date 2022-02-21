@@ -227,3 +227,14 @@ void Editor::writeDirectLightDescriptorSets() {
 		writer.update(_device);
 	}
 }
+
+void Editor::destroyDirectLightPipeline() {
+	_directLightPipeline.destroy();
+	_directLightDescriptorPool.destroy();
+	_directLightDescriptorSetLayout.destroy();
+
+	_directLightFilterPipelineX.destroy();
+	_directLightFilterPipelineY.destroy();
+	_directLightFilterDescriptorPool.destroy();
+	_directLightFilterDescriptorSetLayout.destroy();
+}

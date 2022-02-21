@@ -112,6 +112,13 @@ void Editor::createRayTracingPipeline() {
 	_raytracingShaderBindingTable.create(_device, {1, 2, 1, 0}, _rayTracingPipeline);
 }
 
+void Editor::destroyRayTracingPipeline() {
+	_rayTracingPipeline.destroy();
+	_rayTracingDescriptorPool.destroy();
+	_rayTracingDescriptorSetLayout.destroy();
+	_rayTracingPipelineLayout.destroy();
+}
+
 void Editor::createRaytracingDescriptorSets() {
 	assert(_scene.getTLAS() != VK_NULL_HANDLE);
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;

@@ -191,6 +191,17 @@ void Editor::createReflectionPass() {
 	}
 }
 
+void Editor::destroyReflectionPipeline() {
+	_reflectionPipeline.destroy();
+	_reflectionDescriptorSetLayout.destroy();
+	_reflectionDescriptorPool.destroy();
+
+	_reflectionFilterPipelineX.destroy();
+	_reflectionFilterPipelineY.destroy();
+	_reflectionFilterDescriptorSetLayout.destroy();
+	_reflectionFilterDescriptorPool.destroy();
+}
+
 void Editor::writeReflectionDescriptorSets() {
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 		auto writer = baseSceneWriter(_device, _reflectionDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);

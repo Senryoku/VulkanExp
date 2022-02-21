@@ -203,9 +203,12 @@ class Editor {
 	void createGBufferFramebuffers();
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
+	void destroyGBufferPipeline();
 	void createReflectionPass();
+	void destroyReflectionPipeline();
 	void writeReflectionDescriptorSets();
 	void createDirectLightPass();
+	void destroyDirectLightPipeline();
 	void writeDirectLightDescriptorSets();
 	void createGatherPass();
 	void createProbeDebugPass();
@@ -259,6 +262,7 @@ class Editor {
 	void				   createRaytracingDescriptorSets();
 	void				   writeRaytracingDescriptorSets();
 	void				   createRayTracingPipeline();
+	void				   destroyRayTracingPipeline();
 	void				   recordRayTracingCommands();
 
 	bool _framebufferResized = false;

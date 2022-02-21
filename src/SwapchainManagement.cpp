@@ -492,10 +492,7 @@ void Editor::cleanupSwapChain() {
 	_mainTimingQueryPools.clear();
 
 	_rayTraceCommandBuffers.free();
-	_rayTracingPipeline.destroy();
-	_rayTracingDescriptorPool.destroy();
-	_rayTracingDescriptorSetLayout.destroy();
-	_rayTracingPipelineLayout.destroy();
+	destroyRayTracingPipeline();
 	_rayTraceStorageImageViews.clear();
 	_rayTraceStorageImages.clear();
 
@@ -509,16 +506,15 @@ void Editor::cleanupSwapChain() {
 	_probeDebugDescriptorSetLayouts.clear();
 	_probeDebugPipeline.destroy();
 
+	destroyGBufferPipeline();
+	destroyDirectLightPipeline();
+	destroyReflectionPipeline();
+
 	_cameraUniformBuffers.clear();
 	_cameraUniformBuffersMemory.free();
 	_lightUniformBuffers.clear();
 	_lightUniformBuffersMemory.free();
 	_descriptorPool.destroy();
-	_gbufferDescriptorPool.destroy();
-	_directLightDescriptorPool.destroy();
-	_directLightFilterDescriptorPool.destroy();
-	_reflectionDescriptorPool.destroy();
-	_reflectionFilterDescriptorPool.destroy();
 	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
 	_gatherFramebuffers.clear();
@@ -527,21 +523,9 @@ void Editor::cleanupSwapChain() {
 	_commandBuffers.free();
 	_copyCommandBuffers.free();
 
-	_gbufferPipeline.destroy();
-	_directLightPipeline.destroy();
-	_directLightFilterPipelineX.destroy();
-	_directLightFilterPipelineY.destroy();
-	_reflectionPipeline.destroy();
-	_reflectionFilterPipelineX.destroy();
-	_reflectionFilterPipelineY.destroy();
 	_gatherPipeline.destroy();
 
 	_descriptorSetLayouts.clear();
-	_gbufferDescriptorSetLayouts.clear();
-	_directLightDescriptorSetLayout.destroy();
-	_directLightFilterDescriptorSetLayout.destroy();
-	_reflectionDescriptorSetLayout.destroy();
-	_reflectionFilterDescriptorSetLayout.destroy();
 	_gatherDescriptorSetLayout.destroy();
 
 	_gbufferRenderPass.destroy();

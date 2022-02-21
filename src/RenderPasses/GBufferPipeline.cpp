@@ -332,3 +332,9 @@ void Editor::writeGBufferDescriptorSets() {
 		dsw.update(_device);
 	}
 }
+
+void Editor::destroyGBufferPipeline() {
+	_gbufferPipeline.destroy();
+	_gbufferDescriptorPool.destroy();
+	_gbufferDescriptorSetLayouts.clear();
+}
