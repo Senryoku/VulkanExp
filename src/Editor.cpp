@@ -88,7 +88,6 @@ void Editor::run() {
 	{
 		QuickTimer qt("Scene loading");
 
-		/*
 		Chunk chunk;
 		for(int i = 0; i < Chunk::Size; ++i)
 			for(int j = 0; j < Chunk::Size; ++j)
@@ -102,11 +101,14 @@ void Editor::run() {
 		_scene.loadMaterial("data/materials/cavern-deposits/cavern-deposits.mat");
 		_scene.getMeshes().emplace_back(generateMesh(chunk));
 		_scene.getMeshes().back().computeBounds();
-		*/
-		/*
-		_scene.getNodes().emplace_back(Scene::Node{.name = "Chunk", .mesh = static_cast<Scene::MeshIndex>(_scene.getMeshes().size() - 1)});
-		_scene.addChild(Scene::NodeIndex{0}, Scene::NodeIndex(_scene.getNodes().size() - 1));
-		*/
+
+		auto  entity = _scene.getRegistry().create();
+		auto& node = _scene.getRegistry().emplace<NodeComponent>(entity);
+		node.name = "Chunk";
+		_scene.addChild(_scene.getRoot(), entity);
+		auto& renderer = _scene.getRegistry().emplace<MeshRendererComponent>(entity);
+		renderer.meshIndex = static_cast<MeshIndex>(_scene.getMeshes().size() - 1);
+
 		// TODO: Bounds are probably not correct
 
 		//_scene.load("./data/models/Sponza/Sponza.gltf");
