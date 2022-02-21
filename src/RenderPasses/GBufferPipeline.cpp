@@ -40,6 +40,16 @@ void Editor::createGBufferRenderPass() {
 			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 		})
 		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+		})
+		.add({
 			.format = _depthFormat,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -53,10 +63,11 @@ void Editor::createGBufferRenderPass() {
 					{// Output (GBuffer)
 					 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 					 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+					 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+					 {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
 					{}, {},
 					{// Depth
-					 3, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+					 4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
 					{})
 		// Dependencies (FIXME!)
 		.add({
@@ -83,9 +94,10 @@ void Editor::createGBufferFramebuffers() {
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
 									   {
-										   _gbufferImageViews[3 * i + 0],
-										   _gbufferImageViews[3 * i + 1],
-										   _gbufferImageViews[3 * i + 2],
+										   _gbufferImageViews[4 * i + 0],
+										   _gbufferImageViews[4 * i + 1],
+										   _gbufferImageViews[4 * i + 2],
+										   _gbufferImageViews[4 * i + 3],
 										   _depthImageView,
 									   },
 									   _swapChainExtent);
@@ -211,7 +223,8 @@ void Editor::createGBufferPipeline() {
 		.alphaBlendOp = VK_BLEND_OP_ADD,			 // Optional
 		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 	};
-	std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachmentStates{
+	std::array<VkPipelineColorBlendAttachmentState, 4> colorBlendAttachmentStates{
+		colorBlendAttachment,
 		colorBlendAttachment,
 		colorBlendAttachment,
 		colorBlendAttachment,

@@ -132,7 +132,7 @@ void Editor::createReflectionPass() {
 			writer
 				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _gbufferImageViews[3 * i + 0],
+						 .imageView = _gbufferImageViews[4 * i + 0],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -162,7 +162,7 @@ void Editor::createReflectionPass() {
 			writer2
 				.add(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _gbufferImageViews[3 * i + 0],
+						 .imageView = _gbufferImageViews[4 * i + 0],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -215,17 +215,17 @@ void Editor::writeReflectionDescriptorSets() {
 				 })
 			.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				 {
-					 .imageView = _gbufferImageViews[3 * i + 0],
+					 .imageView = _gbufferImageViews[4 * i + 0],
 					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				 })
 			.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				 {
-					 .imageView = _gbufferImageViews[3 * i + 1],
+					 .imageView = _gbufferImageViews[4 * i + 1],
 					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				 })
 			.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				 {
-					 .imageView = _gbufferImageViews[3 * i + 2],
+					 .imageView = _gbufferImageViews[4 * i + 2],
 					 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				 });
 		// Result

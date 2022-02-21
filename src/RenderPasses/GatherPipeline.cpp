@@ -5,6 +5,7 @@ void Editor::createGatherPass() {
 	RenderPassBuilder rpb;
 	// Attachments
 	rpb.add({
+				// GBuffer 0
 				.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 				.samples = VK_SAMPLE_COUNT_1_BIT,
 				.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -15,6 +16,7 @@ void Editor::createGatherPass() {
 				.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			})
 		.add({
+			// GBuffer 1
 			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -25,6 +27,7 @@ void Editor::createGatherPass() {
 			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		})
 		.add({
+			// GBuffer 2
 			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -35,6 +38,18 @@ void Editor::createGatherPass() {
 			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		})
 		.add({
+			// GBuffer 3
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		})
+		.add({
+			// Direct Light
 			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -45,6 +60,7 @@ void Editor::createGatherPass() {
 			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 		})
 		.add({
+			// Output
 			.format = _swapChainImageFormat,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -57,14 +73,15 @@ void Editor::createGatherPass() {
 		.addSubPass(VK_PIPELINE_BIND_POINT_GRAPHICS,
 					{
 						// Output
-						{4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+						{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 					},
 					{
 						// Inputs (GBuffer)
 						{0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 						{1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
 						{2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-						{3, VK_IMAGE_LAYOUT_GENERAL}, // Direct Light
+						{3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+						{4, VK_IMAGE_LAYOUT_GENERAL}, // Direct Light
 					},
 					{},
 					// Depth
@@ -94,9 +111,10 @@ void Editor::createGatherPass() {
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gatherFramebuffers[i].create(_device, _gatherRenderPass,
 									  {
-										  _gbufferImageViews[3 * i + 0],
-										  _gbufferImageViews[3 * i + 1],
-										  _gbufferImageViews[3 * i + 2],
+										  _gbufferImageViews[4 * i + 0],
+										  _gbufferImageViews[4 * i + 1],
+										  _gbufferImageViews[4 * i + 2],
+										  _gbufferImageViews[4 * i + 3],
 										  _directLightImageViews[i],
 										  _swapChainImageViews[i],
 									  },
@@ -114,14 +132,15 @@ void Editor::createGatherPass() {
 	builder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
-		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)			 // Direct Light
-		.add(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Reflection
-		.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Grid Parameters
-		.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Probe Info
-		.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
-		.add(9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
-		.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		 // Camera
-		.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		 // Light
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)
+		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Direct Light
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Reflection
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Grid Parameters
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Probe Info
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Color
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Probes Depth
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)		  // Camera
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);		  // Light
 	_gatherDescriptorSetLayout = builder.build(_device);
 
 	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size());
@@ -240,24 +259,31 @@ void Editor::createGatherPass() {
 				{
 					.sampler =
 						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					.imageView = _gbufferImageViews[3 * i + 0],
+					.imageView = _gbufferImageViews[4 * i + 0],
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				})
 			.add(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _gbufferImageViews[3 * i + 1],
+					 .imageView = _gbufferImageViews[4 * i + 1],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _gbufferImageViews[3 * i + 2],
+					 .imageView = _gbufferImageViews[4 * i + 2],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				 {
+					 .sampler =
+						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
+					 .imageView = _gbufferImageViews[4 * i + 3],
+					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				 })
+			.add(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),

@@ -5,7 +5,8 @@
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputPositionDepth;
 layout (input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inputNormalMetalness;
 layout (input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inputAlbedoRoughness;
-layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputDirectLight;
+layout (input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inputEmissive;
+layout (input_attachment_index = 4, set = 0, binding = 4) uniform subpassInput inputDirectLight;
 #include "Lights.glsl"
 layout (binding = 5, set = 0) uniform sampler2D inputReflection;
 layout(binding = 6, set = 0) uniform UBOBlock {
@@ -46,6 +47,7 @@ void main() {
 	vec4 albedoRoughness = subpassLoad(inputAlbedoRoughness);
 	vec4 albedo = vec4(albedoRoughness.rgb, 1.0);
 	float roughness = albedoRoughness.a;
+	vec4 emissive = subpassLoad(inputEmissive);
 	vec4 reflection = texture(inputReflection, fragPosition); 
 
 	// Miss: Display the environment map.
@@ -67,5 +69,8 @@ void main() {
 		// Indirect Light (Radiance from probes)
 		vec3 indirectLight = sampleProbes(position, normal, view, grid, irradianceColor, irradianceDepth).rgb;
 		color.rgb += indirectLight * diffuseColor;
+
+		// Emissive
+		color.rgb += emissive.rgb;
 	}
 }

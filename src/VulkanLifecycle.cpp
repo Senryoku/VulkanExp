@@ -142,7 +142,7 @@ void Editor::initVulkan() {
 		f.create(_device);
 
 	initImGui(graphicsFamily);
-	uiOnSwapChainReady();
+	uiOnTextureChange();
 }
 
 // Upload Scene data to GPU

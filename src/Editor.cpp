@@ -516,6 +516,7 @@ void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[
 	app->_irradianceProbes.destroyPipeline();
 	app->_irradianceProbes.createPipeline();
 	app->onTLASCreation();
+	app->uiOnTextureChange();
 	app->_outdatedCommandBuffers = true;
 }
 

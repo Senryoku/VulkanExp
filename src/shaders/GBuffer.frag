@@ -21,6 +21,7 @@ layout(location = 6) in flat vec3 origin;
 layout(location = 0) out vec4 outPositionDepth;
 layout(location = 1) out vec4 outNormalMetalness;
 layout(location = 2) out vec4 outAlbedoRoughness;
+layout(location = 3) out vec4 outEmissive;
 
 void main() {
     Material material = unpackMaterial(0);
@@ -46,7 +47,14 @@ void main() {
         metalness *= metalRoughMap.b;
     }
 
+    vec3 emissive = material.emissiveFactor;
+    if(material.emissiveTexture != -1) {
+        vec4 emissiveTex = texture(emissiveTexSampler, texCoord);
+        emissive *= emissiveTex.rgb;
+    }
+
     outPositionDepth = vec4(position, length(position - origin));
     outNormalMetalness = vec4(finalNormal, metalness);
     outAlbedoRoughness = vec4(albedo, roughness);
+    outEmissive = vec4(emissive, 1.0);
 }

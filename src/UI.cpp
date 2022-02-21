@@ -132,7 +132,7 @@ void Editor::createImGuiRenderPass() {
 	_imguiCommandBuffers.allocate(_device, _imguiCommandPool, _swapChainImageViews.size());
 }
 
-void Editor::uiOnSwapChainReady() {
+void Editor::uiOnTextureChange() {
 	// Prepare new scene textures for display
 	for(TextureIndex i = TextureIndex{SceneUITextureIDs.size()}; i < Textures.size(); ++i) {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});

@@ -295,7 +295,7 @@ class Editor {
 	void recreateSwapChain();
 	void cleanupSwapChain();
 	void createImGuiRenderPass();
-	void uiOnSwapChainReady();
+	void uiOnTextureChange();
 	void recordUICommandBuffer(size_t index);
 	void uploadScene();
 	void uploadMaterials();
