@@ -126,7 +126,10 @@ void Editor::createRaytracingDescriptorSets() {
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
 									 });
 	_rayTracingDescriptorPool.allocate(layoutsToAllocate);
+	writeRaytracingDescriptorSets();
+}
 
+void Editor::writeRaytracingDescriptorSets() {
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
 		auto writer = baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera

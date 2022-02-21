@@ -25,8 +25,9 @@ struct MeshIndexTag {};
 using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
 inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
 
-struct MeshComponent {
-	MeshIndex index; // FIXME: Use something else.
+struct MeshRendererComponent {
+	MeshIndex	  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
+	MaterialIndex materialIndex = InvalidMaterialIndex;
 };
 
 class Scene {
@@ -50,6 +51,10 @@ class Scene {
 		UnsignedInt = 5125,
 		Float = 5126,
 		Double = 5130,
+	};
+
+	struct InstanceData {
+		glm::mat4 transform{1.0f};
 	};
 
 	void removeFromHierarchy(entt::entity);
@@ -76,10 +81,12 @@ class Scene {
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
+	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
 
 	inline void markDirty(entt::entity node) { _dirtyNodes.push_back(node); }
 	bool		update(const Device& device);
 	void		updateTLAS(const Device& device);
+	void		updateTransforms();
 
 	inline entt::entity getRoot() const { return _root; }
 
@@ -91,12 +98,12 @@ class Scene {
 		   bool init = false;
 
 		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
-			   if(auto* mesh = _registry.try_get<MeshComponent>(entity); mesh != nullptr) {
+			   if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
 				   if(!init) {
-					   _bounds = transform * _meshes[mesh->index].computeBounds();
+					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
 					   init = true;
 				   } else
-					   _bounds += transform * _meshes[mesh->index].computeBounds();
+					   _bounds += transform * _meshes[mesh->meshIndex].computeBounds();
 			   }
 		   });
 
@@ -163,7 +170,10 @@ class Scene {
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
 	DeviceMemory									_accStructInstancesMemory;
-	std::vector<std::vector<size_t>>				_submeshesIndicesIntoBLASArray;
+
+	std::vector<InstanceData> _instancesData; // Transforms for each instances
+	Buffer					  _instancesBuffer;
+	DeviceMemory			  _instancesMemory;
 
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;

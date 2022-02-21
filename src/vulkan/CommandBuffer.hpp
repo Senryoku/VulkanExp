@@ -50,8 +50,8 @@ class CommandBuffer : public HandleWrapper<VkCommandBuffer> {
 
 	template<int Count>
 	void bind(const std::array<VkBuffer, Count> buffers) const {
-		VkDeviceSize offsets[] = {0};
-		vkCmdBindVertexBuffers(_handle, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets);
+		std::array<VkDeviceSize, Count> offsets{0};
+		vkCmdBindVertexBuffers(_handle, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 	}
 };
 

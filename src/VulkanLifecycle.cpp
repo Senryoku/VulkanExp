@@ -91,12 +91,10 @@ void Editor::initVulkan() {
 
 	{
 		for(auto& m : _probeMesh.getMeshes())
-			for(auto& sm : m.SubMeshes)
-				sm.init(_device); // Prepare the final buffers
+			m.init(_device); // Prepare the final buffers
 		_probeMesh.allocateMeshes(_device);
 		for(auto& m : _probeMesh.getMeshes())
-			for(auto& sm : m.SubMeshes)
-				sm.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
+			m.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
 	}
 
 	// Load a blank image
@@ -154,12 +152,10 @@ void Editor::uploadScene() {
 	{
 		QuickTimer qt("Mesh Generation");
 		for(auto& m : _scene.getMeshes())
-			for(auto& sm : m.SubMeshes)
-				sm.init(_device);		// Pepare the final buffers
+			m.init(_device);			// Pepare the final buffers
 		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes())
-			for(auto& sm : m.SubMeshes)
-				sm.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
+			m.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
 		uploadTextures(_device, _graphicsQueue, _commandPool, _stagingBuffer);
 	}
 

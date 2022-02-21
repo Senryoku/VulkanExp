@@ -105,13 +105,13 @@
     <ClCompile Include="src\IrradianceProbes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GatherPipeline.cpp">
+    <ClCompile Include="src\RenderPasses\GatherPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GBufferPipeline.cpp">
+    <ClCompile Include="src\RenderPasses\GBufferPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ReflectionPipeline.cpp">
+    <ClCompile Include="src\RenderPasses\ReflectionPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ThreadPool.cpp">
@@ -129,7 +129,7 @@
     <ClCompile Include="ext\implot\implot_items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DirectLightPipeline.cpp">
+    <ClCompile Include="src\RenderPasses\DirectLightPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ext\ImGuizmo\GraphEditor.cpp">
@@ -151,6 +151,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ext\imgui-docking\misc\cpp\imgui_stdlib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\RenderPasses\ProbeDebugPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -378,5 +381,7 @@
     <None Include="src\shaders\directLightFilter.glsl" />
     <None Include="src\shaders\directLightFilterX.comp" />
     <None Include="src\shaders\directLightFilterY.comp" />
+    <None Include="src\shaders\InstanceData.glsl" />
+    <None Include="src\shaders\unpackMaterial.glsl" />
   </ItemGroup>
 </Project>

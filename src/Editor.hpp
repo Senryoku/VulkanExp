@@ -56,13 +56,6 @@ struct CameraBuffer {
 	uint32_t  frameIndex;
 };
 
-struct GBufferPushConstant {
-	glm::mat4 transform;
-	glm::vec4 baseColorFactor{1.0f};
-	float	  metalness;
-	float	  roughness;
-};
-
 static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
 											 VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -90,14 +83,17 @@ class Editor {
 
 	const std::vector<const char*> _validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-	const std::vector<const char*> _requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-																VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-																VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-																VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-																VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-																VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-																VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
-																VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME};
+	const std::vector<const char*> _requiredDeviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+		VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+	};
 
 #ifdef NDEBUG
 	const bool _enableValidationLayers = false;
@@ -203,11 +199,17 @@ class Editor {
 	bool _enableReflections = true;
 	bool _drawUI = true;
 
+	void createGBufferPass();
+	void createGBufferRenderPass();
+	void createGBufferFramebuffers();
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
-	void createReflectionPipeline();
-	void createDirectLightPipeline();
-	void createGatherPipeline();
+	void createReflectionPass();
+	void writeReflectionDescriptorSets();
+	void createDirectLightPass();
+	void writeDirectLightDescriptorSets();
+	void createGatherPass();
+	void createProbeDebugPass();
 
 	LightBuffer _light;
 	bool		_deriveLightPositionFromTime = false;
@@ -256,6 +258,7 @@ class Editor {
 	ShaderBindingTable	   _raytracingShaderBindingTable;
 	void				   createStorageImage();
 	void				   createRaytracingDescriptorSets();
+	void				   writeRaytracingDescriptorSets();
 	void				   createRayTracingPipeline();
 	void				   recordRayTracingCommands();
 
@@ -285,7 +288,6 @@ class Editor {
 	void createSwapChain();
 	void initSwapChain();
 	void initUniformBuffers();
-	void initProbeDebug();
 	void recordCommandBuffers();
 	void recreateSwapChain();
 	void cleanupSwapChain();
@@ -307,49 +309,10 @@ class Editor {
 		recreateSwapChain();
 	}
 
-	static void sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-		if(ImGui::GetIO().WantCaptureMouse)
+	void setupDebugMessenger() {
+		if(!_enableValidationLayers)
 			return;
-		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-		if(yoffset > 0)
-			app->_camera.speed *= 1.1f;
-		else
-			app->_camera.speed *= (1.f / 1.1f);
-	};
-
-	static void sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-		if(ImGui::GetIO().WantCaptureMouse)
-			return;
-		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-		if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
-			app->trySelectNode();
-		} else if(button == GLFW_MOUSE_BUTTON_RIGHT) {
-			app->_controlCamera = action == GLFW_PRESS;
-			glfwGetCursorPos(window, &app->_mouse_x, &app->_mouse_y);
-			glfwSetInputMode(window, GLFW_CURSOR, action == GLFW_PRESS ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-		}
-	}
-
-	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]) {
-		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-		vkDeviceWaitIdle(app->_device); // FIXME: Do better?
-		for(int i = 0; i < pathCount; ++i) {
-			print("Received path '{}'.\n", paths[i]);
-			app->_scene.load(paths[i]);
-		}
-		// FIXME: This is way overkill
-		app->uploadScene();
-		app->recreateSwapChain();
-	}
-
-	static void sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-		if(app->_controlCamera)
-			return;
-		auto it = app->_shortcuts.find({key, action, mods});
-		if(it != app->_shortcuts.end())
-			it->second();
+		VK_CHECK(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger));
 	}
 
 	bool checkValidationLayerSupport() {
@@ -375,12 +338,6 @@ class Editor {
 		}
 
 		return true;
-	}
-
-	void setupDebugMessenger() {
-		if(!_enableValidationLayers)
-			return;
-		VK_CHECK(CreateDebugUtilsMessengerEXT(_instance, &DebugMessengerCreateInfo, nullptr, &_debugMessenger));
 	}
 
 	bool checkDeviceExtensionSupport(const PhysicalDevice& device) const {
@@ -452,6 +409,8 @@ class Editor {
 	void drawFrame();
 	void drawUI();
 
+	void onTLASCreation();
+
 	void cameraControl(float dt);
 	void updateUniformBuffer(uint32_t currentImage);
 
@@ -497,4 +456,9 @@ class Editor {
 		.pfnUserCallback = debugCallback,
 		.pUserData = nullptr,
 	};
+
+	static void sScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	static void sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]);
+	static void sKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 };

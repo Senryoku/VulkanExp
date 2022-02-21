@@ -45,21 +45,19 @@ inline Hit intersect(const Ray& r, const Bounds& b) {
 
 inline Hit intersect(const Ray& r, const Mesh& m) {
 	Hit hit;
-	for(const auto& sm : m.SubMeshes) {
-		if(intersect(r, sm.getBounds()).hit)
-			for(size_t i = 0; i < sm.getIndices().size(); i += 3) {
-				glm::vec2		 bary{0.0f};
-				float			 distance;
-				const glm::vec3& v0 = sm.getVertices()[sm.getIndices()[i]].pos;
-				const glm::vec3& v1 = sm.getVertices()[sm.getIndices()[i + 1]].pos;
-				const glm::vec3& v2 = sm.getVertices()[sm.getIndices()[i + 2]].pos;
-				if(glm::intersectRayTriangle(r.origin, r.direction, v0, v1, v2, bary, distance)) {
-					if(distance > 0 && distance < hit.depth) {
-						hit.hit = true;
-						hit.depth = distance;
-					}
+	if(intersect(r, m.getBounds()).hit)
+		for(size_t i = 0; i < m.getIndices().size(); i += 3) {
+			glm::vec2		 bary{0.0f};
+			float			 distance;
+			const glm::vec3& v0 = m.getVertices()[m.getIndices()[i]].pos;
+			const glm::vec3& v1 = m.getVertices()[m.getIndices()[i + 1]].pos;
+			const glm::vec3& v2 = m.getVertices()[m.getIndices()[i + 2]].pos;
+			if(glm::intersectRayTriangle(r.origin, r.direction, v0, v1, v2, bary, distance)) {
+				if(distance > 0 && distance < hit.depth) {
+					hit.hit = true;
+					hit.depth = distance;
 				}
 			}
-	}
+		}
 	return hit;
 }
