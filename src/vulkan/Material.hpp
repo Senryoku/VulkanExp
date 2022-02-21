@@ -18,12 +18,12 @@ struct Material {
 	struct Properties {
 		float		 metallicFactor = 1.0;
 		float		 roughnessFactor = 1.0;
+		glm::vec3	 baseColorFactor{1.0f};
 		glm::vec3	 emissiveFactor{0.0f};
 		TextureIndex albedoTexture = InvalidTextureIndex;
 		TextureIndex normalTexture = InvalidTextureIndex;
 		TextureIndex metallicRoughnessTexture = InvalidTextureIndex;
 		TextureIndex emissiveTexture = InvalidTextureIndex;
-		glm::vec3	 baseColorFactor{1.0f};
 	};
 
 	std::string name;
