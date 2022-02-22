@@ -22,3 +22,88 @@ void PhysicalDevice::init() {
 	_extensions.resize(extensionCount);
 	vkEnumerateDeviceExtensionProperties(_handle, nullptr, &extensionCount, _extensions.data());
 }
+
+PhysicalDevice::QueueFamilyIndex PhysicalDevice::getGraphicsQueueFamilyIndex() const {
+	QueueFamilyIndex bestFit = -1;
+	for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
+		if(_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			if(!(_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
+				return i;
+			bestFit = i;
+		}
+	}
+	return bestFit;
+}
+
+PhysicalDevice::QueueFamilyIndex PhysicalDevice::getComputeQueueFamilyIndex() const {
+	QueueFamilyIndex bestFit = -1;
+	for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
+		if(_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			if(!(_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+				return i;
+			bestFit = i;
+		}
+	}
+	return bestFit;
+}
+
+PhysicalDevice::QueueFamilyIndex PhysicalDevice::getTransfertQueueFamilyIndex() const {
+	QueueFamilyIndex bestFit = -1;
+	for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
+		if(_queueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+			// Return immediatly if this is a dedicated transfert queue
+			if(!((_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) || (_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)))
+				return i;
+			bestFit = i;
+		}
+	}
+	// Queues don't have to explicitly report VK_QUEUE_TRANSFER_BIT, but any GRAPHICS or COMPUTE queue actually supports transfert operation, return one of those if we didn't
+	// find one explicitly supporting TRANSFERT
+	if(bestFit == -1)
+		for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i)
+			if((_queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) || (_queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
+				return i;
+	return bestFit;
+}
+
+PhysicalDevice::QueueFamilyIndex PhysicalDevice::getPresentQueueFamilyIndex(VkSurfaceKHR surface) const {
+	for(QueueFamilyIndex i = 0; i < _queueFamilies.size(); ++i) {
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(_handle, i, surface, &presentSupport);
+		if(presentSupport)
+			return i;
+	}
+	return -1;
+}
+
+uint32_t PhysicalDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
+	for(uint32_t i = 0; i < _memoryProperties.memoryTypeCount; i++) {
+		if((typeFilter & (1 << i)) && (_memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+			return i;
+		}
+	}
+
+	// Fallback
+	for(uint32_t i = 0; i < _memoryProperties.memoryTypeCount; i++) {
+		if((typeFilter & (1 << i)) && (_memoryProperties.memoryTypes[i].propertyFlags & properties)) {
+			return i;
+		}
+	}
+
+	throw std::runtime_error(fmt::format("Failed to find suitable memory type ({} {}).", typeFilter, properties));
+}
+
+VkFormat PhysicalDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	for(VkFormat format : candidates) {
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(_handle, format, &props);
+
+		if(tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+			return format;
+		} else if(tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	throw std::runtime_error("Failed to find supported format.");
+}
