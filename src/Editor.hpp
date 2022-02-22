@@ -309,7 +309,21 @@ class Editor {
 		// Could use popen() instead of system() to capture the output too.
 		system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
 		// Fixme: We can probably do a lot less :) (Like only recreating the pipeline, which could even be done in another thread)
-		recreateSwapChain();
+		vkDeviceWaitIdle(_device);
+		destroyGBufferPipeline();
+		destroyDirectLightPipeline();
+		destroyReflectionPipeline();
+		destroyRayTracingPipeline();
+		createGBufferPipeline();
+		createDirectLightPass();
+		createReflectionPass();
+		createRayTracingPipeline();
+		createRaytracingDescriptorSets();
+		recordRayTracingCommands();
+		_irradianceProbes.destroyPipeline();
+		_irradianceProbes.createPipeline();
+		onTLASCreation();
+		_outdatedCommandBuffers = true;
 	}
 
 	void setupDebugMessenger() {
@@ -445,13 +459,6 @@ class Editor {
 		return VK_FALSE;
 	}
 
-	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-		auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
-		app->_framebufferResized = true;
-		app->_width = width;
-		app->_height = height;
-	}
-
 	const VkDebugUtilsMessengerCreateInfoEXT DebugMessengerCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -460,6 +467,7 @@ class Editor {
 		.pUserData = nullptr,
 	};
 
+	static void sFramebufferResizeCallback(GLFWwindow* window, int width, int height);
 	static void sScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	static void sMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 	static void sDropCallback(GLFWwindow* window, int pathCount, const char* paths[]);

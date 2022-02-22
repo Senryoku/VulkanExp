@@ -22,7 +22,7 @@ void Editor::initWindow() {
 
 	// Setup GLFW Callbacks
 	glfwSetWindowUserPointer(_window, this); // Allow access to our Editor instance in callbacks
-	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
+	glfwSetFramebufferSizeCallback(_window, sFramebufferResizeCallback);
 	glfwSetMouseButtonCallback(_window, sMouseButtonCallback);
 	glfwSetScrollCallback(_window, sScrollCallback);
 	glfwSetDropCallback(_window, sDropCallback);
@@ -336,7 +336,6 @@ void Editor::drawFrame() {
 }
 
 void Editor::cameraControl(float dt) {
-	static glm::vec3 cameraPosition{0.0f};
 	if(_controlCamera) {
 		if(glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
 			_camera.moveForward(dt);
@@ -467,6 +466,13 @@ void Editor::onTLASCreation() {
 	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
 	// GBuffer also uses the transform buffer that was just re-created
 	writeGBufferDescriptorSets();
+}
+
+void Editor::sFramebufferResizeCallback(GLFWwindow* window, int width, int height) {
+	auto app = reinterpret_cast<Editor*>(glfwGetWindowUserPointer(window));
+	app->_framebufferResized = true;
+	app->_width = width;
+	app->_height = height;
 }
 
 void Editor::sScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {

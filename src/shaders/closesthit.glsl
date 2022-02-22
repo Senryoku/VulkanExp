@@ -279,8 +279,9 @@ void main()
 		1                      // payload (location = 1)
 	);
 	if(!isShadowed) {
-		// FIXME: IDK, read stuff https://learnopengl.com/PBR/Lighting
 		color += pbrMetallicRoughness(normal, normalize(-gl_WorldRayDirectionEXT), DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
+		if(DirectionalLight.direction.y < 0) // FIXME: Special case for the sun, fading it out during the 'night' (when it is below the horizon, shining from underneath)
+				color *= 1.0 - clamp(-DirectionalLight.direction.y, 0, 0.1) / 0.1;
 	}
 
 	payload.color = vec4(color, albedo.a);

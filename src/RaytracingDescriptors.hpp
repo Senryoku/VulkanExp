@@ -31,7 +31,7 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 	dsw.add(0, {
 				   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 				   .accelerationStructureCount = 1,
-				   .pAccelerationStructures = &scene.getTLAS(), // FIXME: Should be part of the Scene?
+				   .pAccelerationStructures = &scene.getTLAS(),
 			   });
 
 	// Bind all textures used in the scene.
