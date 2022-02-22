@@ -197,7 +197,7 @@ void Editor::drawUI() {
 					*matIdx = droppedMat;
 					_scene.updateMeshOffsetTable();
 					_scene.uploadMeshOffsetTable(_device);
-					recordCommandBuffers();
+					_outdatedCommandBuffers = true;
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -212,7 +212,7 @@ void Editor::drawUI() {
 					*matIdx = droppedMat;
 					_scene.updateMeshOffsetTable();
 					_scene.uploadMeshOffsetTable(_device);
-					recordCommandBuffers();
+					_outdatedCommandBuffers = true;
 				}
 				ImGui::EndDragDropTarget();
 			}
