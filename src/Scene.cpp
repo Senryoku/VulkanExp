@@ -152,9 +152,13 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 	const MeshIndex meshOffset{static_cast<MeshIndex::UnderlyingType>(_meshes.size())};
 
+	std::vector<std::vector<MeshIndex>> gltfIndexToMeshIndices;
+
 	for(const auto& m : object["meshes"]) {
 		auto baseName = m("name", std::string("UnamedMesh"));
+		gltfIndexToMeshIndices.emplace_back();
 		for(const auto& p : m["primitives"]) {
+			gltfIndexToMeshIndices.back().push_back(MeshIndex(_meshes.size()));
 			auto& mesh = _meshes.emplace_back();
 			mesh.name = baseName + "_" + p("name", std::string("Unamed"));
 			if(p.asObject().contains("material")) {
@@ -307,11 +311,27 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				entitiesChildren.back().push_back(c.as<int>());
 
 		auto meshIndex = node("mesh", -1);
-		if(meshIndex != -1)
-			_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
-																 .meshIndex = MeshIndex(meshOffset + meshIndex),
-																 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
-															 });
+		if(meshIndex != -1) {
+			const auto& indices = gltfIndexToMeshIndices[meshIndex];
+			if(indices.size() == 0)
+				warn("Mesh {} has no primitives.\n", meshIndex);
+			else if(indices.size() == 1)
+				_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																	 .meshIndex = MeshIndex(meshOffset + meshIndex),
+																	 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
+																 });
+			else {
+				for(const auto& idx : indices) {
+					auto  submesh = _registry.create();
+					auto& submeshNode = _registry.emplace<NodeComponent>(submesh);
+					addChild(entity, submesh);
+					_registry.emplace<MeshRendererComponent>(submesh, MeshRendererComponent{
+																		  .meshIndex = idx,
+																		  .materialIndex = getMeshes()[idx].defaultMaterialIndex,
+																	  });
+				}
+			}
+		}
 	}
 
 	for(const auto& scene : object["scenes"]) {
