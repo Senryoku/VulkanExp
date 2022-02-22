@@ -15,7 +15,15 @@ Mesh generateMesh(const Chunk& chunk) {
 	*/
 	static const std::array<std::array<int, 3>, 6> normals = {{{-1, 0, 0}, {0, -1, 0}, {0, 0, -1}, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}}};
 	static const std::array<glm::vec3, 6>		   tangents = {{{0, 0, 1}, {0, 0, -1}, {1, 0, 0}, {-1, 0, 0}, {0, 0, -1}, {0, 0, 1}}}; // Check
-	static const std::array<glm::vec2, 12>		   texcoord = {};																	   // TODO
+	static const auto							   texcoord = std::array<glm::vec2, 4>{
+		 glm::vec2{0.0f, 0.0f},
+		 glm::vec2{1.0f, 0.0f},
+		 glm::vec2{0.0f, 1.0f},
+		 glm::vec2{1.0f, 1.0f},
+	 };
+	static const std::array<std::array<glm::vec2, 4>, 6> face_texcoord = {
+		texcoord, texcoord, texcoord, texcoord, texcoord, texcoord,
+	}; // TODO
 	static const std::array<std::array<int, 4>, 6> face_vertices = {{
 		{0, 1, 2, 3},
 		{5, 1, 4, 0},
@@ -63,7 +71,7 @@ Mesh generateMesh(const Chunk& chunk) {
 									sm.getVertices().emplace_back(Vertex{.pos = glm::vec3(i, j, k) + cube_offsets[face_vertices[f][v]],
 																		 .normal = glm::vec3(normals[f][0], normals[f][1], normals[f][2]),
 																		 .tangent = glm::vec4(tangents[f], 1.0),
-																		 .texCoord = texcoord[face_vertices[f][v]]});
+																		 .texCoord = face_texcoord[f][v]});
 								for(const auto& v : {0, 1, 3, 0, 3, 2})
 									sm.getIndices().emplace_back(sm.getVertices().size() - 4 + v);
 							}
