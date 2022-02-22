@@ -88,19 +88,19 @@ void Editor::run() {
 	{
 		QuickTimer qt("Scene loading");
 
+		/*
+		// Chunk test
 		Chunk chunk;
+		float h = Chunk::Size / 2.0;
 		for(int i = 0; i < Chunk::Size; ++i)
 			for(int j = 0; j < Chunk::Size; ++j)
 				for(int k = 0; k < Chunk::Size; ++k) {
-					chunk(i, j, k).type =
-						(i - Chunk::Size / 2) * (i - Chunk::Size / 2) + (j - Chunk::Size / 2) * (j - Chunk::Size / 2) + (k - Chunk::Size / 2) * (k - Chunk::Size / 2) <
-								Chunk::Size / 2 * Chunk::Size / 2
-							? 1
-							: Voxel::Empty;
+					chunk(i, j, k).type = (i - h) * (i - h) + (j - h) * (j - h) + (k - h) * (k - h) < h * h ? 1 : Voxel::Empty;
 				}
 		_scene.loadMaterial("data/materials/cavern-deposits/cavern-deposits.mat");
 		_scene.getMeshes().emplace_back(generateMesh(chunk));
 		_scene.getMeshes().back().computeBounds();
+		_scene.getMeshes().back().defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
 
 		auto  entity = _scene.getRegistry().create();
 		auto& node = _scene.getRegistry().emplace<NodeComponent>(entity);
@@ -108,22 +108,25 @@ void Editor::run() {
 		_scene.addChild(_scene.getRoot(), entity);
 		auto& renderer = _scene.getRegistry().emplace<MeshRendererComponent>(entity);
 		renderer.meshIndex = static_cast<MeshIndex>(_scene.getMeshes().size() - 1);
+		renderer.materialIndex = _scene.getMeshes().back().defaultMaterialIndex;
+		*/
 
-		// TODO: Bounds are probably not correct
-
-		//_scene.load("./data/models/Sponza/Sponza.gltf");
-		_scene.load("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf");
-		//_scene.load("./data/models/lucy.obj");
-		//_scene.load("./data/models/Helmet/DamagedHelmet.gltf");
-		//_scene.loadglTF("./data/models/sanmiguel/sanmiguel.gltf");
-		//_scene.loadglTF("./data/models/livingroom/livingroom.gltf");
-		//_scene.loadglTF("./data/models/gallery/gallery.gltf"); // Crashes
-		//_scene.loadglTF("./data/models/Home/ConvertedWithBlendergltf.gltf");
-		//_scene.loadglTF("./data/models/Home/untitled.gltf");
-		//_scene.loadglTF("./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf", Scene::LoadOperation::AppendToCurrentScene);
-		//_scene.loadglTF("./data/models/SunTemple-glTF/suntemple.gltf");
-		//_scene.loadglTF("./data/models/postwar_city_-_exterior_scene/scene.gltf");
-		//_scene.loadglTF("./data/models/sea_keep_lonely_watcher/scene.gltf");
+		for(const auto& str : {
+				"./data/models/Sponza/Sponza.gltf",
+				//"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
+				//"./data/models/lucy.obj",
+				//"./data/models/Helmet/DamagedHelmet.gltf",
+				//"./data/models/sanmiguel/sanmiguel.gltf",
+				//"./data/models/livingroom/livingroom.gltf",
+				//"./data/models/gallery/gallery.gltf", // Crashes
+				//"./data/models/Home/ConvertedWithBlendergltf.gltf",
+				//"./data/models/Home/untitled.gltf",
+				//"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
+				//"./data/models/SunTemple-glTF/suntemple.gltf",
+				//"./data/models/postwar_city_-_exterior_scene/scene.gltf",
+				//"./data/models/sea_keep_lonely_watcher/scene.gltf",
+			})
+			_scene.load(str);
 	}
 	_probeMesh.loadglTF("./data/models/sphere.gltf");
 	{

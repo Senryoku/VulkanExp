@@ -25,14 +25,10 @@
 		"source": 2,
 		"sampler": 0
 	}],
-	"images": [{
-			"uri": "cavern-deposits_albedo.png"
-		},
-		{
-			"uri": "cavern-deposits_normal-ogl.png"
-		}, {
-			"uri": "cavern-deposits_metallic_roughness.png"
-		}
+	"images": [
+		{"uri": "cavern-deposits_albedo.png"},
+		{"uri": "cavern-deposits_normal-ogl.png"}, 
+		{"uri": "cavern-deposits_metallic_roughness.png"}
 	],
 	"samplers": [{
 		"magFilter": 9729,
