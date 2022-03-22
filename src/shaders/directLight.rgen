@@ -70,26 +70,26 @@ void main()
 		vec4 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy / 64.0));
 		vec3 temp = rotateAxis(direction, normalize(cross(normal, direction)), 2 * (noise.x - 0.5) * angle); // FIXME: The distribution is probably biased here, but I don't think it should matter that much for such small angles.
 		direction = rotateAxis(temp, direction, 2.0 * pi * noise.y);
-		// TODO: Add a shadow offset? (Needs to pass a lot more geometric data, or 'just' the bias (a vec3, probably compressible to a vec2).
-		traceRayEXT(topLevelAS,                                                                         // acceleration structure
-					gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
-					0xFF,                                                                               // cullMask
-					0,                                                                                  // sbtRecordOffset
-					0,                                                                                  // sbtRecordStride
-					1,                                                                                  // missIndex
-					position,                                                                           // ray origin
-					0.1,                                                                                // ray min range
-					direction,                                                                          // ray direction
-					tmax,                                                                               // ray max range
-					1                                                                                   // payload (location = 1)
-		);
-		// TODO: Rather than shading right here, we could only store visibility, take multiple samples for soft shadows (and accumulate over a couple of frame maybe), then denoise before any shading.
-		// https://link.springer.com/content/pdf/10.1007%2F978-1-4842-7185-8.pdf Chapter 24
-		if(!isShadowed) {
-			color = vec3(1.0);
-			if(direction.y < 0) // FIXME: Special case for the sun, fading it out during the 'night' (when it is below the horizon, shining from underneath)
-				color *= 1.0 - clamp(-direction.y, 0, 0.1) / 0.1;
-		}
-		imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
+		if(dot(direction, normal) > 0.0) { // Bail early if this light will not contribute anyway.
+			// TODO: Add a shadow offset? (Needs to pass a lot more geometric data, or 'just' the bias (a vec3, probably compressible to a vec2).
+			traceRayEXT(topLevelAS,                                                                         // acceleration structure
+						gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT,             // rayFlags
+						0xFF,                                                                               // cullMask
+						0,                                                                                  // sbtRecordOffset
+						0,                                                                                  // sbtRecordStride
+						1,                                                                                  // missIndex
+						position,                                                                           // ray origin
+						0.01,                                                                                // ray min range
+						direction,                                                                          // ray direction
+						tmax,                                                                               // ray max range
+						1                                                                                   // payload (location = 1)
+			);
+			if(!isShadowed) {
+				color = vec3(1.0);
+				if(direction.y < 0) // FIXME: Special case for the sun, fading it out during the 'night' (when it is below the horizon, shining from underneath)
+					color *= 1.0 - clamp(-direction.y, 0, 0.1) / 0.1;
+			}
+			imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1.0));
+		} else imageStore(directLightOut, ivec2(gl_LaunchIDEXT.xy), vec4(0.0, 0.0, 0.0, 0.0));
 	}
 }

@@ -441,6 +441,14 @@ void Editor::drawUI() {
 				if(ImGui::RadioButton("Scale (Y)", _currentGizmoOperation == ImGuizmo::SCALE))
 					_currentGizmoOperation = ImGuizmo::SCALE;
 
+				if(_currentGizmoOperation != ImGuizmo::SCALE) {
+					if(ImGui::RadioButton("Local", _currentGizmoMode == ImGuizmo::LOCAL))
+						_currentGizmoMode = ImGuizmo::LOCAL;
+					ImGui::SameLine();
+					if(ImGui::RadioButton("World", _currentGizmoMode == ImGuizmo::WORLD))
+						_currentGizmoMode = ImGuizmo::WORLD;
+				}
+
 				ImGui::Checkbox("Snap", &_useSnap);
 				ImGui::SameLine();
 				switch(_currentGizmoOperation) {
@@ -533,7 +541,7 @@ void Editor::drawUI() {
 		glm::mat4 delta;
 		bool	  gizmoUpdated =
 			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
-								 ImGuizmo::MODE::LOCAL, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
+								 _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
 		if(gizmoUpdated) {
 			node.transform = glm::inverse(parentTransform) * worldTransform;
 		}

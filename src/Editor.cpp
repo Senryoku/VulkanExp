@@ -112,7 +112,7 @@ void Editor::run() {
 		*/
 
 		for(const auto& str : {
-				"./data/models/Sponza/Sponza.gltf",
+				//"./data/models/Sponza/Sponza.gltf",
 				//"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
 				//"./data/models/lucy.obj",
 				//"./data/models/Helmet/DamagedHelmet.gltf",
@@ -125,6 +125,7 @@ void Editor::run() {
 				//"./data/models/SunTemple-glTF/suntemple.gltf",
 				//"./data/models/postwar_city_-_exterior_scene/scene.gltf",
 				//"./data/models/sea_keep_lonely_watcher/scene.gltf",
+				"./data/models/RiggedSimple/glTF/RiggedSimple.gltf",
 			})
 			_scene.load(str);
 	}

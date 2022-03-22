@@ -30,6 +30,14 @@ struct MeshRendererComponent {
 	MaterialIndex materialIndex = InvalidMaterialIndex;
 };
 
+struct SkinnedMeshRendererComponent {
+	MeshIndex		  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
+	MaterialIndex	  materialIndex = InvalidMaterialIndex;
+	Buffer			  vertexBuffer;
+	SkeletalAnimation animation;
+	float			  time = 0;
+};
+
 class Scene {
   public:
 	enum class RenderingMode {

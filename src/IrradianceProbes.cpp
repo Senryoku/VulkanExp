@@ -404,7 +404,7 @@ uint32_t IrradianceProbes::selectProbesToUpdate() {
 }
 
 void IrradianceProbes::update(const Scene& scene, VkQueue queue) {
-#if 1
+#if 0
 	// Decouple the updates from the framerate?
 	// FIXME: This doesnt work, and always returns VK_READY, there is probably too much synchronisation somewhere else in the program.
 	auto result = vkGetFenceStatus(*_device, _fence);

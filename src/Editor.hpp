@@ -286,6 +286,7 @@ class Editor {
 	bool				_useSnap = false;
 	glm::vec3			_snapOffset{1.0f};
 	ImGuizmo::OPERATION _currentGizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+	ImGuizmo::MODE		_currentGizmoMode = ImGuizmo::MODE::WORLD;
 
 	void createInstance();
 	void createSwapChain();

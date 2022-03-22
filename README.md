@@ -39,7 +39,8 @@
  - Multisampling (Raster & RT)
 
 ### Major Features, but not priorities
- - Rigging
+ - Skinned Meshes
+   - Notes: Since the raytracing pass will require a BLAS update anyway, we'll use the underlying vertex buffer for rastering too, rather than computing the updated vertex position in a vertex shader, as we should in a raster-only pipeline.
 
 ## Scene Format
 

@@ -70,7 +70,7 @@ void Editor::createDirectLightPass() {
 		.pStages = shaderStages.data(),
 		.groupCount = static_cast<uint32_t>(shaderGroups.size()),
 		.pGroups = shaderGroups.data(),
-		.maxPipelineRayRecursionDepth = 2, // We need light occlusion tests for the reflections
+		.maxPipelineRayRecursionDepth = 0,
 		.layout = _directLightPipeline.getLayout(),
 	};
 	_directLightPipeline.create(_device, raytracingPipelineCreateInfo, _pipelineCache);

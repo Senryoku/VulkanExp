@@ -68,7 +68,10 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 	std::vector<std::vector<char>> buffers;
 
 	if(path.extension() == ".gltf") {
-		json.parse(path);
+		if(!json.parse(path)) {
+			error("Scene::loadglTF error: Could not parse '{}'.\n", path.string());
+			return false;
+		}
 		// Load Buffers
 		const auto& obj = json.getRoot(); // FIXME: Assigning a vector::iterator to our JSON::value::iterator union causes a reading violation in _Orphan_me_unlocked_v3 (in debug
 										  // mode only). Maybe I'm doing something terribly wrong, but it looks a lot like a bug in MSVC stblib implementation. Relevant discussion:
@@ -175,19 +178,23 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			const auto& normalBufferView = object["bufferViews"][normalAccessor["bufferView"].as<int>()];
 			const auto& normalBuffer = buffers[normalBufferView["buffer"].as<int>()];
 
+			auto initAccessor = [&](const std::string& name, const char** bufferData, size_t* cursor, size_t* stride, const int defaultStride = 4 * sizeof(float),
+									ComponentType expectedComponentType = ComponentType::Float, const std::string& expectedType = "VEC4") {
+				const auto& accessor = object["accessors"][p["attributes"][name].as<int>()];
+				assert(static_cast<ComponentType>(accessor["componentType"].as<int>()) == expectedComponentType);
+				assert(accessor["type"].as<std::string>() == expectedType);
+				const auto& bufferView = object["bufferViews"][accessor["bufferView"].as<int>()];
+				const auto& buffer = buffers[bufferView["buffer"].as<int>()];
+				*bufferData = buffer.data();
+				*cursor = accessor("byteOffset", 0) + bufferView("byteOffset", 0);
+				*stride = bufferView("byteStride", defaultStride);
+			};
+
 			const char* tangentBufferData = nullptr;
 			size_t		tangentCursor = 0;
 			size_t		tangentStride = 0;
 			if(p["attributes"].contains("TANGENT")) {
-				const auto& tangentAccessor = object["accessors"][p["attributes"]["TANGENT"].as<int>()];
-				assert(static_cast<ComponentType>(tangentAccessor["componentType"].as<int>()) == ComponentType::Float); // Supports only vec4 of floats
-				assert(tangentAccessor["type"].as<std::string>() == "VEC4");
-				const auto& tangentBufferView = object["bufferViews"][tangentAccessor["bufferView"].as<int>()];
-				const auto& tangentBuffer = buffers[tangentBufferView["buffer"].as<int>()];
-				tangentBufferData = tangentBuffer.data();
-				tangentCursor = tangentAccessor("byteOffset", 0) + tangentBufferView("byteOffset", 0);
-				const int defaultStride = 4 * sizeof(float);
-				tangentStride = tangentBufferView("byteStride", defaultStride);
+				initAccessor("TANGENT", &tangentBufferData, &tangentCursor, &tangentStride);
 			}
 			// TODO: Compute tangents if not present in file.
 
@@ -195,14 +202,24 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			size_t		texCoordCursor = 0;
 			size_t		texCoordStride = 0;
 			if(p["attributes"].contains("TEXCOORD_0")) {
-				const auto& texCoordAccessor = object["accessors"][p["attributes"]["TEXCOORD_0"].as<int>()];
-				const auto& texCoordBufferView = object["bufferViews"][texCoordAccessor["bufferView"].as<int>()];
-				const auto& texCoordBuffer = buffers[texCoordBufferView["buffer"].as<int>()];
-				texCoordBufferData = texCoordBuffer.data();
-				texCoordCursor = texCoordAccessor("byteOffset", 0) + texCoordBufferView("byteOffset", 0);
-				const int defaultStride = 2 * sizeof(float);
-				texCoordStride = texCoordBufferView("byteStride", defaultStride);
+				initAccessor("TEXCOORD_0", &texCoordBufferData, &texCoordCursor, &texCoordStride, 2 * sizeof(float), ComponentType::Float, "VEC2");
 			}
+
+			bool		skinnedMesh = p["attributes"].contains("WEIGHTS_0");
+			const char* weightsBufferData = nullptr;
+			size_t		weightsCursor = 0;
+			size_t		weightsStride = 0;
+			const char* jointsBufferData = nullptr;
+			size_t		jointsCursor = 0;
+			size_t		jointsStride = 0;
+
+			if(skinnedMesh) {
+				initAccessor("WEIGHTS_0", &weightsBufferData, &weightsCursor, &weightsStride);
+				assert(p["attributes"].contains("JOINTS_0"));
+				initAccessor("JOINTS_0", &jointsBufferData, &jointsCursor, &jointsStride, 4 * sizeof(JointIndex), ComponentType::UnsignedShort);
+			}
+			std::vector<glm::vec4>	  weights;
+			std::vector<JointIndices> joints;
 
 			if(positionAccessor["type"].asString() == "VEC3") {
 				assert(static_cast<ComponentType>(positionAccessor["componentType"].as<int>()) == ComponentType::Float); // TODO
@@ -235,11 +252,21 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						texCoordCursor += texCoordStride;
 					}
 
+					if(skinnedMesh) {
+						weights.push_back(*reinterpret_cast<const glm::vec4*>(weightsBufferData + weightsCursor));
+						weightsCursor += weightsStride;
+						joints.push_back(*reinterpret_cast<const JointIndices*>(jointsBufferData + jointsCursor));
+						jointsCursor += jointsStride;
+					}
+
 					mesh.getVertices().push_back(v);
 				}
 			} else {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
 			}
+
+			// TODO: Use the Mesh's SKIN!
+			mesh.setSkin(Skin{weights, joints});
 
 			if(positionAccessor.contains("min") && positionAccessor.contains("max")) {
 				mesh.setBounds({
@@ -316,23 +343,41 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			if(indices.size() == 0)
 				warn("Mesh {} has no primitives.\n", meshIndex);
 			else if(indices.size() == 1)
-				_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
-																	 .meshIndex = MeshIndex(meshOffset + meshIndex),
-																	 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
-																 });
+				if(getMeshes()[meshOffset + meshIndex].isSkinned())
+					_registry.emplace<SkinnedMeshRendererComponent>(entity, SkinnedMeshRendererComponent{
+																				.meshIndex = MeshIndex(meshOffset + meshIndex),
+																				.materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
+																			});
+				else
+					_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																		 .meshIndex = MeshIndex(meshOffset + meshIndex),
+																		 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
+																	 });
 			else {
 				for(const auto& idx : indices) {
 					auto  submesh = _registry.create();
 					auto& submeshNode = _registry.emplace<NodeComponent>(submesh);
 					addChild(entity, submesh);
-					_registry.emplace<MeshRendererComponent>(submesh, MeshRendererComponent{
-																		  .meshIndex = idx,
-																		  .materialIndex = getMeshes()[idx].defaultMaterialIndex,
-																	  });
+					if(getMeshes()[meshOffset + meshIndex].isSkinned())
+						_registry.emplace<SkinnedMeshRendererComponent>(submesh, SkinnedMeshRendererComponent{
+																					 .meshIndex = idx,
+																					 .materialIndex = getMeshes()[idx].defaultMaterialIndex,
+																				 });
+					else
+						_registry.emplace<MeshRendererComponent>(submesh, MeshRendererComponent{
+																			  .meshIndex = idx,
+																			  .materialIndex = getMeshes()[idx].defaultMaterialIndex,
+																		  });
 				}
 			}
 		}
 	}
+
+	if(object.contains("animations"))
+		for(const auto& skin : object["skins"]) {}
+
+	if(object.contains("animations"))
+		for(const auto& anim : object["animations"]) {}
 
 	for(const auto& scene : object["scenes"]) {
 		auto entity = _registry.create();
@@ -954,6 +999,9 @@ void Scene::createAccelerationStructure(const Device& device) {
 				.pGeometries = &geometries.back(),
 				.ppGeometries = nullptr,
 			};
+			// FIXME: A skinned mesh BLAS should actually not be used directly, as each instance may have a different final geometry (depending on the animation)
+			if(mesh.isSkinned())
+				accelerationBuildGeometryInfo.flags = accelerationBuildGeometryInfo.flags | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 
 			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
 
@@ -1028,19 +1076,25 @@ void Scene::createTLAS(const Device& device) {
 
 	const auto& meshes = getMeshes();
 	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+		MeshIndex mesh = InvalidMeshIndex;
+		if(auto* meshComp = _registry.try_get<MeshRendererComponent>(entity); meshComp != nullptr)
+			mesh = meshComp->meshIndex;
+		// FIXME: Each instance of SkinnedMeshRendererComponent should have its own BLAS since the geometry is also a function of the applied animation.
+		if(auto* meshComp = _registry.try_get<SkinnedMeshRendererComponent>(entity); meshComp != nullptr)
+			mesh = meshComp->meshIndex;
+		if(mesh != InvalidMeshIndex) {
 			auto				 tmp = glm::transpose(transform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 			VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-				.accelerationStructure = _bottomLevelAccelerationStructures[mesh->meshIndex],
+				.accelerationStructure = _bottomLevelAccelerationStructures[mesh],
 			};
 			auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
 
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,
-				.instanceCustomIndex = meshes[mesh->meshIndex].indexIntoOffsetTable,
+				.instanceCustomIndex = meshes[mesh].indexIntoOffsetTable,
 				.mask = 0xFF,
 				.instanceShaderBindingTableRecordOffset = 0,
 				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
@@ -1116,6 +1170,11 @@ void Scene::createTLAS(const Device& device) {
 
 	device.immediateSubmitCompute(
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
+}
+
+void Scene::updateDynamicBLAS(const Device& device) {
+	QuickTimer qt("Dynamic BLAS update");
+	// TODO!
 }
 
 void Scene::updateTLAS(const Device& device) {

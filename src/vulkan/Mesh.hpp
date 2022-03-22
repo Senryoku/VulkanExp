@@ -9,6 +9,38 @@
 #include "Material.hpp"
 #include "Vertex.hpp"
 
+using JointIndex = uint16_t;
+
+struct JointIndices {
+	JointIndex indices[4];
+};
+
+struct Skin {
+	std::vector<glm::vec4>	  weights;
+	std::vector<JointIndices> joints;
+};
+
+struct SkeletalAnimation {
+	std::vector<float>	   times;
+	uint32_t			   jointsCount;
+	std::vector<glm::mat4> transforms; // times.size() * jointsCount transforms
+
+	float				   length() const { return times.back(); }
+	std::vector<glm::mat4> at(float t) {
+		assert(times.size() > 1);
+		t = std::fmod(t, length());
+		std::vector<glm::mat4> r;
+		r.reserve(jointsCount);
+		size_t kf = 0;
+		while(times[kf] < t)
+			++kf;
+		float frac = (t - times[kf]) / (times[kf + 1] - times[kf]);
+		for(size_t i = 0; i < jointsCount; ++i)
+			r.push_back(t * transforms[kf * jointsCount + i] + (1.0f - t) * transforms[(kf + 1) * jointsCount + i]);
+		return r;
+	}
+};
+
 class Mesh {
   public:
 	Mesh() = default;
@@ -61,6 +93,10 @@ class Mesh {
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
 	const Bounds&		 computeBounds();
+	bool				 isSkinned() const { return _skin.has_value(); }
+	const Skin&			 getSkin() const { return _skin.value(); }
+	Skin&				 getSkin() { return _skin.value(); }
+	void				 setSkin(const Skin& s) { _skin.emplace(s); }
 
 	void normalizeVertices();
 	void computeVertexNormals();
@@ -71,6 +107,8 @@ class Mesh {
 
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
+
+	std::optional<Skin> _skin;
 
 	Bounds _bounds;
 };
