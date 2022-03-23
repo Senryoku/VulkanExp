@@ -20,6 +20,17 @@
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
 
+static glm::mat4 getGrobalTransform(const entt::registry& registry, const NodeComponent& node) {
+	auto transform = node.transform;
+	auto parent = node.parent;
+	while(parent != entt::null) {
+		const auto& parentNode = registry.get<NodeComponent>(parent);
+		transform = parentNode.transform * transform;
+		parent = parentNode.parent;
+	}
+	return transform;
+}
+
 Scene::Scene() {
 	_registry.on_destroy<NodeComponent>().connect<&Scene::onDestroyNodeComponent>(this);
 	_root = _registry.create();
@@ -266,7 +277,8 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			}
 
 			// TODO: Use the Mesh's SKIN!
-			mesh.setSkin(Skin{weights, joints});
+			if(skinnedMesh)
+				mesh.setSkin(SkinVertexData{weights, joints});
 
 			if(positionAccessor.contains("min") && positionAccessor.contains("max")) {
 				mesh.setBounds({
@@ -302,7 +314,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						case ComponentType::UnsignedInt: idx = *reinterpret_cast<const unsigned int*>(indicesBuffer.data() + cursor); break;
 						default: assert(false);
 					}
-					idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor);
 					mesh.getIndices().push_back(idx);
 					cursor += stride;
 				}
@@ -340,44 +351,34 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 		auto meshIndex = node("mesh", -1);
 		if(meshIndex != -1) {
 			const auto& indices = gltfIndexToMeshIndices[meshIndex];
+			auto		addRenderer = [&](entt::entity entity, MeshIndex meshIndex) {
+				   if(getMeshes()[meshIndex].isSkinned()) {
+					   assert(node.contains("skin"));
+					   _registry.emplace<SkinnedMeshRendererComponent>(entity, SkinnedMeshRendererComponent{
+																					   .meshIndex = MeshIndex(meshIndex),
+																					   .materialIndex = getMeshes()[meshIndex].defaultMaterialIndex,
+																					   .skinIndex = node["skin"].as<int>() + _skins.size(),
+																			   });
+				   } else
+					   _registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
+																				.meshIndex = MeshIndex(meshIndex),
+																				.materialIndex = getMeshes()[meshIndex].defaultMaterialIndex,
+																		});
+			};
 			if(indices.size() == 0)
 				warn("Mesh {} has no primitives.\n", meshIndex);
 			else if(indices.size() == 1)
-				if(getMeshes()[meshOffset + meshIndex].isSkinned())
-					_registry.emplace<SkinnedMeshRendererComponent>(entity, SkinnedMeshRendererComponent{
-																				.meshIndex = MeshIndex(meshOffset + meshIndex),
-																				.materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
-																			});
-				else
-					_registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
-																		 .meshIndex = MeshIndex(meshOffset + meshIndex),
-																		 .materialIndex = getMeshes()[meshOffset + meshIndex].defaultMaterialIndex,
-																	 });
+				addRenderer(entity, MeshIndex{indices[0]});
 			else {
 				for(const auto& idx : indices) {
 					auto  submesh = _registry.create();
 					auto& submeshNode = _registry.emplace<NodeComponent>(submesh);
 					addChild(entity, submesh);
-					if(getMeshes()[meshOffset + meshIndex].isSkinned())
-						_registry.emplace<SkinnedMeshRendererComponent>(submesh, SkinnedMeshRendererComponent{
-																					 .meshIndex = idx,
-																					 .materialIndex = getMeshes()[idx].defaultMaterialIndex,
-																				 });
-					else
-						_registry.emplace<MeshRendererComponent>(submesh, MeshRendererComponent{
-																			  .meshIndex = idx,
-																			  .materialIndex = getMeshes()[idx].defaultMaterialIndex,
-																		  });
+					addRenderer(submesh, MeshIndex{idx});
 				}
 			}
 		}
 	}
-
-	if(object.contains("animations"))
-		for(const auto& skin : object["skins"]) {}
-
-	if(object.contains("animations"))
-		for(const auto& anim : object["animations"]) {}
 
 	for(const auto& scene : object["scenes"]) {
 		auto entity = _registry.create();
@@ -396,6 +397,32 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 		for(const auto& childIdx : entitiesChildren[entityIndex])
 			addChild(entities[entityIndex], entities[childIdx]);
 	}
+
+	if(object.contains("skins"))
+		for(const auto& skin : object["skins"]) {
+			const auto& accessor = object["accessors"][skin["inverseBindMatrices"].as<int>()];
+			assert(static_cast<ComponentType>(accessor["componentType"].as<int>()) == ComponentType::Float);
+			assert(accessor["type"].as<std::string>() == "MAT4");
+			const auto&			   bufferView = object["bufferViews"][accessor["bufferView"].as<int>()];
+			auto				   count = accessor["count"].as<int>();
+			const auto&			   buffer = buffers[bufferView["buffer"].as<int>()];
+			auto				   bufferData = buffer.data();
+			auto				   cursor = accessor("byteOffset", 0) + bufferView("byteOffset", 0);
+			int					   defaultStride = sizeof(glm::mat4);
+			auto				   stride = bufferView("byteStride", defaultStride);
+			std::vector<glm::mat4> inverseBindMatrices;
+			for(int i = 0; i < count; ++i) {
+				inverseBindMatrices.push_back(*reinterpret_cast<const glm::mat4*>(bufferData + cursor));
+				cursor += stride;
+			}
+			std::vector<entt::entity> joints;
+			for(const auto& nodeIndex : skin["joints"])
+				joints.push_back(entities[nodeIndex.as<int>()]);
+			_skins.push_back({inverseBindMatrices, joints});
+		}
+
+	if(object.contains("animations"))
+		for(const auto& anim : object["animations"]) {}
 
 	computeBounds();  // FIXME?
 	markDirty(_root); // Also probably unnecessary
@@ -792,8 +819,8 @@ void Scene::allocateMeshes(const Device& device) {
 		IndexMemory.free();
 		OffsetTableMemory.free();
 
-		NextVertexMemoryOffset = 0;
-		NextIndexMemoryOffset = 0;
+		NextVertexMemoryOffsetInBytes = 0;
+		NextIndexMemoryOffsetInBytes = 0;
 	}
 
 	size_t							  totalVertexSize = 0;
@@ -810,25 +837,32 @@ void Scene::allocateMeshes(const Device& device) {
 		totalVertexSize += vertexBufferMemReq.size;
 		totalIndexSize += indexBufferMemReq.size;
 	}
-	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalVertexSize);
+	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+						  totalVertexSize + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
 	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
 	for(auto meshIdx = 0; meshIdx < getMeshes().size(); ++meshIdx) {
-		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffset);
-		NextVertexMemoryOffset += memReqs[2 * meshIdx].size;
-		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffset);
-		NextIndexMemoryOffset += memReqs[2 * meshIdx + 1].size;
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffsetInBytes);
+		NextVertexMemoryOffsetInBytes += memReqs[2 * meshIdx].size;
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffsetInBytes);
+		NextIndexMemoryOffsetInBytes += memReqs[2 * meshIdx + 1].size;
 	}
 	// Create views to the entire dataset
-	VertexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalVertexSize);
+	StaticVertexBufferSizeInBytes = totalVertexSize;
+	VertexBuffer.create(device,
+						VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+						totalVertexSize + MaxDynamicVertexSizeInBytes);
 	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
 	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
 	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
 
-	OffsetTableSize = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
-	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, OffsetTableSize);
+	StaticOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
+	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+							 StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry)); // FIXME: Static memory for 1024 additional dynamic instances
 	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	uploadMeshOffsetTable(device);
+
+	allocateDynamicMeshes(device);
 }
 
 void Scene::updateMeshOffsetTable() {
@@ -847,38 +881,97 @@ void Scene::updateMeshOffsetTable() {
 }
 
 void Scene::uploadMeshOffsetTable(const Device& device) {
-	// Upload OffsetTable via a staging buffer.
-	Buffer		 stagingBuffer;
-	DeviceMemory stagingMemory;
-	stagingBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, OffsetTableSize);
-	stagingMemory.allocate(device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	stagingMemory.fill(_offsetTable.data(), _offsetTable.size());
-
-	CommandPool tmpCmdPool;
-	tmpCmdPool.create(device, device.getPhysicalDevice().getTransfertQueueFamilyIndex());
-	CommandBuffers stagingCommands;
-	stagingCommands.allocate(device, tmpCmdPool, 1);
-	stagingCommands[0].begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-	VkBufferCopy copyRegion{
-		.srcOffset = 0,
-		.dstOffset = 0,
-		.size = OffsetTableSize,
-	};
-	vkCmdCopyBuffer(stagingCommands[0], stagingBuffer, OffsetTableBuffer, 1, &copyRegion);
-
-	stagingCommands[0].end();
-	VkSubmitInfo submitInfo{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.commandBufferCount = 1,
-		.pCommandBuffers = stagingCommands.getBuffersHandles().data(),
-	};
-	auto queue = device.getQueue(device.getPhysicalDevice().getTransfertQueueFamilyIndex(), 0);
-	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
-	VK_CHECK(vkQueueWaitIdle(queue));
+	copyViaStagingBuffer(device, OffsetTableBuffer, _offsetTable);
 }
 
-bool Scene::update(const Device& device) {
+void Scene::allocateDynamicMeshes(const Device& device) {
+	size_t totalVertexSize = 0;
+	size_t totalIndexSize = 0;
+
+	sortRenderers();
+	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	_dynamicOffsetTable.clear();
+
+	for(auto& entity : instances) {
+		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
+		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(StaticOffsetTableSizeInBytes / sizeof(OffsetEntry) + _dynamicOffsetTable.size());
+		_dynamicOffsetTable.push_back(OffsetEntry{static_cast<uint32_t>(_meshes[skinnedMeshRenderer.meshIndex].defaultMaterialIndex),
+												  static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
+												  static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset)});
+		totalVertexSize += vertexBufferMemReq.size;
+		NextVertexMemoryOffsetInBytes += vertexBufferMemReq.size;
+	}
+	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
+	assert(_dynamicOffsetTable.size() < 1024);
+
+	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
+
+	uploadDynamicMeshOffsetTable(device);
+}
+
+void Scene::updateDynamicMeshOffsetTable() {
+	auto   instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	size_t totalVertexSize = 0;
+	size_t idx = 0;
+	for(auto& entity : instances) {
+		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
+		_dynamicOffsetTable[idx] = OffsetEntry{
+			static_cast<uint32_t>(_meshes[skinnedMeshRenderer.meshIndex].defaultMaterialIndex),
+			static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
+			static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset),
+		};
+		totalVertexSize += vertexBufferMemReq.size;
+		++idx;
+	}
+}
+
+void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
+	if(_dynamicOffsetTable.size() > 0)
+		copyViaStagingBuffer(device, OffsetTableBuffer, _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
+}
+
+void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
+	// TODO: CPU first, then move it to a compute shader?
+	auto				instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	std::vector<Vertex> transformedVertices;
+	for(auto& entity : instances) {
+		auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
+		/*
+		std::vector<glm::mat4> frame;
+		if(skinnedMeshRenderer.animationIndex == -1)
+			frame = SkeletalAnimation{.jointsCount = static_cast<uint32_t>(skin.joints.size())}.at(0);
+		else
+			frame = _animations[skinnedMeshRenderer.animationIndex].at(0); // FIXME: Get time
+		*/
+
+		// FIXME: Temp testing
+		static std::vector<glm::mat4> frame = SkeletalAnimation{.jointsCount = static_cast<uint32_t>(skin.joints.size())}.at(0);
+		for(auto& m : frame)
+			m = glm::rotate(deltaTime, glm::vec3(0, 1, 0)) * m;
+
+		const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
+		const auto& vertices = _meshes[skinnedMeshRenderer.meshIndex].getVertices();
+		const auto& joints = _meshes[skinnedMeshRenderer.meshIndex].getSkin().joints;
+		const auto& weights = _meshes[skinnedMeshRenderer.meshIndex].getSkin().weights;
+		for(size_t i = 0; i < vertices.size(); ++i) {
+			Vertex v = vertices[i];
+			auto   skinMatrix = weights[i][0] * frame[joints[i].indices[0]] + weights[i][1] * frame[joints[i].indices[1]] + weights[i][2] * frame[joints[i].indices[2]] +
+							  weights[i][3] * frame[joints[i].indices[3]];
+			v.pos = glm::vec3(skinMatrix * glm::vec4(v.pos, 1.0));
+			transformedVertices.push_back(v);
+		}
+	}
+	copyViaStagingBuffer(device, VertexBuffer, transformedVertices, 0, StaticVertexBufferSizeInBytes);
+}
+
+bool Scene::update(const Device& device, float deltaTime) {
+	updateDynamicVertexBuffer(device, deltaTime);
+	// FIXME: Actually call this.
+	// buildDynamicBLAS(device);
+
 	if(_dirtyNodes.empty())
 		return false;
 
@@ -925,6 +1018,19 @@ void Scene::free(const Device& device) {
 	OffsetTableMemory.free();
 	VertexMemory.free();
 	IndexMemory.free();
+	NextVertexMemoryOffsetInBytes = 0;
+	NextIndexMemoryOffsetInBytes = 0;
+	StaticOffsetTableSizeInBytes = 0;
+	StaticVertexBufferSizeInBytes = 0;
+}
+
+inline static [[nodiscard]] VkAccelerationStructureBuildSizesInfoKHR getBuildSize(const Device&										device,
+																				  const VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo,
+																				  const uint32_t									primitiveCount) {
+	VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
+											&accelerationStructureBuildSizesInfo);
+	return accelerationStructureBuildSizesInfo;
 }
 
 void Scene::createAccelerationStructure(const Device& device) {
@@ -940,7 +1046,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 	VkTransformMatrixKHR rootTransformMatrix = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
 
-	size_t meshesCount = getMeshes().size();
+	size_t meshesCount = getMeshes().size() + 1024; // FIXME: Reserve 1024 dynamic instances
 
 	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
@@ -956,6 +1062,38 @@ void Scene::createAccelerationStructure(const Device& device) {
 	blasOffsets.reserve(meshesCount);
 	buildSizesInfo.reserve(meshesCount);
 
+	VkAccelerationStructureGeometryKHR baseGeometry = {
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+		.geometry =
+			VkAccelerationStructureGeometryDataKHR{
+				.triangles =
+					VkAccelerationStructureGeometryTrianglesDataKHR{
+						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+						.vertexData = 0,
+						.vertexStride = sizeof(Vertex),
+						.maxVertex = 0,
+						.indexType = VK_INDEX_TYPE_UINT32,
+						.indexData = 0,
+						.transformData = 0,
+					},
+			},
+		.flags = 0,
+	};
+
+	VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+		.pNext = VK_NULL_HANDLE,
+		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+		.srcAccelerationStructure = VK_NULL_HANDLE,
+		.geometryCount = 1,
+		.pGeometries = nullptr,
+		.ppGeometries = nullptr,
+	};
+
 	const auto& meshes = getMeshes();
 
 	{
@@ -968,56 +1106,61 @@ void Scene::createAccelerationStructure(const Device& device) {
 			 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
 			 * This should be doable using the gl_GeometryIndexEXT built-in.
 			 */
-			geometries.push_back({
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-				.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-				.geometry =
-					VkAccelerationStructureGeometryDataKHR{
-						.triangles =
-							VkAccelerationStructureGeometryTrianglesDataKHR{
-								.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-								.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-								.vertexData = mesh.getVertexBuffer().getDeviceAddress(),
-								.vertexStride = sizeof(Vertex),
-								.maxVertex = static_cast<uint32_t>(mesh.getVertices().size()),
-								.indexType = VK_INDEX_TYPE_UINT32,
-								.indexData = mesh.getIndexBuffer().getDeviceAddress(),
-								.transformData = 0,
-							},
-					},
-				.flags = 0,
-			});
+			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
+			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size());
+			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
+			geometries.push_back(baseGeometry);
 
-			VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-				.pNext = VK_NULL_HANDLE,
-				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-				.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-				.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-				.srcAccelerationStructure = VK_NULL_HANDLE,
-				.geometryCount = 1,
-				.pGeometries = &geometries.back(),
-				.ppGeometries = nullptr,
-			};
-			// FIXME: A skinned mesh BLAS should actually not be used directly, as each instance may have a different final geometry (depending on the animation)
-			if(mesh.isSkinned())
-				accelerationBuildGeometryInfo.flags = accelerationBuildGeometryInfo.flags | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+			accelerationBuildGeometryInfo.pGeometries = &geometries.back();
 
 			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
 
-			VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-			vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
-													&accelerationStructureBuildSizesInfo);
-			buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
+			auto accelerationStructureBuildSizesInfo = getBuildSize(device, accelerationBuildGeometryInfo, primitiveCount);
 
 			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
-			blasOffsets.push_back(alignedSize);
 			totalBLASSize += alignedSize;
-
 			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
 
+			buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
+			blasOffsets.push_back(alignedSize);
 			buildInfos.push_back(accelerationBuildGeometryInfo);
+			rangeInfos.push_back({
+				.primitiveCount = primitiveCount,
+				.primitiveOffset = 0,
+				.firstVertex = 0,
+				.transformOffset = 0,
+			});
+		}
 
+		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		// Create an additional BLAS for each skinned mesh instance.
+		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
+		for(auto& entity : instances) {
+			auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+			auto& mesh = getMeshes()[skinnedMeshRenderer.meshIndex];
+
+			skinnedMeshRenderer.blasIndex = buildInfos.size();
+
+			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{
+				VertexBuffer.getDeviceAddress() +
+				sizeof(Vertex) * _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset};
+			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size());
+			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
+			geometries.push_back(baseGeometry);
+
+			accelerationBuildGeometryInfo.pGeometries = &geometries.back();
+
+			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
+
+			auto accelerationStructureBuildSizesInfo = getBuildSize(device, accelerationBuildGeometryInfo, primitiveCount);
+
+			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
+			totalBLASSize += alignedSize;
+			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
+
+			buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
+			blasOffsets.push_back(alignedSize);
+			buildInfos.push_back(accelerationBuildGeometryInfo);
 			rangeInfos.push_back({
 				.primitiveCount = primitiveCount,
 				.primitiveOffset = 0,
@@ -1059,7 +1202,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
 		}
 		for(auto& rangeInfo : rangeInfos)
-			pRangeInfos.push_back(&rangeInfo); // FIXME: Only work because geometryCount is always 1 here.
+			pRangeInfos.push_back(&rangeInfo); // FIXME: Only works because geometryCount is always 1 here.
 
 		// Build all the bottom acceleration structure on the device via a one-time command buffer submission
 		device.immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
@@ -1071,48 +1214,80 @@ void Scene::createAccelerationStructure(const Device& device) {
 	createTLAS(device);
 }
 
+void Scene::sortRenderers() {
+	_registry.sort<MeshRendererComponent>([](const auto& lhs, const auto& rhs) {
+		if(lhs.materialIndex == rhs.materialIndex)
+			return lhs.meshIndex < rhs.meshIndex;
+		return lhs.materialIndex < rhs.materialIndex;
+	});
+	_registry.sort<SkinnedMeshRendererComponent>([](const auto& lhs, const auto& rhs) {
+		if(lhs.materialIndex == rhs.materialIndex)
+			return lhs.meshIndex < rhs.meshIndex;
+		return lhs.materialIndex < rhs.materialIndex;
+	});
+}
+
+inline static [[nodiscard]] VkDeviceAddress getDeviceAddress(const Device& device, VkAccelerationStructureKHR accelerationStructure) {
+	VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
+		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+		.accelerationStructure = accelerationStructure,
+	};
+	return vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+}
+
 void Scene::createTLAS(const Device& device) {
 	QuickTimer qt("TLAS building");
 
+	sortRenderers();
+
 	const auto& meshes = getMeshes();
-	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		MeshIndex mesh = InvalidMeshIndex;
-		if(auto* meshComp = _registry.try_get<MeshRendererComponent>(entity); meshComp != nullptr)
-			mesh = meshComp->meshIndex;
-		// FIXME: Each instance of SkinnedMeshRendererComponent should have its own BLAS since the geometry is also a function of the applied animation.
-		if(auto* meshComp = _registry.try_get<SkinnedMeshRendererComponent>(entity); meshComp != nullptr)
-			mesh = meshComp->meshIndex;
-		if(mesh != InvalidMeshIndex) {
-			auto				 tmp = glm::transpose(transform);
+	{
+		auto instances = getRegistry().view<MeshRendererComponent>();
+		for(auto& entity : instances) {
+			auto&				 meshRendererComponent = _registry.get<MeshRendererComponent>(entity);
+			auto				 tmp = glm::transpose(getGrobalTransform(_registry, _registry.get<NodeComponent>(entity)));
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-			VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-				.accelerationStructure = _bottomLevelAccelerationStructures[mesh],
-			};
-			auto BLASDeviceAddress = vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
+			auto BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[meshRendererComponent.meshIndex]);
 
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,
-				.instanceCustomIndex = meshes[mesh].indexIntoOffsetTable,
+				.instanceCustomIndex = meshes[meshRendererComponent.meshIndex].indexIntoOffsetTable,
 				.mask = 0xFF,
 				.instanceShaderBindingTableRecordOffset = 0,
 				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
 				.accelerationStructureReference = BLASDeviceAddress,
 			});
 		}
-	});
-	_accStructInstancesBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-									 _accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-	// FIXME: This should probably not be HOST_VISIBLE and use a staging buffer to update.
-	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer,
-									   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
+	}
+	{
+		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
+		for(auto& entity : instances) {
+			auto&				 skinnedMeshRendererComponent = _registry.get<SkinnedMeshRendererComponent>(entity);
+			auto				 tmp = glm::transpose(getGrobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
+			auto				 BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
 
-	_instancesBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, _accStructInstances.size() * sizeof(InstanceData));
-	// FIXME: This should probably not be HOST_VISIBLE and use a staging buffer to update.
-	_instancesMemory.allocate(device, _instancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	updateTransforms();
+			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
+				.transform = transposedTransform,
+				.instanceCustomIndex = skinnedMeshRendererComponent.indexIntoOffsetTable,
+				.mask = 0xFF,
+				.instanceShaderBindingTableRecordOffset = 0,
+				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+				.accelerationStructureReference = BLASDeviceAddress,
+			});
+		}
+	}
+
+	_accStructInstancesBuffer.create(
+		device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		_accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
+	_accStructInstancesMemory.allocate(device, _accStructInstancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	copyViaStagingBuffer(device, _accStructInstancesBuffer, _accStructInstances);
+
+	_instancesBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, _accStructInstances.size() * sizeof(InstanceData));
+	_instancesMemory.allocate(device, _instancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	updateTransforms(device);
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -1137,9 +1312,9 @@ void Scene::createTLAS(const Device& device) {
 		.pGeometries = &TLASGeometry,
 	};
 
-	const uint32_t							 TBLAPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
+	const uint32_t							 TLASPrimitiveCount = static_cast<uint32_t>(_accStructInstances.size());
 	VkAccelerationStructureBuildSizesInfoKHR TLASBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TBLAPrimitiveCount, &TLASBuildSizesInfo);
+	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &TLASBuildGeometryInfo, &TLASPrimitiveCount, &TLASBuildSizesInfo);
 
 	_tlasBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, TLASBuildSizesInfo.accelerationStructureSize);
 	_tlasMemory.allocate(device, _tlasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -1161,7 +1336,7 @@ void Scene::createTLAS(const Device& device) {
 	TLASBuildGeometryInfo.scratchData = {.deviceAddress = _tlasScratchBuffer.getDeviceAddress()};
 
 	VkAccelerationStructureBuildRangeInfoKHR TLASBuildRangeInfo{
-		.primitiveCount = TBLAPrimitiveCount,
+		.primitiveCount = TLASPrimitiveCount,
 		.primitiveOffset = 0,
 		.firstVertex = 0,
 		.transformOffset = 0,
@@ -1172,9 +1347,10 @@ void Scene::createTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-void Scene::updateDynamicBLAS(const Device& device) {
-	QuickTimer qt("Dynamic BLAS update");
+void Scene::buildDynamicBLAS(const Device& device) {
+	QuickTimer qt("Dynamic BLAS building");
 	// TODO!
+	warn("buildDynamicBLAS not implemented! ");
 }
 
 void Scene::updateTLAS(const Device& device) {
@@ -1182,19 +1358,12 @@ void Scene::updateTLAS(const Device& device) {
 	// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
 	QuickTimer qt("TLAS update");
 
-	uint32_t	index = 0;
-	const auto& meshes = getMeshes();
-	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
-			auto				 tmp = glm::transpose(transform);
-			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			_accStructInstances[index].transform = transposedTransform;
-			++index;
-		}
-	});
-	_accStructInstancesMemory.fill(_accStructInstances.data(), _accStructInstances.size());
-
-	updateTransforms();
+	updateTransforms(device);
+	for(size_t i = 0; i < _instancesData.size(); ++i) {
+		auto t = glm::transpose(_instancesData[i].transform);
+		_accStructInstances[i].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&t);
+	}
+	copyViaStagingBuffer(device, _accStructInstancesBuffer, _accStructInstances);
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -1234,34 +1403,36 @@ void Scene::updateTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-void Scene::updateTransforms() {
+void Scene::updateTransforms(const Device& device) {
 	// Sort by material then by mesh
 	_registry.sort<MeshRendererComponent>([](const auto& lhs, const auto& rhs) {
 		if(lhs.materialIndex == rhs.materialIndex)
 			return lhs.meshIndex < rhs.meshIndex;
 		return lhs.materialIndex < rhs.materialIndex;
 	});
+	_registry.sort<SkinnedMeshRendererComponent>([](const auto& lhs, const auto& rhs) {
+		if(lhs.materialIndex == rhs.materialIndex)
+			return lhs.meshIndex < rhs.meshIndex;
+		return lhs.materialIndex < rhs.materialIndex;
+	});
 	auto meshRenderers = _registry.view<MeshRendererComponent, NodeComponent>();
+	auto skinnedMeshRenderers = _registry.view<SkinnedMeshRendererComponent, NodeComponent>();
 	// TODO: Optimize by only updating dirtyNode when possible
 	_instancesData.clear();
-	_instancesData.reserve(meshRenderers.size_hint());
-	for(auto&& [entity, meshRenderer, node] : meshRenderers.each()) {
-		auto transform = node.transform;
-		auto parent = node.parent;
-		while(parent != entt::null) {
-			const auto& parentNode = _registry.get<NodeComponent>(parent);
-			transform = parentNode.transform * transform;
-			parent = parentNode.parent;
-		}
-		_instancesData.push_back({transform});
-	}
-	_instancesMemory.fill(_instancesData.data(), _instancesData.size());
+	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());
+	for(auto&& [entity, meshRenderer, node] : meshRenderers.each())
+		_instancesData.push_back({getGrobalTransform(_registry, node)});
+	for(auto&& [entity, skinnedMeshRenderer, node] : skinnedMeshRenderers.each())
+		_instancesData.push_back({getGrobalTransform(_registry, node)});
+
+	copyViaStagingBuffer(device, _instancesBuffer, _instancesData);
 }
 
 entt::entity Scene::intersectNodes(Ray& ray) {
 	Hit			 best;
 	entt::entity bestNode = entt::null;
 	const auto&	 meshes = getMeshes();
+	// FIXME: Doesn't work on Skinned Meshes
 	// Note: If we had cached/precomputed node bounds (without the need of meshes), we could speed this up a lot (basically an acceleration structure).
 	forEachNode([&](entt::entity entity, glm::mat4 transform) {
 		if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {

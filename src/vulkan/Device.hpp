@@ -8,6 +8,7 @@
 
 class CommandPool;
 class CommandBuffer;
+class Buffer;
 
 class Device : public HandleWrapper<VkDevice> {
   public:
@@ -51,7 +52,7 @@ class Device : public HandleWrapper<VkDevice> {
 	inline void immediateSubmitCompute(std::function<void(const CommandBuffer&)>&& func) const {
 		submit(getPhysicalDevice().getComputeQueueFamilyIndex(), std::forward<std::function<void(const CommandBuffer&)>>(func));
 	}
-
+	
   private:
 	const PhysicalDevice* _physicalDevice = nullptr;
 };

@@ -12,22 +12,31 @@
 using JointIndex = uint16_t;
 
 struct JointIndices {
-	JointIndex indices[4];
+	std::array<JointIndex, 4> indices;
 };
 
-struct Skin {
+struct SkinVertexData {
 	std::vector<glm::vec4>	  weights;
 	std::vector<JointIndices> joints;
 };
 
 struct SkeletalAnimation {
-	std::vector<float>	   times;
 	uint32_t			   jointsCount;
+	std::vector<float>	   times;
 	std::vector<glm::mat4> transforms; // times.size() * jointsCount transforms
 
 	float				   length() const { return times.back(); }
 	std::vector<glm::mat4> at(float t) {
-		assert(times.size() > 1);
+		// FIXME ?
+		if(times.empty()) {
+			std::vector<glm::mat4> r;
+			for(size_t i = 0; i < jointsCount; ++i)
+				r.push_back(glm::mat4(1.0f));
+			return r;
+		} else if(times.size() == 1) {
+			return transforms;
+		}
+
 		t = std::fmod(t, length());
 		std::vector<glm::mat4> r;
 		r.reserve(jointsCount);
@@ -90,13 +99,13 @@ class Mesh {
 	inline std::vector<Vertex>&			getVertices() { return _vertices; }
 	inline std::vector<uint32_t>&		getIndices() { return _indices; }
 
-	inline const Bounds& getBounds() const { return _bounds; }
-	inline void			 setBounds(const Bounds& b) { _bounds = b; }
-	const Bounds&		 computeBounds();
-	bool				 isSkinned() const { return _skin.has_value(); }
-	const Skin&			 getSkin() const { return _skin.value(); }
-	Skin&				 getSkin() { return _skin.value(); }
-	void				 setSkin(const Skin& s) { _skin.emplace(s); }
+	inline const Bounds&  getBounds() const { return _bounds; }
+	inline void			  setBounds(const Bounds& b) { _bounds = b; }
+	const Bounds&		  computeBounds();
+	bool				  isSkinned() const { return _skin.has_value(); }
+	const SkinVertexData& getSkin() const { return _skin.value(); }
+	SkinVertexData&		  getSkin() { return _skin.value(); }
+	void				  setSkin(const SkinVertexData& s) { _skin.emplace(s); }
 
 	void normalizeVertices();
 	void computeVertexNormals();
@@ -108,7 +117,7 @@ class Mesh {
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
 
-	std::optional<Skin> _skin;
+	std::optional<SkinVertexData> _skin{};
 
 	Bounds _bounds;
 };

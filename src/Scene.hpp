@@ -31,11 +31,18 @@ struct MeshRendererComponent {
 };
 
 struct SkinnedMeshRendererComponent {
-	MeshIndex		  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
-	MaterialIndex	  materialIndex = InvalidMaterialIndex;
-	Buffer			  vertexBuffer;
-	SkeletalAnimation animation;
-	float			  time = 0;
+	MeshIndex	  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
+	MaterialIndex materialIndex = InvalidMaterialIndex;
+	size_t		  skinIndex = static_cast<size_t>(-1);
+	size_t		  animationIndex = static_cast<size_t>(-1);
+	size_t		  blasIndex = static_cast<size_t>(-1);
+	uint32_t	  indexIntoOffsetTable = 0;
+	float		  time = 0;
+};
+
+struct Skin {
+	std::vector<glm::mat4>	  inverseBindMatrices;
+	std::vector<entt::entity> joints;
 };
 
 class Scene {
@@ -92,9 +99,9 @@ class Scene {
 	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
 
 	inline void markDirty(entt::entity node) { _dirtyNodes.push_back(node); }
-	bool		update(const Device& device);
+	bool		update(const Device& device, float deltaTime);
 	void		updateTLAS(const Device& device);
-	void		updateTransforms();
+	void		updateTransforms(const Device& device);
 
 	inline entt::entity getRoot() const { return _root; }
 
@@ -106,6 +113,7 @@ class Scene {
 		   bool init = false;
 
 		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
+			   // FIXME: Handle SkinnedMeshRendererComponent
 			   if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
 				   if(!init) {
 					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
@@ -135,33 +143,48 @@ class Scene {
 	// TODO: Cleanup
 	struct OffsetEntry {
 		uint32_t materialIndex;
-		uint32_t vertexOffset;
-		uint32_t indexOffset;
+		uint32_t vertexOffset; // In number of vertices (not bytes)
+		uint32_t indexOffset;  // In number of indices (not bytes)
 	};
 
 	DeviceMemory			 OffsetTableMemory;
 	DeviceMemory			 VertexMemory;
 	DeviceMemory			 IndexMemory;
-	size_t					 NextVertexMemoryOffset = 0;
-	size_t					 NextIndexMemoryOffset = 0;
+	size_t					 NextVertexMemoryOffsetInBytes = 0;
+	size_t					 NextIndexMemoryOffsetInBytes = 0;
 	Buffer					 OffsetTableBuffer;
+	uint32_t				 StaticOffsetTableSizeInBytes;
 	Buffer					 VertexBuffer;
+	uint32_t				 StaticVertexBufferSizeInBytes;
 	Buffer					 IndexBuffer;
-	uint32_t				 OffsetTableSize;
 	std::vector<OffsetEntry> _offsetTable;
+
+	// Data for dynamic (skinned) meshes.
+	const uint32_t			 MaxDynamicVertexSizeInBytes = 512 * 1024 * 1024;
+	uint32_t				 DynamicOffsetTableSizeInBytes;
+	std::vector<OffsetEntry> _dynamicOffsetTable;
 
 	// Allocate memory for all meshes in the scene
 	void allocateMeshes(const Device& device);
-	void free(const Device& device);
 	void updateMeshOffsetTable();
 	void uploadMeshOffsetTable(const Device& device);
+
+	void allocateDynamicMeshes(const Device&);
+	void updateDynamicMeshOffsetTable();
+	void uploadDynamicMeshOffsetTable(const Device&);
+	void updateDynamicVertexBuffer(const Device& device, float deltaTime);
+	void buildDynamicBLAS(const Device&);
+
+	void free(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////
 
 	entt::registry&		  getRegistry() { return _registry; }
 	const entt::registry& getRegistry() const { return _registry; }
 
   private:
-	std::vector<Mesh> _meshes;
+	std::vector<Mesh>			   _meshes;
+	std::vector<Skin>			   _skins;
+	std::vector<SkeletalAnimation> _animations;
 
 	entt::registry			  _registry;
 	entt::entity			  _root = entt::null;
@@ -171,10 +194,13 @@ class Scene {
 
 	Buffer											_staticBLASBuffer;
 	DeviceMemory									_staticBLASMemory;
+	Buffer											_dynamicBLASBuffer;
+	DeviceMemory									_dynamicBLASMemory;
 	Buffer											_tlasBuffer;
 	DeviceMemory									_tlasMemory;
 	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
 	std::vector<VkAccelerationStructureKHR>			_bottomLevelAccelerationStructures;
+	std::vector<VkAccelerationStructureKHR>			_dynamicBottomLevelAccelerationStructures;
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
 	DeviceMemory									_accStructInstancesMemory;
@@ -202,6 +228,27 @@ class Scene {
 
 		call(entity, transform);
 	};
+
+	void sortRenderers();
+
+	// FIXME: Should not be there.
+	template<typename T>
+	void copyViaStagingBuffer(const Device& device, Buffer& buffer, const std::vector<T>& data, uint32_t srcOffset = 0, uint32_t dstOffset = 0) {
+		Buffer		 stagingBuffer;
+		DeviceMemory stagingMemory;
+		stagingBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(T) * data.size());
+		stagingMemory.allocate(device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		stagingMemory.fill(data.data(), data.size());
+
+		device.immediateSubmitTransfert([&](const CommandBuffer& cmdBuff) {
+			VkBufferCopy copyRegion{
+				.srcOffset = srcOffset,
+				.dstOffset = dstOffset,
+				.size = sizeof(T) * data.size(),
+			};
+			vkCmdCopyBuffer(cmdBuff, stagingBuffer, buffer, 1, &copyRegion);
+		});
+	}
 };
 
 JSON::value toJSON(const NodeComponent&);

@@ -310,11 +310,11 @@ void Editor::recordCommandBuffers() {
 			uint32_t indexCount = 0;
 			uint32_t instanceCount = 0;
 			uint32_t instanceBaseOffset = 0;
-			auto	 offsets = std::array<VkDeviceSize, 1>{0};
 			{
 				auto meshRenderers = _scene.getRegistry().view<MeshRendererComponent>(); // Pre-Sorted
 				auto currentMaterial = InvalidMaterialIndex;
 				auto currentMesh = InvalidMeshIndex;
+				auto offsets = std::array<VkDeviceSize, 1>{0};
 				for(const auto& entity : meshRenderers) {
 					const auto& meshRenderer = _scene.getRegistry().get<MeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {
@@ -339,28 +339,44 @@ void Editor::recordCommandBuffers() {
 					}
 					++instanceCount;
 				}
-				if(currentMesh != InvalidMeshIndex)
+				if(currentMesh != InvalidMeshIndex) {
 					vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
+					instanceBaseOffset += instanceCount;
+				}
 			}
 			// NOTE: We can't batch calls for skinned meshes, vertex buffers have to be updated for the raytracing pass, we'll reuse them directly.
 			{
-				auto currentMaterial = InvalidMaterialIndex;
-				auto currentMesh = InvalidMeshIndex;
-				auto skinnedMeshRenderers = _scene.getRegistry().view<SkinnedMeshRendererComponent>();
+				auto					currentMaterial = InvalidMaterialIndex;
+				auto					currentMesh = InvalidMeshIndex;
+				auto					skinnedMeshRenderers = _scene.getRegistry().view<SkinnedMeshRendererComponent>();
+				std::array<VkBuffer, 1> buffers{_scene.VertexBuffer};
 				for(const auto& entity : skinnedMeshRenderers) {
 					const auto& meshRenderer = _scene.getRegistry().get<SkinnedMeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {
 						currentMesh = meshRenderer.meshIndex;
 						vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32); // Index buffer doesn't have to be updated.
+						indexCount = static_cast<uint32_t>(_scene.getMeshes()[currentMesh].getIndices().size());
 					}
 					if(meshRenderer.materialIndex != currentMaterial) {
 						// Next Material
 						vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_GRAPHICS, _gbufferPipeline.getLayout(), 0, 1,
 												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + meshRenderer.materialIndex], 0, nullptr);
 					}
-					std::array<VkBuffer, 1> buffers{meshRenderer.vertexBuffer}; // Use the vertex buffer of this particular instance.
+
+#if 0 
+					auto offsets = std::array<VkDeviceSize, 1>{
+						_scene._dynamicOffsetTable[meshRenderer.indexIntoOffsetTable - _scene.StaticOffsetTableSizeInBytes / sizeof(Scene::OffsetEntry)].vertexOffset *
+						sizeof(Vertex)}; // Use the vertex buffer of this particular instance.
+
 					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 					vkCmdDrawIndexed(b, indexCount, 1, 0, 0, instanceBaseOffset);
+#else
+					auto offsets = std::array<VkDeviceSize, 1>{0};
+					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
+					vkCmdDrawIndexed(b, indexCount, 1, 0,
+									 _scene._dynamicOffsetTable[meshRenderer.indexIntoOffsetTable - _scene.StaticOffsetTableSizeInBytes / sizeof(Scene::OffsetEntry)].vertexOffset,
+									 instanceBaseOffset);
+#endif
 					++instanceBaseOffset;
 				}
 			}

@@ -476,6 +476,18 @@ void Editor::drawUI() {
 					ImGui::TreePop();
 				}
 			}
+			if(auto* meshComp = _scene.getRegistry().try_get<SkinnedMeshRendererComponent>(_selectedNode); meshComp != nullptr) {
+				auto& mesh = _scene[meshComp->meshIndex];
+				if(ImGui::TreeNodeEx("SkinnedMeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+					ImGui::Text("Mesh: %s", mesh.name.c_str());
+					ImGui::Text("Skin: %d", meshComp->skinIndex);
+					ImGui::Text("Animation: %d", meshComp->animationIndex);
+					ImGui::Text("BLAS: %d", meshComp->blasIndex);
+					ImGui::Text("IndexIntoOffsetTable: %d", meshComp->indexIntoOffsetTable);
+					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;
+					ImGui::TreePop();
+				}
+			}
 		} else {
 			ImGui::Text("No selected node.");
 		}

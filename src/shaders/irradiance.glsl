@@ -146,6 +146,7 @@ vec3 sampleProbes(vec3 position, vec3 normal, vec3 toCamera, ProbeGrid grid, sam
     // Convert position in grid coords
     vec3 gridCellSize = probeGridCellSize(grid);
     vec3 gridCoords = (position - grid.extentMin) / abs(gridCellSize);
+    if(any(lessThan(gridCoords, vec3(0)))) return vec3(0);
     vec3 biasVector = (normal + toCamera) * grid.shadowBias;
     vec3 biasedPosition = position + biasVector;
     ivec3 firstProbeIdx = ivec3(gridCoords);

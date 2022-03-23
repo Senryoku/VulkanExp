@@ -121,7 +121,7 @@ void Editor::run() {
 				//"./data/models/gallery/gallery.gltf", // Crashes
 				//"./data/models/Home/ConvertedWithBlendergltf.gltf",
 				//"./data/models/Home/untitled.gltf",
-				//"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
+				"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
 				//"./data/models/SunTemple-glTF/suntemple.gltf",
 				//"./data/models/postwar_city_-_exterior_scene/scene.gltf",
 				//"./data/models/sea_keep_lonely_watcher/scene.gltf",
@@ -206,8 +206,8 @@ void Editor::mainLoop() {
 			_irradianceProbes.setLightBuffer(_lightUniformBuffers[_lastImageIndex]);
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
-
-		const auto updates = _scene.update(_device);
+		// FIXME: PASS proper deltaTime
+		const auto updates = _scene.update(_device, 0.016);
 		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
@@ -311,8 +311,7 @@ void Editor::drawFrame() {
 	};
 	VK_CHECK(vkResetFences(_device, 1, &currentFence));
 	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, currentFence));
-	if(!_raytracingDebug)
-		_mainTimingQueryPools[imageIndex].newSampleFlag = true;
+	_mainTimingQueryPools[imageIndex].newSampleFlag = true;
 
 	// Present the new frame
 	VkSwapchainKHR	 swapChains[] = {_swapChain};

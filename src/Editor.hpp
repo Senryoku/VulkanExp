@@ -315,6 +315,7 @@ class Editor {
 		destroyDirectLightPipeline();
 		destroyReflectionPipeline();
 		destroyRayTracingPipeline();
+		// FIXME: Re-create the GatherPipeline too
 		createGBufferPipeline();
 		createDirectLightPass();
 		createReflectionPass();

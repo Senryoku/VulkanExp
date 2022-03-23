@@ -163,6 +163,13 @@ void Editor::recordRayTracingCommands() {
 	for(size_t i = 0; i < _rayTraceCommandBuffers.getBuffers().size(); i++) {
 		auto& cmdBuff = _rayTraceCommandBuffers.getBuffers()[i];
 		cmdBuff.begin();
+		_mainTimingQueryPools[i].reset(cmdBuff);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 1);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 2);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 3);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 4);
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 5);
 
 		// Dispatch the ray tracing commands
 		vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _rayTracingPipeline);
@@ -205,6 +212,7 @@ void Editor::recordRayTracingCommands() {
 		// Transition ray tracing output image back to general layout
 		Image::setLayout(cmdBuff, _rayTraceStorageImages[i], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresource_range);
 
+		_mainTimingQueryPools[i].writeTimestamp(cmdBuff, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 6);
 		VK_CHECK(vkEndCommandBuffer(cmdBuff));
 	}
 }
