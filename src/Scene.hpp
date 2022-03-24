@@ -96,6 +96,9 @@ class Scene {
 	void						destroyTLAS(const Device& device);
 	const RollingBuffer<float>& getDynamicBLASUpdateTimes() const { return _dynamicBLASUpdateTimes; }
 	const RollingBuffer<float>& getTLASUpdateTimes() const { return _tlasUpdateTimes; }
+	const RollingBuffer<float>& getCPUBLASUpdateTimes() const { return _cpuBLASUpdateTimes; }
+	const RollingBuffer<float>& getCPUTLASUpdateTimes() const { return _cpuTLASUpdateTimes; }
+	const RollingBuffer<float>& getUpdateTimes() const { return _updateTimes; }
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
@@ -106,6 +109,7 @@ class Scene {
 	bool		update(const Device& device, float deltaTime);
 	void		updateTLAS(const Device& device);
 	void		updateTransforms(const Device& device);
+	void		updateAccelerationStructureInstances(const Device& device);
 
 	inline entt::entity getRoot() const { return _root; }
 
@@ -186,7 +190,7 @@ class Scene {
 	void updateDynamicMeshOffsetTable();
 	void uploadDynamicMeshOffsetTable(const Device&);
 	void updateDynamicVertexBuffer(const Device& device, float deltaTime);
-	void buildDynamicBLAS(const Device&);
+	void updateDynamicBLAS(const Device&);
 
 	void free(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -229,6 +233,9 @@ class Scene {
 	std::vector<QueryPool> _updateQueryPools;
 	RollingBuffer<float>   _dynamicBLASUpdateTimes;
 	RollingBuffer<float>   _tlasUpdateTimes;
+	RollingBuffer<float>   _cpuTLASUpdateTimes;
+	RollingBuffer<float>   _cpuBLASUpdateTimes;
+	RollingBuffer<float>   _updateTimes;
 
 	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
 	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);

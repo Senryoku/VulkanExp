@@ -951,17 +951,22 @@ void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 }
 
 bool Scene::update(const Device& device, float deltaTime) {
+	QuickTimer qt(_updateTimes);
+	bool	   hierarchicalChanges = false;
+	if(!_dirtyNodes.empty()) {
+		// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
+		updateTransforms(device);
+		updateAccelerationStructureInstances(device);
+		computeBounds();
+		_dirtyNodes.clear();
+		hierarchicalChanges = true;
+	}
+
 	updateDynamicVertexBuffer(device, deltaTime);
-	buildDynamicBLAS(device);
+	updateDynamicBLAS(device);
+	updateTLAS(device); // TLAS also has to be rebuilt if some BLAS has been updated.
 
-	if(_dirtyNodes.empty())
-		return false;
-
-	// TODO: BLAS
-	updateTLAS(device);
-	computeBounds();
-	_dirtyNodes.clear();
-	return true;
+	return hierarchicalChanges;
 }
 
 void Scene::destroyAccelerationStructure(const Device& device) {
@@ -1244,8 +1249,6 @@ inline static [[nodiscard]] VkDeviceAddress getDeviceAddress(const Device& devic
 void Scene::createTLAS(const Device& device) {
 	QuickTimer qt("TLAS building");
 
-	sortRenderers();
-
 	const auto& meshes = getMeshes();
 	{
 		auto instances = getRegistry().view<MeshRendererComponent>();
@@ -1353,7 +1356,8 @@ void Scene::createTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-void Scene::buildDynamicBLAS(const Device& device) {
+void Scene::updateDynamicBLAS(const Device& device) {
+	QuickTimer											   qt(_cpuBLASUpdateTimes);
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
 	for(auto& rangeInfo : _dynamicBLASBuildRangeInfos)
 		pRangeInfos.push_back(&rangeInfo);
@@ -1374,17 +1378,17 @@ void Scene::buildDynamicBLAS(const Device& device) {
 	_updateQueryPools[0].newSampleFlag = true;
 }
 
-void Scene::updateTLAS(const Device& device) {
-	// TODO: Optimise (including with regards to the GPU sync.).
-	// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
-	QuickTimer qt("TLAS update");
-
-	updateTransforms(device);
+void Scene::updateAccelerationStructureInstances(const Device& device) {
 	for(size_t i = 0; i < _instancesData.size(); ++i) {
 		auto t = glm::transpose(_instancesData[i].transform);
 		_accStructInstances[i].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&t);
 	}
 	copyViaStagingBuffer(device, _accStructInstancesBuffer, _accStructInstances);
+}
+
+void Scene::updateTLAS(const Device& device) {
+	// TODO: Optimise (including with regards to the GPU sync.).
+	QuickTimer qt(_cpuTLASUpdateTimes);
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
