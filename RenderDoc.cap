@@ -5,13 +5,13 @@
         "commandLine": "",
         "environment": [
         ],
-        "executable": "H:\\Source\\VulkanExp\\x64\\Debug\\VulkanExp.exe",
+        "executable": "H:\\Source\\VulkanExp\\x64\\ReleaseDebug\\VulkanExp.exe",
         "inject": false,
         "numQueuedFrames": 0,
         "options": {
             "allowFullscreen": true,
             "allowVSync": true,
-            "apiValidation": false,
+            "apiValidation": true,
             "captureAllCmdLists": false,
             "captureCallstacks": false,
             "captureCallstacksOnlyDraws": false,
@@ -22,6 +22,6 @@
             "verifyBufferAccess": false
         },
         "queuedFrameCap": 0,
-        "workingDir": "H:\\Source\\VulkanExp"
+        "workingDir": "H:\\Source\\VulkanExp\\"
     }
 }

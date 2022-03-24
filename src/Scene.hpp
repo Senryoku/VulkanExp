@@ -152,11 +152,12 @@ class Scene {
 	DeviceMemory			 IndexMemory;
 	size_t					 NextVertexMemoryOffsetInBytes = 0;
 	size_t					 NextIndexMemoryOffsetInBytes = 0;
-	Buffer					 OffsetTableBuffer;
-	uint32_t				 StaticOffsetTableSizeInBytes;
 	Buffer					 VertexBuffer;
-	uint32_t				 StaticVertexBufferSizeInBytes;
 	Buffer					 IndexBuffer;
+	Buffer					 OffsetTableBuffer;
+	uint32_t				 StaticVertexBufferSizeInBytes;
+	uint32_t				 StaticIndexBufferSizeInBytes;
+	uint32_t				 StaticOffsetTableSizeInBytes;
 	std::vector<OffsetEntry> _offsetTable;
 
 	// Data for dynamic (skinned) meshes.

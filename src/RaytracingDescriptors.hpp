@@ -52,21 +52,21 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 			{
 				.buffer = scene.VertexBuffer,
 				.offset = 0,
-				.range = scene.NextVertexMemoryOffsetInBytes,
+				.range = VK_WHOLE_SIZE,
 			});
 	// Indices
 	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
 				.buffer = scene.IndexBuffer,
 				.offset = 0,
-				.range = scene.NextIndexMemoryOffsetInBytes,
+				.range = VK_WHOLE_SIZE,
 			});
 	// Instance Offsets
 	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
 				.buffer = scene.OffsetTableBuffer,
 				.offset = 0,
-				.range = scene.StaticOffsetTableSizeInBytes,
+				.range = VK_WHOLE_SIZE,
 			});
 
 	// Materials

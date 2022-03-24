@@ -823,39 +823,26 @@ void Scene::allocateMeshes(const Device& device) {
 		NextIndexMemoryOffsetInBytes = 0;
 	}
 
-	size_t							  totalVertexSize = 0;
-	size_t							  totalIndexSize = 0;
-	std::vector<VkMemoryRequirements> memReqs;
-	for(auto& m : getMeshes()) {
-		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
-		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
-		memReqs.push_back(vertexBufferMemReq);
-		memReqs.push_back(indexBufferMemReq);
-		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
-		_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.defaultMaterialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-										   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
-		totalVertexSize += vertexBufferMemReq.size;
-		totalIndexSize += indexBufferMemReq.size;
-	}
-	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[0].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-						  totalVertexSize + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
-	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(memReqs[1].memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), totalIndexSize);
+	updateMeshOffsetTable();
+	auto vertexMemoryTypeBits = getMeshes()[0].getVertexBuffer().getMemoryRequirements().memoryTypeBits;
+	auto indexMemoryTypeBits = getMeshes()[0].getIndexBuffer().getMemoryRequirements().memoryTypeBits;
+	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(vertexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+						  StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
+	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(indexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), StaticIndexBufferSizeInBytes);
 	for(auto meshIdx = 0; meshIdx < getMeshes().size(); ++meshIdx) {
 		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffsetInBytes);
-		NextVertexMemoryOffsetInBytes += memReqs[2 * meshIdx].size;
+		NextVertexMemoryOffsetInBytes += getMeshes()[meshIdx].getVertexBuffer().getMemoryRequirements().size;
 		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffsetInBytes);
-		NextIndexMemoryOffsetInBytes += memReqs[2 * meshIdx + 1].size;
+		NextIndexMemoryOffsetInBytes += getMeshes()[meshIdx].getIndexBuffer().getMemoryRequirements().size;
 	}
 	// Create views to the entire dataset
-	StaticVertexBufferSizeInBytes = totalVertexSize;
 	VertexBuffer.create(device,
 						VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-						totalVertexSize + MaxDynamicVertexSizeInBytes);
+						StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes);
 	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
-	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, totalIndexSize);
+	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, StaticIndexBufferSizeInBytes);
 	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
 
-	StaticOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
 	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 							 StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry)); // FIXME: Static memory for 1024 additional dynamic instances
 	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -873,11 +860,17 @@ void Scene::updateMeshOffsetTable() {
 		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
 		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
 		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
-		_offsetTable.push_back(OffsetEntry{static_cast<uint32_t>(m.defaultMaterialIndex), static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-										   static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t))});
+		_offsetTable.push_back(OffsetEntry{
+			static_cast<uint32_t>(m.defaultMaterialIndex),
+			static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+			static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t)),
+		});
 		totalVertexSize += vertexBufferMemReq.size;
 		totalIndexSize += indexBufferMemReq.size;
 	}
+	StaticVertexBufferSizeInBytes = totalVertexSize;
+	StaticIndexBufferSizeInBytes = totalIndexSize;
+	StaticOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
 }
 
 void Scene::uploadMeshOffsetTable(const Device& device) {
@@ -885,27 +878,8 @@ void Scene::uploadMeshOffsetTable(const Device& device) {
 }
 
 void Scene::allocateDynamicMeshes(const Device& device) {
-	size_t totalVertexSize = 0;
-	size_t totalIndexSize = 0;
-
 	sortRenderers();
-	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
-	_dynamicOffsetTable.clear();
-
-	for(auto& entity : instances) {
-		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
-		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
-		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(StaticOffsetTableSizeInBytes / sizeof(OffsetEntry) + _dynamicOffsetTable.size());
-		_dynamicOffsetTable.push_back(OffsetEntry{static_cast<uint32_t>(_meshes[skinnedMeshRenderer.meshIndex].defaultMaterialIndex),
-												  static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
-												  static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset)});
-		totalVertexSize += vertexBufferMemReq.size;
-		NextVertexMemoryOffsetInBytes += vertexBufferMemReq.size;
-	}
-	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
-	assert(_dynamicOffsetTable.size() < 1024);
-
-	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
+	updateDynamicMeshOffsetTable();
 
 	uploadDynamicMeshOffsetTable(device);
 }
@@ -914,17 +888,22 @@ void Scene::updateDynamicMeshOffsetTable() {
 	auto   instances = getRegistry().view<SkinnedMeshRendererComponent>();
 	size_t totalVertexSize = 0;
 	size_t idx = 0;
+	_dynamicOffsetTable.clear();
 	for(auto& entity : instances) {
 		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
 		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
-		_dynamicOffsetTable[idx] = OffsetEntry{
-			static_cast<uint32_t>(_meshes[skinnedMeshRenderer.meshIndex].defaultMaterialIndex),
+		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size() + _dynamicOffsetTable.size());
+		_dynamicOffsetTable.push_back(OffsetEntry{
+			static_cast<uint32_t>(skinnedMeshRenderer.materialIndex),
 			static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
 			static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset),
-		};
+		});
 		totalVertexSize += vertexBufferMemReq.size;
-		++idx;
 	}
+	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
+	assert(_dynamicOffsetTable.size() < 1024);
+
+	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
 }
 
 void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
@@ -1139,7 +1118,8 @@ void Scene::createAccelerationStructure(const Device& device) {
 			auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
 			auto& mesh = getMeshes()[skinnedMeshRenderer.meshIndex];
 
-			skinnedMeshRenderer.blasIndex = buildInfos.size();
+			// FIXME: TEMP WORKAROUND!!!!!
+			skinnedMeshRenderer.blasIndex = 5; // buildInfos.size();
 
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{
 				VertexBuffer.getDeviceAddress() +
