@@ -466,7 +466,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				auto  input = extract<float>(object, buffers, sampler["input"].as<int>());
 				switch(path) {
 					case SkeletalAnimation::Path::Translation: {
-						animation.translationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
@@ -474,7 +473,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimation::Path::Rotation: {
-						animation.rotationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC4");
 						auto output = extract<glm::vec4>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
@@ -482,7 +480,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimation::Path::Scale: {
-						animation.scaleKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
@@ -490,7 +487,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimation::Path::Weights: {
-						animation.weightsKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC4");
 						auto output = extract<glm::vec4>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)

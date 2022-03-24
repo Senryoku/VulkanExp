@@ -5,7 +5,65 @@
 #include <glm/glm.hpp>
 
 struct SkeletalAnimation {
-	uint32_t			   jointsCount;
+	enum class Interpolation {
+		Linear,
+		Step,
+		CubicSpline
+	};
+	enum class Path {
+		Translation,
+		Rotation,
+		Scale,
+		Weights
+	};
+
+	static Interpolation parseInterpolation(const std::string& val) {
+		if(val == "LINEAR")
+			return Interpolation::Linear;
+		if(val == "STEP")
+			return Interpolation::Step;
+		if(val == "CUBICSPLINE")
+			return Interpolation::CubicSpline;
+		assert(false);
+		return Interpolation::Linear;
+	}
+
+	static Path parsePath(const std::string& val) {
+		if(val == "translation")
+			return Path::Translation;
+		if(val == "rotation")
+			return Path::Rotation;
+		if(val == "scale")
+			return Path::Scale;
+		if(val == "weights")
+			return Path::Weights;
+		assert(false);
+		return Path::Translation;
+	}
+
+	uint32_t jointsCount;
+
+	template<typename T>
+	struct Channel {
+		Interpolation	   interpolation;
+		std::vector<float> times;
+		std::vector<T>	   frames;
+
+		void add(float t, const T& d) {
+			times.push_back(t);
+			frames.push_back(d);
+		}
+	};
+	using TranslationChannel = Channel<glm::vec3>;
+	using RotationChannel = Channel<glm::vec4>;
+	using ScaleChannel = Channel<glm::vec3>;
+	using WeightsChannel = Channel<glm::vec4>;
+
+	TranslationChannel translationKeyFrames;
+	RotationChannel	   rotationKeyFrames;
+	ScaleChannel	   scaleKeyFrames;
+	WeightsChannel	   weightsKeyFrames;
+
 	std::vector<float>	   times;
 	std::vector<glm::mat4> transforms; // times.size() * jointsCount transforms
 
