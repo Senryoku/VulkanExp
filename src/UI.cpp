@@ -90,7 +90,7 @@ void Editor::initImGui(uint32_t queueFamily) {
 	_device.immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
-	for(TextureIndex i = TextureIndex{0}; i < TextureIndex{Textures.size()}; ++i) {
+	for(TextureIndex i = TextureIndex{0}; i < TextureIndex(Textures.size()); ++i) {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 	ProbesRayIrradianceDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayIrradianceDepthView(), VK_IMAGE_LAYOUT_GENERAL);
@@ -134,7 +134,7 @@ void Editor::createImGuiRenderPass() {
 
 void Editor::uiOnTextureChange() {
 	// Prepare new scene textures for display
-	for(TextureIndex i = TextureIndex{SceneUITextureIDs.size()}; i < Textures.size(); ++i) {
+	for(TextureIndex i = TextureIndex(SceneUITextureIDs.size()); i < Textures.size(); ++i) {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 

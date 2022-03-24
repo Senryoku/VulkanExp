@@ -27,8 +27,8 @@ struct Texture {
 
 inline std::vector<Texture> Textures;
 struct TextureIndexTag {};
-using TextureIndex = TaggedIndex<size_t, TextureIndexTag>;
-inline const TextureIndex						 InvalidTextureIndex{static_cast<uint32_t>(-1)};
+using TextureIndex = TaggedIndex<uint32_t, TextureIndexTag>;
+inline const TextureIndex						 InvalidTextureIndex{static_cast<TextureIndex::UnderlyingType>(-1)};
 inline std::unordered_map<std::string, GPUImage> Images;
 inline std::unordered_map<size_t, Sampler>		 Samplers;
 inline Buffer									 MaterialBuffer;

@@ -12,18 +12,15 @@
 #include <TaggedType.hpp>
 
 struct Material {
-	using TextureIndex = uint32_t;
-	static const TextureIndex InvalidTextureIndex = -1;
-
 	struct Properties {
 		float		 metallicFactor = 1.0;
 		float		 roughnessFactor = 1.0;
 		glm::vec3	 baseColorFactor{1.0f};
 		glm::vec3	 emissiveFactor{0.0f};
-		TextureIndex albedoTexture = InvalidTextureIndex;
-		TextureIndex normalTexture = InvalidTextureIndex;
-		TextureIndex metallicRoughnessTexture = InvalidTextureIndex;
-		TextureIndex emissiveTexture = InvalidTextureIndex;
+		uint32_t	 albedoTexture = InvalidTextureIndex;
+		uint32_t	 normalTexture = InvalidTextureIndex;
+		uint32_t	 metallicRoughnessTexture = InvalidTextureIndex;
+		uint32_t	 emissiveTexture = InvalidTextureIndex;
 	};
 
 	std::string name;
