@@ -435,21 +435,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 	if(object.contains("skins"))
 		for(const auto& skin : object["skins"]) {
-			const auto& accessor = object["accessors"][skin["inverseBindMatrices"].as<int>()];
-			assert(static_cast<ComponentType>(accessor["componentType"].as<int>()) == ComponentType::Float);
-			assert(accessor["type"].as<std::string>() == "MAT4");
-			const auto&			   bufferView = object["bufferViews"][accessor["bufferView"].as<int>()];
-			auto				   count = accessor["count"].as<int>();
-			const auto&			   buffer = buffers[bufferView["buffer"].as<int>()];
-			auto				   bufferData = buffer.data();
-			auto				   cursor = accessor("byteOffset", 0) + bufferView("byteOffset", 0);
-			int					   defaultStride = sizeof(glm::mat4);
-			auto				   stride = bufferView("byteStride", defaultStride);
-			std::vector<glm::mat4> inverseBindMatrices;
-			for(int i = 0; i < count; ++i) {
-				inverseBindMatrices.push_back(*reinterpret_cast<const glm::mat4*>(bufferData + cursor));
-				cursor += stride;
-			}
+			std::vector<glm::mat4>	  inverseBindMatrices = extract<glm::mat4>(object, buffers, skin["inverseBindMatrices"].as<int>());
 			std::vector<entt::entity> joints;
 			for(const auto& nodeIndex : skin["joints"])
 				joints.push_back(entities[nodeIndex.as<int>()]);
