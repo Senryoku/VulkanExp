@@ -677,6 +677,12 @@ void Editor::drawUI() {
 			plot("Copy", _irradianceProbes.getCopyTimes());
 			ImPlot::EndPlot();
 		}
+		if(ImPlot::BeginPlot("Updates (GPU)")) {
+			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+			plot("Dynamic BLAS", _scene.getDynamicBLASUpdateTimes());
+			plot("TLAS", _scene.getTLASUpdateTimes());
+			ImPlot::EndPlot();
+		}
 	}
 	ImGui::End();
 

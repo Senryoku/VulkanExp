@@ -33,6 +33,7 @@
  
 ### Improvements 
 - Correctly reproject reflections for temporal filtering (See http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html)
+- Move all rendering related code to its own class (Mostly remove all rendering code from Scene)
 - Many
 
 ### Nice to have
@@ -41,7 +42,8 @@
 ### Major Features, but not priorities
  - Skinned Meshes
    - Notes: Since the raytracing pass will require a BLAS update anyway, we'll use the underlying vertex buffer for rastering too, rather than computing the updated vertex position in a vertex shader, as we should in a raster-only pipeline.
-   - Everything is broken rn: SkinnedMeshRenderer doesn't work in the raytracing path and I don't know why. SkinnedMeshRenderers can't be selected (no Bounds and not tested in the intersection function). Way too many GPU synchonisation everywhere (transfer wait queue idle).
+   - FIXME: SkinnedMeshRenderers can't be selected (no Bounds and not tested in the intersection function). Way too many GPU synchonisation everywhere (transfer wait queue idle).
+
 ## Scene Format
 
 Heavily inspired by the glTF binary format, it consists of a header, followed by a series of chunks, each with their own header.

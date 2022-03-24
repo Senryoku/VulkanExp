@@ -880,8 +880,11 @@ void Scene::uploadMeshOffsetTable(const Device& device) {
 void Scene::allocateDynamicMeshes(const Device& device) {
 	sortRenderers();
 	updateDynamicMeshOffsetTable();
-
 	uploadDynamicMeshOffsetTable(device);
+	_updateQueryPools.resize(2);
+	for(size_t i = 0; i < 2; i++) {
+		_updateQueryPools[i].create(device, VK_QUERY_TYPE_TIMESTAMP, 2);
+	}
 }
 
 void Scene::updateDynamicMeshOffsetTable() {
@@ -912,7 +915,8 @@ void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
 }
 
 void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
-	// TODO: CPU first, then move it to a compute shader?
+	// QuickTimer qt("Update Dynamic Vertex Buffer");
+	//  TODO: CPU first, then move it to a compute shader?
 	auto				instances = getRegistry().view<SkinnedMeshRendererComponent>();
 	std::vector<Vertex> transformedVertices;
 	for(auto& entity : instances) {
@@ -948,8 +952,7 @@ void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 
 bool Scene::update(const Device& device, float deltaTime) {
 	updateDynamicVertexBuffer(device, deltaTime);
-	// FIXME: Actually call this.
-	// buildDynamicBLAS(device);
+	buildDynamicBLAS(device);
 
 	if(_dirtyNodes.empty())
 		return false;
@@ -969,6 +972,10 @@ void Scene::destroyAccelerationStructure(const Device& device) {
 	_staticBLASBuffer.destroy();
 	_staticBLASMemory.free();
 	_bottomLevelAccelerationStructures.clear();
+	_blasScratchBuffer.destroy();
+	_blasScratchMemory.free();
+
+	_updateQueryPools.clear();
 }
 
 void Scene::destroyTLAS(const Device& device) {
@@ -1025,12 +1032,11 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 	VkTransformMatrixKHR rootTransformMatrix = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
 
-	size_t meshesCount = getMeshes().size() + 1024; // FIXME: Reserve 1024 dynamic instances
+	size_t meshesCount = getMeshes().size() + MaxDynamicBLAS; // FIXME: Reserve MaxDynamicBLAS dynamic instances
 
 	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 rangeInfos;
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR*>	 pRangeInfos;
 	std::vector<size_t>										 scratchBufferSizes;
 	size_t													 scratchBufferSize = 0;
 	std::vector<uint32_t>									 blasOffsets; // Start of each BLAS in buffer (aligned to 256 bytes)
@@ -1040,6 +1046,12 @@ void Scene::createAccelerationStructure(const Device& device) {
 	rangeInfos.reserve(meshesCount); // Avoid reallocation since pRangeInfos will refer to this.
 	blasOffsets.reserve(meshesCount);
 	buildSizesInfo.reserve(meshesCount);
+	_dynamicBLASGeometries.clear();
+	_dynamicBLASGeometries.reserve(MaxDynamicBLAS);
+	_dynamicBLASBuildGeometryInfos.clear();
+	_dynamicBLASBuildGeometryInfos.reserve(MaxDynamicBLAS);
+	_dynamicBLASBuildRangeInfos.clear();
+	_dynamicBLASBuildRangeInfos.reserve(MaxDynamicBLAS);
 
 	VkAccelerationStructureGeometryKHR baseGeometry = {
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
@@ -1078,6 +1090,7 @@ void Scene::createAccelerationStructure(const Device& device) {
 	{
 		QuickTimer qt("BLAS building");
 		// Collect all submeshes and query the memory requirements
+		const size_t staticBLASCount = meshes.size();
 		for(const auto& mesh : meshes) {
 			/*
 			 * Right now there's a one-to-one relation between meshes and geometries.
@@ -1111,15 +1124,15 @@ void Scene::createAccelerationStructure(const Device& device) {
 			});
 		}
 
-		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
 		// Create an additional BLAS for each skinned mesh instance.
+		updateDynamicVertexBuffer(device, 0); // Make sure the vertex data is available. FIXME: Should not be there.
 		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
 			auto& mesh = getMeshes()[skinnedMeshRenderer.meshIndex];
 
-			// FIXME: TEMP WORKAROUND!!!!!
-			skinnedMeshRenderer.blasIndex = 5; // buildInfos.size();
+			skinnedMeshRenderer.blasIndex = buildInfos.size();
 
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{
 				VertexBuffer.getDeviceAddress() +
@@ -1147,6 +1160,12 @@ void Scene::createAccelerationStructure(const Device& device) {
 				.firstVertex = 0,
 				.transformOffset = 0,
 			});
+
+			// Also keep a copy for later re-builds
+			_dynamicBLASGeometries.push_back(baseGeometry);
+			accelerationBuildGeometryInfo.pGeometries = &_dynamicBLASGeometries.back();
+			_dynamicBLASBuildGeometryInfos.push_back(accelerationBuildGeometryInfo);
+			_dynamicBLASBuildRangeInfos.push_back(rangeInfos.back());
 		}
 
 		_staticBLASBuffer.create(device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
@@ -1167,20 +1186,27 @@ void Scene::createAccelerationStructure(const Device& device) {
 			_bottomLevelAccelerationStructures.push_back(blas);
 
 			buildInfos[i].dstAccelerationStructure = blas;
+			if(i >= staticBLASCount) {
+				_dynamicBLASBuildGeometryInfos[i - staticBLASCount].dstAccelerationStructure = blas;
+				//_dynamicBLASBuildGeometryInfos[i - staticBLASCount].srcAccelerationStructure = blas;
+			}
 			runningOffset += blasOffsets[i];
 		}
 
-		Buffer		 scratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
-		DeviceMemory scratchMemory;
-		scratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
-		scratchMemory.allocate(device, scratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
+		_blasScratchBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
+		_blasScratchMemory.allocate(device, _blasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 		size_t	   offset = 0;
-		const auto scratchBufferAddr = scratchBuffer.getDeviceAddress();
+		const auto scratchBufferAddr = _blasScratchBuffer.getDeviceAddress();
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
 			buildInfos[i].scratchData = {.deviceAddress = scratchBufferAddr + offset};
+			if(i >= staticBLASCount) {
+				_dynamicBLASBuildGeometryInfos[i - staticBLASCount].scratchData = {.deviceAddress = scratchBufferAddr + offset};
+			}
 			offset += buildSizesInfo[i].buildScratchSize;
 			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
 		}
+
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
 		for(auto& rangeInfo : rangeInfos)
 			pRangeInfos.push_back(&rangeInfo); // FIXME: Only works because geometryCount is always 1 here.
 
@@ -1328,9 +1354,24 @@ void Scene::createTLAS(const Device& device) {
 }
 
 void Scene::buildDynamicBLAS(const Device& device) {
-	QuickTimer qt("Dynamic BLAS building");
-	// TODO!
-	warn("buildDynamicBLAS not implemented! ");
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
+	for(auto& rangeInfo : _dynamicBLASBuildRangeInfos)
+		pRangeInfos.push_back(&rangeInfo);
+
+	if(_updateQueryPools[0].newSampleFlag) {
+		auto queryResults = _updateQueryPools[0].get();
+		if(queryResults.size() >= 2 && queryResults[0].available && queryResults[1].available) {
+			_dynamicBLASUpdateTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
+			_updateQueryPools[0].newSampleFlag = false;
+		}
+	}
+	device.immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
+		_updateQueryPools[0].reset(commandBuffer);
+		_updateQueryPools[0].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
+		vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(_dynamicBLASBuildGeometryInfos.size()), _dynamicBLASBuildGeometryInfos.data(), pRangeInfos.data());
+		_updateQueryPools[0].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
+	}); // FIXME: Too much synchronisation here (WaitQueueIdle)
+	_updateQueryPools[0].newSampleFlag = true;
 }
 
 void Scene::updateTLAS(const Device& device) {
@@ -1379,8 +1420,20 @@ void Scene::updateTLAS(const Device& device) {
 	};
 	std::array<VkAccelerationStructureBuildRangeInfoKHR*, 1> TLASBuildRangeInfos = {&TLASBuildRangeInfo};
 
-	device.immediateSubmitCompute(
-		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
+	if(_updateQueryPools[1].newSampleFlag) {
+		auto queryResults = _updateQueryPools[1].get();
+		if(queryResults.size() >= 2 && queryResults[0].available && queryResults[1].available) {
+			_tlasUpdateTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
+			_updateQueryPools[1].newSampleFlag = false;
+		}
+	}
+	device.immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
+		_updateQueryPools[1].reset(commandBuffer);
+		_updateQueryPools[1].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
+		vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data());
+		_updateQueryPools[1].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
+	});
+	_updateQueryPools[1].newSampleFlag = true;
 }
 
 void Scene::updateTransforms(const Device& device) {

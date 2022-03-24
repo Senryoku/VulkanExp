@@ -2,8 +2,10 @@
 
 #include <filesystem>
 
-#include "vulkan/Mesh.hpp"
+#include <Mesh.hpp>
+#include <Query.hpp>
 #include <Raytracing.hpp>
+#include <RollingBuffer.hpp>
 #include <TaggedType.hpp>
 
 #include <entt.hpp>
@@ -88,10 +90,12 @@ class Scene {
 
 	bool save(const std::filesystem::path& path);
 
-	void createAccelerationStructure(const Device& device);
-	void createTLAS(const Device& device);
-	void destroyAccelerationStructure(const Device& device);
-	void destroyTLAS(const Device& device);
+	void						createAccelerationStructure(const Device& device);
+	void						createTLAS(const Device& device);
+	void						destroyAccelerationStructure(const Device& device);
+	void						destroyTLAS(const Device& device);
+	const RollingBuffer<float>& getDynamicBLASUpdateTimes() const { return _dynamicBLASUpdateTimes; }
+	const RollingBuffer<float>& getTLASUpdateTimes() const { return _tlasUpdateTimes; }
 
 	inline std::vector<Mesh>&				 getMeshes() { return _meshes; }
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
@@ -159,11 +163,19 @@ class Scene {
 	uint32_t				 StaticIndexBufferSizeInBytes;
 	uint32_t				 StaticOffsetTableSizeInBytes;
 	std::vector<OffsetEntry> _offsetTable;
+	Buffer					 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
+	DeviceMemory			 _blasScratchMemory;
+	// FIXME: This scratch buffer is used for static AND dynamic BLAS, all the static portion isn't used at all after the initial BLAS building, this should be better allocated
+	// (the easiest is wimply to separate BLAS building into two pass, static and dynamic, sharing no memory).
 
 	// Data for dynamic (skinned) meshes.
-	const uint32_t			 MaxDynamicVertexSizeInBytes = 512 * 1024 * 1024;
-	uint32_t				 DynamicOffsetTableSizeInBytes;
-	std::vector<OffsetEntry> _dynamicOffsetTable;
+	const uint32_t											 MaxDynamicBLAS = 1024;
+	const uint32_t											 MaxDynamicVertexSizeInBytes = 512 * 1024 * 1024;
+	uint32_t												 DynamicOffsetTableSizeInBytes;
+	std::vector<OffsetEntry>								 _dynamicOffsetTable;
+	std::vector<VkAccelerationStructureGeometryKHR>			 _dynamicBLASGeometries;
+	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _dynamicBLASBuildGeometryInfos;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 _dynamicBLASBuildRangeInfos;
 
 	// Allocate memory for all meshes in the scene
 	void allocateMeshes(const Device& device);
@@ -213,6 +225,10 @@ class Scene {
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;
 	DeviceMemory _tlasScratchMemory;
+
+	std::vector<QueryPool> _updateQueryPools;
+	RollingBuffer<float>   _dynamicBLASUpdateTimes;
+	RollingBuffer<float>   _tlasUpdateTimes;
 
 	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
 	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
