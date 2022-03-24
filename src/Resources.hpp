@@ -8,6 +8,8 @@
 #include <JSON.hpp>
 #include <TaggedType.hpp>
 
+#include <SkeletalAnimation.hpp>
+
 /*
  * TODO: Clean this up.
  */
@@ -37,3 +39,8 @@ inline DeviceMemory								 MaterialMemory;
 void	 uploadTextures(const Device& device, VkQueue queue, const CommandPool& commandPool, const Buffer& stagingBuffer);
 Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode wrapS, VkSamplerAddressMode wrapT,
 					float maxLod);
+
+struct AnimationIndexTag {};
+using AnimationIndex = TaggedIndex<uint32_t, AnimationIndexTag>;
+inline const AnimationIndex			  InvalidAnimationIndex{static_cast<AnimationIndex::UnderlyingType>(-1)};
+inline std::vector<SkeletalAnimation> Animations;

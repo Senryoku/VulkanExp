@@ -26,6 +26,9 @@ struct NodeComponent {
 struct MeshIndexTag {};
 using MeshIndex = TaggedIndex<uint32_t, MeshIndexTag>;
 inline static const MeshIndex InvalidMeshIndex{static_cast<uint32_t>(-1)};
+struct SkinIndexTag {};
+using SkinIndex = TaggedIndex<uint32_t, SkinIndexTag>;
+inline static const SkinIndex InvalidSkinIndex{static_cast<uint32_t>(-1)};
 
 struct MeshRendererComponent {
 	MeshIndex	  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
@@ -33,13 +36,13 @@ struct MeshRendererComponent {
 };
 
 struct SkinnedMeshRendererComponent {
-	MeshIndex	  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
-	MaterialIndex materialIndex = InvalidMaterialIndex;
-	size_t		  skinIndex = static_cast<size_t>(-1);
-	size_t		  animationIndex = static_cast<size_t>(-1);
-	size_t		  blasIndex = static_cast<size_t>(-1);
-	uint32_t	  indexIntoOffsetTable = 0;
-	float		  time = 0;
+	MeshIndex	   meshIndex = InvalidMeshIndex; // FIXME: Use something else.
+	MaterialIndex  materialIndex = InvalidMaterialIndex;
+	SkinIndex	   skinIndex = InvalidSkinIndex;
+	AnimationIndex animationIndex = InvalidAnimationIndex;
+	size_t		   blasIndex = static_cast<size_t>(-1);
+	uint32_t	   indexIntoOffsetTable = 0;
+	float		   time = 0;
 };
 
 struct Skin {

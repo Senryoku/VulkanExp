@@ -357,7 +357,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 					   _registry.emplace<SkinnedMeshRendererComponent>(entity, SkinnedMeshRendererComponent{
 																					   .meshIndex = MeshIndex(meshIndex),
 																					   .materialIndex = getMeshes()[meshIndex].defaultMaterialIndex,
-																					   .skinIndex = node["skin"].as<int>() + _skins.size(),
+																					   .skinIndex = SkinIndex(node["skin"].as<int>() + _skins.size()),
 																			   });
 				   } else
 					   _registry.emplace<MeshRendererComponent>(entity, MeshRendererComponent{
@@ -915,8 +915,7 @@ void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
 }
 
 bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
-	// QuickTimer qt("Update Dynamic Vertex Buffer");
-	//  TODO: CPU first, then move it to a compute shader?
+	// TODO: CPU first, then move it to a compute shader?
 	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 	if(instances.empty())
 		return false;
@@ -924,18 +923,13 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 	for(auto& entity : instances) {
 		auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
 		const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
-		/*
+		skinnedMeshRenderer.time += deltaTime;
+
 		std::vector<glm::mat4> frame;
-		if(skinnedMeshRenderer.animationIndex == -1)
+		if(skinnedMeshRenderer.animationIndex == InvalidAnimationIndex)
 			frame = SkeletalAnimation{.jointsCount = static_cast<uint32_t>(skin.joints.size())}.at(0);
 		else
-			frame = _animations[skinnedMeshRenderer.animationIndex].at(0); // FIXME: Get time
-		*/
-
-		// FIXME: Temp testing
-		static std::vector<glm::mat4> frame = SkeletalAnimation{.jointsCount = static_cast<uint32_t>(skin.joints.size())}.at(0);
-		for(auto& m : frame)
-			m = glm::rotate(deltaTime, glm::vec3(0, 1, 0)) * m;
+			frame = _animations[skinnedMeshRenderer.animationIndex].at(skinnedMeshRenderer.time);
 
 		const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
 		const auto& vertices = _meshes[skinnedMeshRenderer.meshIndex].getVertices();
