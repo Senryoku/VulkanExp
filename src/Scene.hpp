@@ -189,8 +189,8 @@ class Scene {
 	void allocateDynamicMeshes(const Device&);
 	void updateDynamicMeshOffsetTable();
 	void uploadDynamicMeshOffsetTable(const Device&);
-	void updateDynamicVertexBuffer(const Device& device, float deltaTime);
-	void updateDynamicBLAS(const Device&);
+	bool updateDynamicVertexBuffer(const Device& device, float deltaTime);
+	bool updateDynamicBLAS(const Device&);
 
 	void free(const Device& device);
 	///////////////////////////////////////////////////////////////////////////////////////

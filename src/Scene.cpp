@@ -914,10 +914,12 @@ void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
 		copyViaStagingBuffer(device, OffsetTableBuffer, _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
 }
 
-void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
+bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 	// QuickTimer qt("Update Dynamic Vertex Buffer");
 	//  TODO: CPU first, then move it to a compute shader?
-	auto				instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	if(instances.empty())
+		return false;
 	std::vector<Vertex> transformedVertices;
 	for(auto& entity : instances) {
 		auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
@@ -948,6 +950,7 @@ void Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 		}
 	}
 	copyViaStagingBuffer(device, VertexBuffer, transformedVertices, 0, StaticVertexBufferSizeInBytes);
+	return true;
 }
 
 bool Scene::update(const Device& device, float deltaTime) {
@@ -962,9 +965,12 @@ bool Scene::update(const Device& device, float deltaTime) {
 		hierarchicalChanges = true;
 	}
 
-	updateDynamicVertexBuffer(device, deltaTime);
-	updateDynamicBLAS(device);
-	updateTLAS(device); // TLAS also has to be rebuilt if some BLAS has been updated.
+	auto vertexUpdate = updateDynamicVertexBuffer(device, deltaTime);
+	auto blasUpdate = vertexUpdate && updateDynamicBLAS(device);
+
+	// TLAS has to be updated if the hierarchy has changed, or some BLAS were updated (like skinned meshes).
+	if(hierarchicalChanges || blasUpdate)
+		updateTLAS(device);
 
 	return hierarchicalChanges;
 }
@@ -1356,8 +1362,12 @@ void Scene::createTLAS(const Device& device) {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-void Scene::updateDynamicBLAS(const Device& device) {
-	QuickTimer											   qt(_cpuBLASUpdateTimes);
+bool Scene::updateDynamicBLAS(const Device& device) {
+	QuickTimer qt(_cpuBLASUpdateTimes);
+
+	if(_dynamicBLASBuildGeometryInfos.empty())
+		return false;
+
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
 	for(auto& rangeInfo : _dynamicBLASBuildRangeInfos)
 		pRangeInfos.push_back(&rangeInfo);
@@ -1376,6 +1386,7 @@ void Scene::updateDynamicBLAS(const Device& device) {
 		_updateQueryPools[0].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
 	}); // FIXME: Too much synchronisation here (WaitQueueIdle)
 	_updateQueryPools[0].newSampleFlag = true;
+	return true;
 }
 
 void Scene::updateAccelerationStructureInstances(const Device& device) {
