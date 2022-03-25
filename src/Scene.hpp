@@ -36,13 +36,16 @@ struct MeshRendererComponent {
 };
 
 struct SkinnedMeshRendererComponent {
-	MeshIndex	   meshIndex = InvalidMeshIndex; // FIXME: Use something else.
-	MaterialIndex  materialIndex = InvalidMaterialIndex;
-	SkinIndex	   skinIndex = InvalidSkinIndex;
-	AnimationIndex animationIndex = InvalidAnimationIndex;
-	size_t		   blasIndex = static_cast<size_t>(-1);
-	uint32_t	   indexIntoOffsetTable = 0;
+	MeshIndex	  meshIndex = InvalidMeshIndex; // FIXME: Use something else.
+	MaterialIndex materialIndex = InvalidMaterialIndex;
+	SkinIndex	  skinIndex = InvalidSkinIndex;
+	size_t		  blasIndex = static_cast<size_t>(-1);
+	uint32_t	  indexIntoOffsetTable = 0;
+};
+
+struct AnimationComponent {
 	float		   time = 0;
+	AnimationIndex animationIndex = InvalidAnimationIndex;
 };
 
 struct Skin {
@@ -118,7 +121,8 @@ class Scene {
 
 	inline entt::entity getRoot() const { return _root; }
 
-	glm::mat4 getGlobalTransform(const NodeComponent& node);
+	bool	  isAncestor(entt::entity ancestor, entt::entity entity) const;
+	glm::mat4 getGlobalTransform(const NodeComponent& node) const;
 
 	entt::entity intersectNodes(Ray& ray);
 
@@ -128,8 +132,14 @@ class Scene {
 		   bool init = false;
 
 		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
-			   // FIXME: Handle SkinnedMeshRendererComponent
 			   if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
+				   if(!init) {
+					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
+					   init = true;
+				   } else
+					   _bounds += transform * _meshes[mesh->meshIndex].computeBounds();
+			   }
+			   if(auto* mesh = _registry.try_get<SkinnedMeshRendererComponent>(entity); mesh != nullptr) {
 				   if(!init) {
 					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
 					   init = true;

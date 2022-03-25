@@ -481,16 +481,21 @@ void Editor::drawUI() {
 				if(ImGui::TreeNodeEx("SkinnedMeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
 					ImGui::Text("Mesh: %s", mesh.name.c_str());
 					ImGui::Text("Skin: %d", meshComp->skinIndex);
-					ImGui::Text("Animation: %d", meshComp->animationIndex);
-					int anim = meshComp->animationIndex;
-					if(ImGui::InputInt("Animation", &anim)) {
-						if(anim == -1 || (anim >= 0 && anim < Animations.size())) {
-							meshComp->animationIndex = AnimationIndex(anim);
-						}
-					}
 					ImGui::Text("BLAS: %d", meshComp->blasIndex);
 					ImGui::Text("IndexIntoOffsetTable: %d", meshComp->indexIntoOffsetTable);
 					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;
+					ImGui::TreePop();
+				}
+			}
+			if(auto* animComp = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode); animComp != nullptr) {
+				if(ImGui::TreeNodeEx("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+					ImGui::InputFloat("Time", &animComp->time);
+					int anim = animComp->animationIndex;
+					if(ImGui::InputInt("Animation Clip", &anim)) {
+						if(anim == -1 || (anim >= 0 && anim < Animations.size())) {
+							animComp->animationIndex = AnimationIndex(anim);
+						}
+					}
 					ImGui::TreePop();
 				}
 			}

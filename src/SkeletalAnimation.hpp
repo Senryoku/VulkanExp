@@ -7,7 +7,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 
-struct SkeletalAnimation {
+struct SkeletalAnimationClip {
 	enum class Interpolation {
 		Linear,
 		Step,

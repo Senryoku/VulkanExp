@@ -43,4 +43,4 @@ Sampler* getSampler(const Device& device, VkFilter magFilter, VkFilter minFilter
 struct AnimationIndexTag {};
 using AnimationIndex = TaggedIndex<uint32_t, AnimationIndexTag>;
 inline const AnimationIndex			  InvalidAnimationIndex{static_cast<AnimationIndex::UnderlyingType>(-1)};
-inline std::vector<SkeletalAnimation> Animations;
+inline std::vector<SkeletalAnimationClip> Animations;
