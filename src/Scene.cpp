@@ -951,6 +951,8 @@ void Scene::allocateDynamicMeshes(const Device& device) {
 	sortRenderers();
 	updateDynamicMeshOffsetTable();
 	uploadDynamicMeshOffsetTable(device);
+	if(!_updateQueryPools.empty())
+		_updateQueryPools.clear();
 	_updateQueryPools.resize(2);
 	for(size_t i = 0; i < 2; i++) {
 		_updateQueryPools[i].create(device, VK_QUERY_TYPE_TIMESTAMP, 2);
@@ -1006,6 +1008,8 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 		}
 		const auto& joints = mesh.getSkin().joints;
 		const auto& weights = mesh.getSkin().weights;
+
+		// TODO: Morph (i.e. weights animation)
 
 		// FIXME: This is janky af (modify the scene hierachy for no real reason)
 		std::unordered_map<entt::entity, SkeletalAnimation::NodePose> poses;
@@ -1068,8 +1072,6 @@ void Scene::destroyAccelerationStructure(const Device& device) {
 	_bottomLevelAccelerationStructures.clear();
 	_blasScratchBuffer.destroy();
 	_blasScratchMemory.free();
-
-	_updateQueryPools.clear();
 }
 
 void Scene::destroyTLAS(const Device& device) {
@@ -1088,6 +1090,9 @@ void Scene::destroyTLAS(const Device& device) {
 
 void Scene::free(const Device& device) {
 	destroyAccelerationStructure(device);
+
+	if(!_updateQueryPools.empty())
+		_updateQueryPools.clear();
 
 	for(auto& m : getMeshes())
 		m.destroy();
