@@ -20,17 +20,6 @@
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
 
-static glm::mat4 getGlobalTransform(const entt::registry& registry, const NodeComponent& node) {
-	auto transform = node.transform;
-	auto parent = node.parent;
-	while(parent != entt::null) {
-		const auto& parentNode = registry.get<NodeComponent>(parent);
-		transform = parentNode.transform * transform;
-		parent = parentNode.parent;
-	}
-	return transform;
-}
-
 Scene::Scene() {
 	_registry.on_destroy<NodeComponent>().connect<&Scene::onDestroyNodeComponent>(this);
 	_root = _registry.create();
@@ -1015,22 +1004,25 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 
 		// FIXME: This is janky af (modify the scene hierachy for no real reason)
 		std::unordered_map<entt::entity, SkeletalAnimation::NodePose> poses;
-		glm::mat4													  inverseGlobalTransform = glm::inverse(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+		glm::mat4													  inverseGlobalTransform = glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(entity)));
 		for(const auto& n : Animations[skinnedMeshRenderer.animationIndex].nodeAnimations) {
 			poses[n.first] = n.second.at(skinnedMeshRenderer.time);
 			// Use this pose transform in the hierarchy
 			_registry.get<NodeComponent>(n.first).transform = poses[n.first].transform;
 		}
-		// Compute the world-space transform of each joint
-		for(auto& n : poses)
-			n.second.transform = inverseGlobalTransform * getGlobalTransform(_registry, _registry.get<NodeComponent>(n.first));
+		// Compute the world-space transform of each joint, and convert entity id to joint index, and precompute transform * inverseBindMatrices
+		std::vector<SkeletalAnimation::NodePose> jointPoses;
+		size_t									 idx = 0;
+		for(auto& j : skin.joints) {
+			auto& p = jointPoses.emplace_back(poses[j]);
+			p.transform = inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(j)) * skin.inverseBindMatrices[idx];
+			++idx;
+		}
 
 		for(size_t i = 0; i < vertices.size(); ++i) {
 			Vertex v = vertices[i];
-			auto   skinMatrix = weights[i][0] * poses[skin.joints[joints[i].indices[0]]].transform * skin.inverseBindMatrices[joints[i].indices[0]] +
-							  weights[i][1] * poses[skin.joints[joints[i].indices[1]]].transform * skin.inverseBindMatrices[joints[i].indices[1]] +
-							  weights[i][2] * poses[skin.joints[joints[i].indices[2]]].transform * skin.inverseBindMatrices[joints[i].indices[2]] +
-							  weights[i][3] * poses[skin.joints[joints[i].indices[3]]].transform * skin.inverseBindMatrices[joints[i].indices[3]];
+			auto   skinMatrix = weights[i][0] * jointPoses[joints[i].indices[0]].transform + weights[i][1] * jointPoses[joints[i].indices[1]].transform +
+							  weights[i][2] * jointPoses[joints[i].indices[2]].transform + weights[i][3] * jointPoses[joints[i].indices[3]].transform;
 			v.pos = glm::vec3(skinMatrix * glm::vec4(v.pos, 1.0));
 			transformedVertices.push_back(v);
 		}
@@ -1350,7 +1342,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<MeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 meshRendererComponent = _registry.get<MeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(getGlobalTransform(_registry.get<NodeComponent>(entity)));
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 			auto BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[meshRendererComponent.meshIndex]);
@@ -1369,7 +1361,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 skinnedMeshRendererComponent = _registry.get<SkinnedMeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(getGlobalTransform(_registry.get<NodeComponent>(entity)));
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			auto				 BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
 
@@ -1559,11 +1551,22 @@ void Scene::updateTransforms(const Device& device) {
 	_instancesData.clear();
 	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());
 	for(auto&& [entity, meshRenderer, node] : meshRenderers.each())
-		_instancesData.push_back({getGlobalTransform(_registry, node)});
+		_instancesData.push_back({getGlobalTransform(node)});
 	for(auto&& [entity, skinnedMeshRenderer, node] : skinnedMeshRenderers.each())
-		_instancesData.push_back({getGlobalTransform(_registry, node)});
+		_instancesData.push_back({getGlobalTransform(node)});
 
 	copyViaStagingBuffer(device, _instancesBuffer, _instancesData);
+}
+
+glm::mat4 Scene::getGlobalTransform(const NodeComponent& node) {
+	auto transform = node.transform;
+	auto parent = node.parent;
+	while(parent != entt::null) {
+		const auto& parentNode = _registry.get<NodeComponent>(parent);
+		transform = parentNode.transform * transform;
+		parent = parentNode.parent;
+	}
+	return transform;
 }
 
 entt::entity Scene::intersectNodes(Ray& ray) {

@@ -529,27 +529,52 @@ void Editor::drawUI() {
 		ImGui::Begin("SelectedObject", nullptr,
 					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
 
+		auto	  winpos = ImGui::GetMainViewport()->Pos;
+		glm::vec2 glmwinpos{winpos.x, winpos.y};
+		auto	  project = [&](const glm::mat4& transform, const glm::vec3& pos = glm::vec3(0)) {
+			 auto t = _camera.getViewMatrix() * transform * glm::vec4(pos, 1.0);
+			 if(t.z > 0.0) // Truncate is point is behind camera
+				 t.z = 0.0;
+			 t = _camera.getProjectionMatrix() * t;
+			 auto r = glm::vec2{t.x, -t.y} / t.w;
+			 r = 0.5f * (r + 1.0f);
+			 r.x *= _width;
+			 r.y *= _height;
+			 return r + glmwinpos;
+		};
+
 		if(auto* mesh = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); mesh != nullptr) {
-			auto				  aabb = _scene[mesh->meshIndex].getBounds().getPoints();
-			auto				  winpos = ImGui::GetMainViewport()->Pos;
-			glm::vec2			  glmwinpos{winpos.x, winpos.y};
+			auto aabb = _scene[mesh->meshIndex].getBounds().getPoints();
+
 			std::array<ImVec2, 8> screen_aabb;
-			for(int i = 0; i < 8; ++i) {
-				auto t = _camera.getViewMatrix() * worldTransform * glm::vec4(aabb[i], 1.0);
-				if(t.z > 0.0) // Truncate is point is behind camera
-					t.z = 0.0;
-				t = _camera.getProjectionMatrix() * t;
-				auto r = glm::vec2{t.x, -t.y} / t.w;
-				r = 0.5f * (r + 1.0f);
-				r.x *= _width;
-				r.y *= _height;
-				screen_aabb[i] = r + glmwinpos;
-			}
+			for(int i = 0; i < 8; ++i)
+				screen_aabb[i] = project(worldTransform, aabb[i]);
 			// Bounding Box Gizmo
 			constexpr std::array<size_t, 24> segments{0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7};
 			ImDrawList*						 drawlist = ImGui::GetWindowDrawList();
 			for(int i = 0; i < 24; i += 2)
 				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
+		}
+
+		if(auto* skinnedMesh = _scene.getRegistry().try_get<SkinnedMeshRendererComponent>(_selectedNode); skinnedMesh != nullptr) {
+			const auto& skin = _scene.getSkins()[skinnedMesh->skinIndex];
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			auto		winpos = ImGui::GetMainViewport()->Pos;
+			glm::vec2	glmwinpos{winpos.x, winpos.y};
+			for(const auto& entity : skin.joints) {
+				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
+				auto		transform = _scene.getGlobalTransform(node);
+				ImGuizmo::DrawCubes(&_camera.getViewMatrix()[0][0], &_camera.getProjectionMatrix()[0][0], &transform[0][0], 1);
+				auto child = node.first;
+				auto parentPixel = project(transform);
+				while(child != entt::null) {
+					auto childNode = _scene.getRegistry().get<NodeComponent>(child);
+					auto childTransform = _scene.getGlobalTransform(childNode);
+					auto childPixel = project(childTransform);
+					drawList->AddLine(ImVec2(parentPixel), ImVec2(childPixel), ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
+					child = childNode.next;
+				}
+			}
 		}
 
 		ImGuiIO& io = ImGui::GetIO();

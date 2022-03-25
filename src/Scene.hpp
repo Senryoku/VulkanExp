@@ -107,6 +107,8 @@ class Scene {
 	inline const std::vector<Mesh>&			 getMeshes() const { return _meshes; }
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
+	inline std::vector<Skin>&				 getSkins() { return _skins; }
+	inline const std::vector<Skin>&			 getSkins() const { return _skins; }
 
 	inline void markDirty(entt::entity node) { _dirtyNodes.push_back(node); }
 	bool		update(const Device& device, float deltaTime);
@@ -115,6 +117,8 @@ class Scene {
 	void		updateAccelerationStructureInstances(const Device& device);
 
 	inline entt::entity getRoot() const { return _root; }
+
+	glm::mat4 getGlobalTransform(const NodeComponent& node);
 
 	entt::entity intersectNodes(Ray& ray);
 
