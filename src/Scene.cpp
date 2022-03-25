@@ -15,6 +15,7 @@
 #include <Base64.hpp>
 #include <QuickTimer.hpp>
 #include <Serialization.hpp>
+#include <ThreadPool.hpp>
 #include <vulkan/CommandBuffer.hpp>
 #include <vulkan/Image.hpp>
 #include <vulkan/ImageView.hpp>
@@ -997,47 +998,68 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 	for(auto& entity : animatedNodes) {
 		auto& animationComponent = _registry.get<AnimationComponent>(entity);
 		animationComponent.time += deltaTime;
-		for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
-			auto pose = n.second.at(animationComponent.time);
-			// Use this pose transform in the hierarchy
-			markDirty(n.first);
-			_registry.get<NodeComponent>(n.first).transform = pose.transform;
-		}
+		if(animationComponent.animationIndex != InvalidAnimationIndex)
+			for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
+				auto pose = n.second.at(animationComponent.time);
+				// Use this pose transform in the hierarchy
+				markDirty(n.first);
+				_registry.get<NodeComponent>(n.first).transform = pose.transform;
+			}
 	}
 
 	// TODO: CPU first, then move it to a compute shader?
 	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 	if(instances.empty())
 		return false;
-	std::vector<Vertex> transformedVertices;
+	std::vector<Vertex>			   transformedVertices;
+	std::mutex					   verticesMutex;
+	std::vector<std::future<void>> wait;
+
+	size_t				verticesCounts = 0;
+	std::vector<size_t> offsets;
 	for(auto& entity : instances) {
-		auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
-		const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
-
-		const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
-		const auto& vertices = mesh.getVertices();
-		const auto& joints = mesh.getSkin().joints;
-		const auto& weights = mesh.getSkin().weights;
-
-		// Compute the world-space transform of each joint, and convert entity id to joint index, and precompute transform * inverseBindMatrices
-		std::vector<glm::mat4> jointPoses;
-		size_t				   idx = 0;
-		glm::mat4			   inverseGlobalTransform = glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(entity)));
-		for(auto& j : skin.joints) {
-			jointPoses.push_back(inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(j)) * skin.inverseBindMatrices[idx]);
-			++idx;
-		}
-
-		for(size_t i = 0; i < vertices.size(); ++i) {
-			Vertex v = vertices[i];
-			auto   skinMatrix = weights[i][0] * jointPoses[joints[i].indices[0]] + weights[i][1] * jointPoses[joints[i].indices[1]] +
-							  weights[i][2] * jointPoses[joints[i].indices[2]] + weights[i][3] * jointPoses[joints[i].indices[3]];
-			v.pos = glm::vec3(skinMatrix * glm::vec4(v.pos, 1.0));
-			transformedVertices.push_back(v);
-		}
+		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		offsets.push_back(verticesCounts);
+		verticesCounts += _meshes[skinnedMeshRenderer.meshIndex].getVertices().size();
 	}
-	if(transformedVertices.empty())
+	if(verticesCounts == 0)
 		return false;
+	transformedVertices.resize(verticesCounts);
+
+	size_t instanceIdx = 0;
+	for(auto& entity : instances) {
+		size_t offset = offsets[instanceIdx];
+		wait.emplace_back(ThreadPool::GetInstance().queue([&, entity, offset] {
+			auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+			const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
+
+			const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
+			const auto& vertices = mesh.getVertices();
+			const auto& joints = mesh.getSkin().joints;
+			const auto& weights = mesh.getSkin().weights;
+
+			// Compute the world-space transform of each joint, convert entity id to joint index, and precompute transform * inverseBindMatrices
+			std::vector<glm::mat4> jointPoses;
+			size_t				   idx = 0;
+			// FIXME: Not sure what inverseGlobalTransform should be.
+			auto	  parent = _registry.get<NodeComponent>(entity).parent;
+			glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(parent)));
+			for(auto& j : skin.joints) {
+				jointPoses.push_back(inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(j)) * skin.inverseBindMatrices[idx]);
+				++idx;
+			}
+
+			for(size_t i = 0; i < vertices.size(); ++i) {
+				auto skinMatrix = weights[i][0] * jointPoses[joints[i].indices[0]] + weights[i][1] * jointPoses[joints[i].indices[1]] +
+								  weights[i][2] * jointPoses[joints[i].indices[2]] + weights[i][3] * jointPoses[joints[i].indices[3]];
+				transformedVertices[offset + i] = vertices[i];
+				transformedVertices[offset + i].pos = glm::vec3(skinMatrix * glm::vec4(transformedVertices[offset + i].pos, 1.0));
+			}
+		}));
+		++instanceIdx;
+	}
+	for(auto& f : wait)
+		f.wait();
 
 	copyViaStagingBuffer(device, VertexBuffer, transformedVertices, 0, StaticVertexBufferSizeInBytes);
 	return true;

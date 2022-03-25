@@ -132,14 +132,10 @@ class Scene {
 		   bool init = false;
 
 		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
+			   auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
+			   auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
 			   if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
-				   if(!init) {
-					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
-					   init = true;
-				   } else
-					   _bounds += transform * _meshes[mesh->meshIndex].computeBounds();
-			   }
-			   if(auto* mesh = _registry.try_get<SkinnedMeshRendererComponent>(entity); mesh != nullptr) {
+				   auto bounds = _meshes[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].computeBounds();
 				   if(!init) {
 					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
 					   init = true;
@@ -225,6 +221,9 @@ class Scene {
 
 	Bounds _bounds;
 
+	///////////////////////////////////////////////////////////////////////////////////////
+	// TODO: Move this out
+
 	Buffer											_staticBLASBuffer;
 	DeviceMemory									_staticBLASMemory;
 	Buffer											_dynamicBLASBuffer;
@@ -251,25 +250,6 @@ class Scene {
 	RollingBuffer<float>   _tlasUpdateTimes;
 	RollingBuffer<float>   _cpuTLASUpdateTimes;
 	RollingBuffer<float>   _cpuBLASUpdateTimes;
-	RollingBuffer<float>   _updateTimes;
-
-	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
-	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
-
-	// Called on NodeComponent destruction
-	void onDestroyNodeComponent(entt::registry& registry, entt::entity node);
-
-	// Used for depth-first traversal of the node hierarchy
-	void visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call) {
-		const auto& node = _registry.get<NodeComponent>(entity);
-		transform = transform * node.transform;
-		for(auto c = node.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
-			visitNode(c, transform, call);
-
-		call(entity, transform);
-	};
-
-	void sortRenderers();
 
 	// FIXME: Should not be there.
 	template<typename T>
@@ -289,6 +269,26 @@ class Scene {
 			vkCmdCopyBuffer(cmdBuff, stagingBuffer, buffer, 1, &copyRegion);
 		});
 	}
+	///////////////////////////////////////////////////////////////////////////////////////
+	RollingBuffer<float> _updateTimes;
+
+	bool loadMaterial(const JSON::value& mat, uint32_t textureOffset);
+	bool loadTextures(const std::filesystem::path& path, const JSON::value& json);
+
+	// Called on NodeComponent destruction
+	void onDestroyNodeComponent(entt::registry& registry, entt::entity node);
+
+	// Used for depth-first traversal of the node hierarchy
+	void visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call) {
+		const auto& node = _registry.get<NodeComponent>(entity);
+		transform = transform * node.transform;
+		for(auto c = node.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
+			visitNode(c, transform, call);
+
+		call(entity, transform);
+	};
+
+	void sortRenderers();
 };
 
 JSON::value toJSON(const NodeComponent&);

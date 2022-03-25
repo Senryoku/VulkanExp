@@ -42,11 +42,12 @@
 ### Major Features, but not priorities
  - Skinned Meshes
    - Notes: Since the raytracing pass will require a BLAS update anyway, we'll use the underlying vertex buffer for rastering too, rather than computing the updated vertex position in a vertex shader, as we should in a raster-only pipeline.
-   - FIXME: SkinnedMeshRenderers can't be selected (no Bounds and not tested in the intersection function). 
    - FIXME: (Perf) Way too many GPU synchonisation everywhere (transfer wait queue idle).
    - TODO: Move skinning vertex transformation to a compute shader.
    - TODO: Generate proper motion vectors.
    - TODO: Separate Skeleton Animation updates and Skinning.
+   - TODO: Use a different mask for acceleration structure instances of dynamic meshes and static meshes. Do not disable irradiance probe inside dynamic meshes (since they're expected to move) by using this mask to avoid tracing dynamic instances on probe initialisation.
+   - TODO: Support everything tied to skinning and animation with our scene format (save/load).
 
 ## Scene Format
 

@@ -254,6 +254,98 @@ void Editor::drawUI() {
 		return modified;
 	};
 
+	bool updatedTransform = false;
+
+	// On screen gizmos
+	if(_selectedNode != entt::null) {
+		auto&		 node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
+		glm::mat4	 worldTransform = node.transform;
+		glm::mat4	 parentTransform{1.0f};
+		entt::entity parent = node.parent;
+		while(parent != entt::null) {
+			auto parentNode = _scene.getRegistry().get<NodeComponent>(parent);
+			worldTransform = parentNode.transform * worldTransform;
+			parentTransform = parentNode.transform * parentTransform;
+			parent = parentNode.parent;
+		}
+
+		// Dummy Window for "on field" widgets
+		ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2{static_cast<float>(_width), static_cast<float>(_height)});
+		ImGui::SetNextWindowBgAlpha(0.0);
+		ImGui::Begin("SelectedObject", nullptr,
+					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
+
+		auto	  winpos = ImGui::GetMainViewport()->Pos;
+		glm::vec2 glmwinpos{winpos.x, winpos.y};
+		auto	  project = [&](const glm::mat4& transform, const glm::vec3& pos = glm::vec3(0)) {
+			 auto t = _camera.getViewMatrix() * transform * glm::vec4(pos, 1.0);
+			 if(t.z > 0.0) // Truncate is point is behind camera
+				 t.z = 0.0;
+			 t = _camera.getProjectionMatrix() * t;
+			 auto r = glm::vec2{t.x, -t.y} / t.w;
+			 r = 0.5f * (r + 1.0f);
+			 r.x *= _width;
+			 r.y *= _height;
+			 return r + glmwinpos;
+		};
+
+		auto* mesh = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode);
+		auto* skinnedMesh = _scene.getRegistry().try_get<SkinnedMeshRendererComponent>(_selectedNode);
+		// Display Bounds
+		if(mesh || skinnedMesh) {
+			auto				  aabb = _scene[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].getBounds().getPoints();
+			std::array<ImVec2, 8> screen_aabb;
+			for(int i = 0; i < 8; ++i)
+				screen_aabb[i] = project(worldTransform, aabb[i]);
+			// Bounding Box Gizmo
+			constexpr std::array<size_t, 24> segments{0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7};
+			ImDrawList*						 drawlist = ImGui::GetWindowDrawList();
+			for(int i = 0; i < 24; i += 2)
+				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
+		}
+		// Display Bones & Joints
+		if(skinnedMesh) {
+			const auto& skin = _scene.getSkins()[skinnedMesh->skinIndex];
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			auto		winpos = ImGui::GetMainViewport()->Pos;
+			glm::vec2	glmwinpos{winpos.x, winpos.y};
+			for(const auto& entity : skin.joints) {
+				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
+				auto		transform = _scene.getGlobalTransform(node) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+				ImGuizmo::DrawCubes(&_camera.getViewMatrix()[0][0], &_camera.getProjectionMatrix()[0][0], &transform[0][0], 1);
+				auto child = node.first;
+				auto parentPixel = project(transform);
+				while(child != entt::null) {
+					auto childNode = _scene.getRegistry().get<NodeComponent>(child);
+					auto childTransform = _scene.getGlobalTransform(childNode);
+					auto childPixel = project(childTransform);
+					drawList->AddLine(ImVec2(parentPixel), ImVec2(childPixel), ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 1.0, 0.0, 0.5)));
+					child = childNode.next;
+				}
+			}
+		}
+
+		ImGuiIO& io = ImGui::GetIO();
+		int		 x, y;
+		glfwGetWindowPos(_window, &x, &y);
+		ImGuizmo::SetRect(x, y, io.DisplaySize.x, io.DisplaySize.y);
+		glm::mat4 delta;
+		bool	  gizmoUpdated =
+			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
+								 _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
+		if(gizmoUpdated) {
+			node.transform = glm::inverse(parentTransform) * worldTransform;
+		}
+		updatedTransform = gizmoUpdated || updatedTransform;
+
+		ImGui::End(); // Dummy Window
+	}
+
+	if(_selectedNode != entt::null && updatedTransform) {
+		_scene.markDirty(_selectedNode);
+	}
+
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
 			if(ImGui::MenuItem("Load Scene")) {}
@@ -405,8 +497,6 @@ void Editor::drawUI() {
 	}
 	ImGui::End();
 
-	bool updatedTransform = false;
-
 	if(ImGui::Begin("Node")) {
 		if(_selectedNode != entt::null) {
 			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
@@ -512,94 +602,6 @@ void Editor::drawUI() {
 		uploadMaterials();		// TODO: Optimize by updating only the relevant slice
 		recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
 								// of a uniform buffer (like the model matrix?)
-	}
-
-	// On screen gizmos
-	if(_selectedNode != entt::null) {
-		auto&		 node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
-		glm::mat4	 worldTransform = node.transform;
-		glm::mat4	 parentTransform{1.0f};
-		entt::entity parent = node.parent;
-		while(parent != entt::null) {
-			auto parentNode = _scene.getRegistry().get<NodeComponent>(parent);
-			worldTransform = parentNode.transform * worldTransform;
-			parentTransform = parentNode.transform * parentTransform;
-			parent = parentNode.parent;
-		}
-
-		// Dummy Window for "on field" widgets
-		ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos, ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2{static_cast<float>(_width), static_cast<float>(_height)});
-		ImGui::SetNextWindowBgAlpha(0.0);
-		ImGui::Begin("SelectedObject", nullptr,
-					 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs);
-
-		auto	  winpos = ImGui::GetMainViewport()->Pos;
-		glm::vec2 glmwinpos{winpos.x, winpos.y};
-		auto	  project = [&](const glm::mat4& transform, const glm::vec3& pos = glm::vec3(0)) {
-			 auto t = _camera.getViewMatrix() * transform * glm::vec4(pos, 1.0);
-			 if(t.z > 0.0) // Truncate is point is behind camera
-				 t.z = 0.0;
-			 t = _camera.getProjectionMatrix() * t;
-			 auto r = glm::vec2{t.x, -t.y} / t.w;
-			 r = 0.5f * (r + 1.0f);
-			 r.x *= _width;
-			 r.y *= _height;
-			 return r + glmwinpos;
-		};
-
-		if(auto* mesh = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); mesh != nullptr) {
-			auto aabb = _scene[mesh->meshIndex].getBounds().getPoints();
-
-			std::array<ImVec2, 8> screen_aabb;
-			for(int i = 0; i < 8; ++i)
-				screen_aabb[i] = project(worldTransform, aabb[i]);
-			// Bounding Box Gizmo
-			constexpr std::array<size_t, 24> segments{0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7};
-			ImDrawList*						 drawlist = ImGui::GetWindowDrawList();
-			for(int i = 0; i < 24; i += 2)
-				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
-		}
-
-		if(auto* skinnedMesh = _scene.getRegistry().try_get<SkinnedMeshRendererComponent>(_selectedNode); skinnedMesh != nullptr) {
-			const auto& skin = _scene.getSkins()[skinnedMesh->skinIndex];
-			ImDrawList* drawList = ImGui::GetWindowDrawList();
-			auto		winpos = ImGui::GetMainViewport()->Pos;
-			glm::vec2	glmwinpos{winpos.x, winpos.y};
-			for(const auto& entity : skin.joints) {
-				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
-				auto		transform = _scene.getGlobalTransform(node);
-				ImGuizmo::DrawCubes(&_camera.getViewMatrix()[0][0], &_camera.getProjectionMatrix()[0][0], &transform[0][0], 1);
-				auto child = node.first;
-				auto parentPixel = project(transform);
-				while(child != entt::null) {
-					auto childNode = _scene.getRegistry().get<NodeComponent>(child);
-					auto childTransform = _scene.getGlobalTransform(childNode);
-					auto childPixel = project(childTransform);
-					drawList->AddLine(ImVec2(parentPixel), ImVec2(childPixel), ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
-					child = childNode.next;
-				}
-			}
-		}
-
-		ImGuiIO& io = ImGui::GetIO();
-		int		 x, y;
-		glfwGetWindowPos(_window, &x, &y);
-		ImGuizmo::SetRect(x, y, io.DisplaySize.x, io.DisplaySize.y);
-		glm::mat4 delta;
-		bool	  gizmoUpdated =
-			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
-								 _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
-		if(gizmoUpdated) {
-			node.transform = glm::inverse(parentTransform) * worldTransform;
-		}
-		updatedTransform = gizmoUpdated || updatedTransform;
-
-		ImGui::End(); // Dummy Window
-	}
-
-	if(_selectedNode != entt::null && updatedTransform) {
-		_scene.markDirty(_selectedNode);
 	}
 
 	if(ImGui::Begin("Rendering Settings")) {
