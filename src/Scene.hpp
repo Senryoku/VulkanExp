@@ -202,9 +202,8 @@ class Scene {
 	const entt::registry& getRegistry() const { return _registry; }
 
   private:
-	std::vector<Mesh>			   _meshes;
-	std::vector<Skin>			   _skins;
-	std::vector<SkeletalAnimation> _animations;
+	std::vector<Mesh> _meshes;
+	std::vector<Skin> _skins;
 
 	entt::registry			  _registry;
 	entt::entity			  _root = entt::null;

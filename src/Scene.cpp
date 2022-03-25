@@ -20,7 +20,7 @@
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
 
-static glm::mat4 getGrobalTransform(const entt::registry& registry, const NodeComponent& node) {
+static glm::mat4 getGlobalTransform(const entt::registry& registry, const NodeComponent& node) {
 	auto transform = node.transform;
 	auto parent = node.parent;
 	while(parent != entt::null) {
@@ -90,6 +90,10 @@ std::vector<T> extract(const JSON::value& object, const std::vector<std::vector<
 		assert(accessor["type"].asString() == "VEC3");
 	}
 	if constexpr(std::is_same<T, glm::vec4>()) {
+		assert(Scene::ComponentType(accessor["componentType"].as<int>()) == Scene::ComponentType::Float);
+		assert(accessor["type"].asString() == "VEC4");
+	}
+	if constexpr(std::is_same<T, glm::quat>()) {
 		assert(Scene::ComponentType(accessor["componentType"].as<int>()) == Scene::ComponentType::Float);
 		assert(accessor["type"].asString() == "VEC4");
 	}
@@ -450,37 +454,39 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				auto  path = SkeletalAnimation::parsePath(channel["target"]["path"].asString());
 				auto& sampler = anim["samplers"][channel["sampler"].as<int>()];
 				auto  input = extract<float>(object, buffers, sampler["input"].as<int>());
+				auto& nodeAnim = animation.nodeAnimations[node];
+				nodeAnim.entity = node;
 				switch(path) {
 					case SkeletalAnimation::Path::Translation: {
-						animation.translationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.translationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
-							animation.translationKeyFrames.add(input[i], output[i]);
+							nodeAnim.translationKeyFrames.add(input[i], output[i]);
 						break;
 					}
 					case SkeletalAnimation::Path::Rotation: {
-						animation.rotationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.rotationKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC4");
-						auto output = extract<glm::vec4>(object, buffers, sampler["output"].as<int>());
+						auto output = extract<glm::quat>(object, buffers, sampler["output"].as<int>()); // FIXME: quats are probably not in the expected format
 						for(int i = 0; i < input.size(); ++i)
-							animation.rotationKeyFrames.add(input[i], output[i]);
+							nodeAnim.rotationKeyFrames.add(input[i], output[i]);
 						break;
 					}
 					case SkeletalAnimation::Path::Scale: {
-						animation.scaleKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.scaleKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
-							animation.scaleKeyFrames.add(input[i], output[i]);
+							nodeAnim.scaleKeyFrames.add(input[i], output[i]);
 						break;
 					}
 					case SkeletalAnimation::Path::Weights: {
-						animation.weightsKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.weightsKeyFrames.interpolation = SkeletalAnimation::parseInterpolation(sampler["interpolation"].asString());
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC4");
 						auto output = extract<glm::vec4>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
-							animation.weightsKeyFrames.add(input[i], output[i]);
+							nodeAnim.weightsKeyFrames.add(input[i], output[i]);
 						break;
 					}
 				}
@@ -989,26 +995,43 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 		const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
 		skinnedMeshRenderer.time += deltaTime;
 
-		std::vector<glm::mat4> frame;
-		if(skinnedMeshRenderer.animationIndex == InvalidAnimationIndex)
-			frame = SkeletalAnimation{.jointsCount = static_cast<uint32_t>(skin.joints.size())}.at(0);
-		else
-			frame = _animations[skinnedMeshRenderer.animationIndex].at(skinnedMeshRenderer.time);
-
 		const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
-		const auto& vertices = _meshes[skinnedMeshRenderer.meshIndex].getVertices();
-		const auto& joints = _meshes[skinnedMeshRenderer.meshIndex].getSkin().joints;
-		const auto& weights = _meshes[skinnedMeshRenderer.meshIndex].getSkin().weights;
+		const auto& vertices = mesh.getVertices();
+
+		// FIXME: Should not be needed (?)
+		if(skinnedMeshRenderer.animationIndex == InvalidAnimationIndex) {
+			for(const auto& v : vertices)
+				transformedVertices.push_back(v);
+			continue;
+		}
+		const auto& joints = mesh.getSkin().joints;
+		const auto& weights = mesh.getSkin().weights;
+
+		// FIXME: This is janky af (modify the scene hierachy for no real reason)
+		std::unordered_map<entt::entity, SkeletalAnimation::NodePose> poses;
+		glm::mat4													  inverseGlobalTransform = glm::inverse(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+		for(const auto& n : Animations[skinnedMeshRenderer.animationIndex].nodeAnimations) {
+			poses[n.first] = n.second.at(skinnedMeshRenderer.time);
+			// Use this pose transform in the hierarchy
+			_registry.get<NodeComponent>(n.first).transform = poses[n.first].transform;
+		}
+		// Compute the world-space transform of each joint
+		for(auto& n : poses)
+			n.second.transform = inverseGlobalTransform * getGlobalTransform(_registry, _registry.get<NodeComponent>(n.first));
+
 		for(size_t i = 0; i < vertices.size(); ++i) {
 			Vertex v = vertices[i];
-			auto   skinMatrix = weights[i][0] * frame[joints[i].indices[0]] * skin.inverseBindMatrices[joints[i].indices[0]] +
-							  weights[i][1] * frame[joints[i].indices[1]] * skin.inverseBindMatrices[joints[i].indices[1]] +
-							  weights[i][2] * frame[joints[i].indices[2]] * skin.inverseBindMatrices[joints[i].indices[2]] +
-							  weights[i][3] * frame[joints[i].indices[3]] * skin.inverseBindMatrices[joints[i].indices[3]];
+			auto   skinMatrix = weights[i][0] * poses[skin.joints[joints[i].indices[0]]].transform * skin.inverseBindMatrices[joints[i].indices[0]] +
+							  weights[i][1] * poses[skin.joints[joints[i].indices[1]]].transform * skin.inverseBindMatrices[joints[i].indices[1]] +
+							  weights[i][2] * poses[skin.joints[joints[i].indices[2]]].transform * skin.inverseBindMatrices[joints[i].indices[2]] +
+							  weights[i][3] * poses[skin.joints[joints[i].indices[3]]].transform * skin.inverseBindMatrices[joints[i].indices[3]];
 			v.pos = glm::vec3(skinMatrix * glm::vec4(v.pos, 1.0));
 			transformedVertices.push_back(v);
 		}
 	}
+	if(transformedVertices.empty())
+		return false;
+
 	copyViaStagingBuffer(device, VertexBuffer, transformedVertices, 0, StaticVertexBufferSizeInBytes);
 	return true;
 }
@@ -1320,7 +1343,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<MeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 meshRendererComponent = _registry.get<MeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGrobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 			auto BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[meshRendererComponent.meshIndex]);
@@ -1339,7 +1362,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 skinnedMeshRendererComponent = _registry.get<SkinnedMeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGrobalTransform(_registry, _registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(getGlobalTransform(_registry, _registry.get<NodeComponent>(entity)));
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			auto				 BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
 
@@ -1529,9 +1552,9 @@ void Scene::updateTransforms(const Device& device) {
 	_instancesData.clear();
 	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());
 	for(auto&& [entity, meshRenderer, node] : meshRenderers.each())
-		_instancesData.push_back({getGrobalTransform(_registry, node)});
+		_instancesData.push_back({getGlobalTransform(_registry, node)});
 	for(auto&& [entity, skinnedMeshRenderer, node] : skinnedMeshRenderers.each())
-		_instancesData.push_back({getGrobalTransform(_registry, node)});
+		_instancesData.push_back({getGlobalTransform(_registry, node)});
 
 	copyViaStagingBuffer(device, _instancesBuffer, _instancesData);
 }

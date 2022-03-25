@@ -482,6 +482,12 @@ void Editor::drawUI() {
 					ImGui::Text("Mesh: %s", mesh.name.c_str());
 					ImGui::Text("Skin: %d", meshComp->skinIndex);
 					ImGui::Text("Animation: %d", meshComp->animationIndex);
+					int anim = meshComp->animationIndex;
+					if(ImGui::InputInt("Animation", &anim)) {
+						if(anim == -1 || (anim >= 0 && anim < Animations.size())) {
+							meshComp->animationIndex = AnimationIndex(anim);
+						}
+					}
 					ImGui::Text("BLAS: %d", meshComp->blasIndex);
 					ImGui::Text("IndexIntoOffsetTable: %d", meshComp->indexIntoOffsetTable);
 					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;

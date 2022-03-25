@@ -2,7 +2,10 @@
 
 #include <vector>
 
+#include <entt/include/entt.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
 
 struct SkeletalAnimation {
 	enum class Interpolation {
@@ -55,39 +58,60 @@ struct SkeletalAnimation {
 		}
 	};
 	using TranslationChannel = Channel<glm::vec3>;
-	using RotationChannel = Channel<glm::vec4>;
+	using RotationChannel = Channel<glm::quat>;
 	using ScaleChannel = Channel<glm::vec3>;
 	using WeightsChannel = Channel<glm::vec4>;
 
-	TranslationChannel translationKeyFrames;
-	RotationChannel	   rotationKeyFrames;
-	ScaleChannel	   scaleKeyFrames;
-	WeightsChannel	   weightsKeyFrames;
+	struct NodePose {
+		glm::mat4 transform;
+		glm::vec4 weights;
+	};
 
-	std::vector<float>	   times;
-	std::vector<glm::mat4> transforms; // times.size() * jointsCount transforms
+	struct NodeAnimation {
+		entt::entity	   entity;
+		TranslationChannel translationKeyFrames;
+		RotationChannel	   rotationKeyFrames;
+		ScaleChannel	   scaleKeyFrames;
+		WeightsChannel	   weightsKeyFrames;
 
-	float				   length() const { return times.back(); }
-	std::vector<glm::mat4> at(float t) {
-		// FIXME ?
-		if(times.empty()) {
-			std::vector<glm::mat4> r;
-			for(size_t i = 0; i < jointsCount; ++i)
-				r.push_back(glm::mat4(1.0f));
-			return r;
-		} else if(times.size() == 1) {
-			return transforms;
+		NodePose at(float t) const {
+			auto translate = at(translationKeyFrames, t);
+			auto rotation = at(rotationKeyFrames, t);
+			auto scale = at(scaleKeyFrames, t, glm::vec3(1.0f));
+			auto weights = at(weightsKeyFrames, t);
+			return {
+				.transform = glm::translate(glm::mat4(1.0f), translate) * glm::toMat4(rotation) * glm::scale(glm::mat4(1.0f), scale),
+				.weights = weights,
+			};
 		}
 
-		t = std::fmod(t, length());
-		std::vector<glm::mat4> r;
-		r.reserve(jointsCount);
-		size_t kf = 0;
-		while(times[kf] < t)
-			++kf;
-		float frac = (t - times[kf]) / (times[kf + 1] - times[kf]);
-		for(size_t i = 0; i < jointsCount; ++i)
-			r.push_back(t * transforms[kf * jointsCount + i] + (1.0f - t) * transforms[(kf + 1) * jointsCount + i]);
-		return r;
-	}
+		template<typename T>
+		T at(const Channel<T> chan, float t, T def = T()) const {
+			if(chan.times.empty()) {
+				return def;
+			} else if(chan.times.size() == 1 || chan.interpolation == Interpolation::Step) {
+				size_t i = 0;
+				while(i + 1 < chan.times.size() && chan.times[i + 1] < t)
+					++i;
+				return chan.frames[i];
+			}
+			t = std::fmod(t, chan.times.back());
+			size_t i = 0;
+			while(i + 2 < chan.times.size() && chan.times[i + 1] < t)
+				++i;
+			if(chan.interpolation == Interpolation::Linear) {
+				t = (t - chan.times[i]) / (chan.times[i + 1] - chan.times[i]);
+				if constexpr(std::is_same<T, glm::quat>()) {
+					return glm::slerp(chan.frames[i], chan.frames[i + 1], t);
+				} else {
+					return t * chan.frames[i] + (1.0f - t) * chan.frames[i + 1];
+				}
+			}
+			if(chan.interpolation == Interpolation::CubicSpline) {
+				// TODO
+			}
+		}
+	};
+
+	std::unordered_map<entt::entity, NodeAnimation> nodeAnimations;
 };
