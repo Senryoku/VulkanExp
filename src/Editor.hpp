@@ -309,13 +309,14 @@ class Editor {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
 		// Could use popen() instead of system() to capture the output too.
 		system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
-		// Fixme: We can probably do a lot less :) (Like only recreating the pipeline, which could even be done in another thread)
+		// Fixme: We can probably do a lot less :) (Like only recreating the pipelines, which could even be done in another thread)
 		vkDeviceWaitIdle(_device);
 		destroyGBufferPipeline();
 		destroyDirectLightPipeline();
 		destroyReflectionPipeline();
 		destroyRayTracingPipeline();
 		// FIXME: Re-create the GatherPipeline too
+		// FIXME: Re-create the skinning pipeline too (when it's finally not part of Scene anymore...)
 		createGBufferPipeline();
 		createDirectLightPass();
 		createReflectionPass();

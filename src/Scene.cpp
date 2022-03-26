@@ -890,6 +890,21 @@ bool Scene::update(const Device& device, float deltaTime) {
 	QuickTimer qt(_updateTimes);
 	bool	   hierarchicalChanges = false;
 	if(!_dirtyNodes.empty()) {
+		for(auto entity : _dirtyNodes) {
+			auto& node = _registry.get<NodeComponent>(entity);
+			node.globalTransform = getGlobalTransform(node);
+			std::function<void(const glm::mat4& parentTransform, NodeComponent& node)> updateChildrenGlobalTransforms = [&](const glm::mat4& parentTransform,
+																															NodeComponent&	 parentNode) {
+				auto child = parentNode.first;
+				while(child != entt::null) {
+					auto& childNode = _registry.get<NodeComponent>(child);
+					childNode.globalTransform = parentTransform * childNode.transform;
+					updateChildrenGlobalTransforms(childNode.globalTransform, childNode);
+					child = childNode.next;
+				}
+			};
+			updateChildrenGlobalTransforms(node.globalTransform, node);
+		}
 		// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
 		updateTransforms(device);
 		updateAccelerationStructureInstances(device);
@@ -919,6 +934,8 @@ bool Scene::isAncestor(entt::entity ancestor, entt::entity entity) const {
 	return false;
 }
 
+// Computes the global transform of a node
+// Prefer using the cached globalTransform directly on the node!
 glm::mat4 Scene::getGlobalTransform(const NodeComponent& node) const {
 	auto transform = node.transform;
 	auto parent = node.parent;
@@ -1232,7 +1249,7 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 		jointPoses.resize(skin.joints.size());
 		// FIXME: Not sure what inverseGlobalTransform should be.
 		const auto		parent = _registry.get<NodeComponent>(entity).parent;
-		const glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(parent)));
+		const glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(_registry.get<NodeComponent>(parent).globalTransform);
 		for(auto i = 0; i < skin.joints.size(); ++i)
 			jointPoses[i] = (inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(skin.joints[i])) * skin.inverseBindMatrices[i]);
 		_jointsMemory.fill(jointPoses.data(), jointPoses.size());
@@ -1491,7 +1508,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<MeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 meshRendererComponent = _registry.get<MeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGlobalTransform(_registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(_registry.get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
 			auto BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[meshRendererComponent.meshIndex]);
@@ -1510,7 +1527,7 @@ void Scene::createTLAS(const Device& device) {
 		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto&				 skinnedMeshRendererComponent = _registry.get<SkinnedMeshRendererComponent>(entity);
-			auto				 tmp = glm::transpose(getGlobalTransform(_registry.get<NodeComponent>(entity)));
+			auto				 tmp = glm::transpose(_registry.get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			auto				 BLASDeviceAddress = getDeviceAddress(device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
 
@@ -1700,9 +1717,9 @@ void Scene::updateTransforms(const Device& device) {
 	_instancesData.clear();
 	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());
 	for(auto&& [entity, meshRenderer, node] : meshRenderers.each())
-		_instancesData.push_back({getGlobalTransform(node)});
+		_instancesData.push_back({node.globalTransform});
 	for(auto&& [entity, skinnedMeshRenderer, node] : skinnedMeshRenderers.each())
-		_instancesData.push_back({getGlobalTransform(node)});
+		_instancesData.push_back({node.globalTransform});
 
 	copyViaStagingBuffer(device, _instancesBuffer, _instancesData);
 }

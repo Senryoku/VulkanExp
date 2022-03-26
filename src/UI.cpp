@@ -312,13 +312,13 @@ void Editor::drawUI() {
 			glm::vec2	glmwinpos{winpos.x, winpos.y};
 			for(const auto& entity : skin.joints) {
 				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
-				auto		transform = _scene.getGlobalTransform(node) * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+				auto		transform = node.globalTransform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 				ImGuizmo::DrawCubes(&_camera.getViewMatrix()[0][0], &_camera.getProjectionMatrix()[0][0], &transform[0][0], 1);
 				auto child = node.first;
 				auto parentPixel = project(transform);
 				while(child != entt::null) {
 					auto childNode = _scene.getRegistry().get<NodeComponent>(child);
-					auto childTransform = _scene.getGlobalTransform(childNode);
+					auto childTransform = childNode.globalTransform;
 					auto childPixel = project(childTransform);
 					drawList->AddLine(ImVec2(parentPixel), ImVec2(childPixel), ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 1.0, 0.0, 0.5)));
 					child = childNode.next;

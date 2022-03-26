@@ -18,6 +18,7 @@ inline std::vector<Material> Materials;
 struct NodeComponent {
 	std::string	 name{"Unamed Node"};
 	glm::mat4	 transform{1.0f};
+	glm::mat4	 globalTransform{1.0f}; // Cached Global Transform: Do not modify directly!
 	std::size_t	 children{0};
 	entt::entity first{entt::null};
 	entt::entity prev{entt::null};
