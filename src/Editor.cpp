@@ -148,6 +148,8 @@ void Editor::run() {
 }
 
 void Editor::mainLoop() {
+	std::chrono::time_point lastUpdate = std::chrono::high_resolution_clock::now();
+
 	while(!glfwWindowShouldClose(_window)) {
 		glfwPollEvents();
 
@@ -207,7 +209,10 @@ void Editor::mainLoop() {
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
 		// FIXME: PASS proper deltaTime
-		const auto updates = _scene.update(_device, 0.016);
+		const auto						   time = std::chrono::high_resolution_clock::now();
+		const std::chrono::duration<float> delta = time - lastUpdate;
+		lastUpdate = time;
+		const auto updates = _scene.update(_device, delta.count());
 		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
