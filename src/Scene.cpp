@@ -899,21 +899,22 @@ bool Scene::update(const Device& device, float deltaTime) {
 	QuickTimer qt(_updateTimes);
 	bool	   hierarchicalChanges = false;
 	if(!_dirtyNodes.empty()) {
-		for(auto entity : _dirtyNodes) {
-			auto& node = _registry.get<NodeComponent>(entity);
-			node.globalTransform = getGlobalTransform(node);
-			std::function<void(const glm::mat4& parentTransform, NodeComponent& node)> updateChildrenGlobalTransforms = [&](const glm::mat4& parentTransform,
-																															NodeComponent&	 parentNode) {
-				auto child = parentNode.first;
-				while(child != entt::null) {
-					auto& childNode = _registry.get<NodeComponent>(child);
-					childNode.globalTransform = parentTransform * childNode.transform;
-					updateChildrenGlobalTransforms(childNode.globalTransform, childNode);
-					child = childNode.next;
-				}
-			};
-			updateChildrenGlobalTransforms(node.globalTransform, node);
-		}
+		// Update all cached globalTransform
+		// FIXME: We could restrict ourselves to _dirtyNodes by computing they common ancestor for example (simply iterating over _dirtyNodes will traverse the same nodes multiple
+		// times)
+		auto&																	   node = _registry.get<NodeComponent>(_root);
+		std::function<void(const glm::mat4& parentTransform, NodeComponent& node)> updateChildrenGlobalTransforms = [&](const glm::mat4& parentTransform,
+																														NodeComponent&	 parentNode) {
+			auto child = parentNode.first;
+			while(child != entt::null) {
+				auto& childNode = _registry.get<NodeComponent>(child);
+				childNode.globalTransform = parentTransform * childNode.transform;
+				updateChildrenGlobalTransforms(childNode.globalTransform, childNode);
+				child = childNode.next;
+			}
+		};
+		updateChildrenGlobalTransforms(node.globalTransform, node);
+
 		// FIXME: Re-traversing the entire hierarchy to update the transforms could be avoided (especially since modified nodes are marked).
 		updateTransforms(device);
 		updateAccelerationStructureInstances(device);
