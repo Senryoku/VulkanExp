@@ -321,34 +321,44 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				mesh.computeBounds();
 			assert(mesh.getBounds().isValid());
 
-			const auto& indicesAccessor = object["accessors"][p["indices"].as<int>()];
-			const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
-			const auto& indicesBuffer = buffers[indicesBufferView["buffer"].as<int>()];
-			if(indicesAccessor["type"].asString() == "SCALAR") {
-				ComponentType compType = static_cast<ComponentType>(indicesAccessor["componentType"].as<int>());
-				assert(compType == ComponentType::UnsignedShort || compType == ComponentType::UnsignedInt); // TODO
-				size_t cursor = indicesAccessor("byteOffset", 0) + indicesBufferView("byteOffset", 0);
-				int	   defaultStride = 0;
-				switch(compType) {
-					case ComponentType::UnsignedShort: defaultStride = sizeof(unsigned short); break;
-					case ComponentType::UnsignedInt: defaultStride = sizeof(unsigned int); break;
-					default: assert(false);
-				}
-				size_t stride = indicesBufferView("byteStride", defaultStride);
-				mesh.getIndices().reserve(indicesAccessor["count"].as<int>());
-				for(size_t i = 0; i < indicesAccessor["count"].as<int>(); ++i) {
-					uint32_t idx = 0;
+			if(p.contains("indices")) {
+				const auto& indicesAccessor = object["accessors"][p["indices"].as<int>()];
+				const auto& indicesBufferView = object["bufferViews"][indicesAccessor["bufferView"].as<int>()];
+				const auto& indicesBuffer = buffers[indicesBufferView["buffer"].as<int>()];
+				if(indicesAccessor["type"].asString() == "SCALAR") {
+					ComponentType compType = static_cast<ComponentType>(indicesAccessor["componentType"].as<int>());
+					assert(compType == ComponentType::UnsignedShort || compType == ComponentType::UnsignedInt); // TODO
+					size_t cursor = indicesAccessor("byteOffset", 0) + indicesBufferView("byteOffset", 0);
+					int	   defaultStride = 0;
 					switch(compType) {
-						case ComponentType::UnsignedShort: idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor); break;
-						case ComponentType::UnsignedInt: idx = *reinterpret_cast<const unsigned int*>(indicesBuffer.data() + cursor); break;
+						case ComponentType::UnsignedShort: defaultStride = sizeof(unsigned short); break;
+						case ComponentType::UnsignedInt: defaultStride = sizeof(unsigned int); break;
 						default: assert(false);
 					}
-					mesh.getIndices().push_back(idx);
-					cursor += stride;
-				}
+					size_t stride = indicesBufferView("byteStride", defaultStride);
+					mesh.getIndices().reserve(indicesAccessor["count"].as<int>());
+					for(size_t i = 0; i < indicesAccessor["count"].as<int>(); ++i) {
+						uint32_t idx = 0;
+						switch(compType) {
+							case ComponentType::UnsignedShort: idx = *reinterpret_cast<const unsigned short*>(indicesBuffer.data() + cursor); break;
+							case ComponentType::UnsignedInt: idx = *reinterpret_cast<const unsigned int*>(indicesBuffer.data() + cursor); break;
+							default: assert(false);
+						}
+						mesh.getIndices().push_back(idx);
+						cursor += stride;
+					}
 
+				} else {
+					error("Error: Unsupported accessor type '{}'.", indicesAccessor["type"].asString());
+				}
 			} else {
-				error("Error: Unsupported accessor type '{}'.", indicesAccessor["type"].asString());
+				// Compute indices ourselves
+				mesh.getIndices().reserve(mesh.getVertices().size() / 3);
+				for(size_t i = 0; i < mesh.getVertices().size(); i += 3) {
+					mesh.getIndices().push_back(i + 0);
+					mesh.getIndices().push_back(i + 1);
+					mesh.getIndices().push_back(i + 2);
+				}
 			}
 		}
 	}
@@ -449,9 +459,11 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				auto  input = extract<float>(object, buffers, sampler["input"].as<int>());
 				auto& nodeAnim = animation.nodeAnimations[node];
 				nodeAnim.entity = node;
+				auto interpolation = sampler.contains("interpolation") ? SkeletalAnimationClip::parseInterpolation(sampler["interpolation"].asString())
+																	   : SkeletalAnimationClip::Interpolation::Linear;
 				switch(path) {
 					case SkeletalAnimationClip::Path::Translation: {
-						nodeAnim.translationKeyFrames.interpolation = SkeletalAnimationClip::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.translationKeyFrames.interpolation = interpolation;
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
@@ -459,7 +471,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimationClip::Path::Rotation: {
-						nodeAnim.rotationKeyFrames.interpolation = SkeletalAnimationClip::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.rotationKeyFrames.interpolation = interpolation;
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC4");
 						auto output = extract<glm::quat>(object, buffers, sampler["output"].as<int>()); // FIXME: quats are probably not in the expected format
 						for(int i = 0; i < input.size(); ++i)
@@ -467,7 +479,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimationClip::Path::Scale: {
-						nodeAnim.scaleKeyFrames.interpolation = SkeletalAnimationClip::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.scaleKeyFrames.interpolation = interpolation;
 						assert(object["accessors"][sampler["output"].as<int>()]["type"].asString() == "VEC3");
 						auto output = extract<glm::vec3>(object, buffers, sampler["output"].as<int>());
 						for(int i = 0; i < input.size(); ++i)
@@ -475,7 +487,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 						break;
 					}
 					case SkeletalAnimationClip::Path::Weights: {
-						nodeAnim.weightsKeyFrames.interpolation = SkeletalAnimationClip::parseInterpolation(sampler["interpolation"].asString());
+						nodeAnim.weightsKeyFrames.interpolation = interpolation;
 						if(object["accessors"][sampler["output"].as<int>()]["type"].asString() != "VEC4") {
 							warn("Ignoring SkeletalAnimation::Path::Weights of type '{}' (expected 'VEC4').\n",
 								 object["accessors"][sampler["output"].as<int>()]["type"].asString());
