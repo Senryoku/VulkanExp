@@ -56,6 +56,35 @@ struct SkeletalAnimationClip {
 			times.push_back(t);
 			frames.push_back(d);
 		}
+
+		T at(float t, const T& def = T()) const {
+			if(times.empty()) {
+				return def;
+			} else if(times.size() == 1 || interpolation == Interpolation::Step) {
+				size_t i = 0;
+				while(i + 1 < times.size() && times[i + 1] < t)
+					++i;
+				return frames[i];
+			}
+			t = std::fmod(t, times.back());
+			size_t i = 0;
+			while(i + 2 < times.size() && times[i + 1] < t)
+				++i;
+			if(interpolation == Interpolation::Linear) {
+				t = (t - times[i]) / (times[i + 1] - times[i]);
+				if constexpr(std::is_same<T, glm::quat>::value) {
+					return glm::slerp(frames[i], frames[i + 1], t);
+				} else {
+					// Doesn't compile because it tries to compile it even for glm::quat... MSVC bug?
+					// return glm::lerp(frames[i], frames[i + 1], t);
+					return glm::mix(frames[i], frames[i + 1], t);
+					// return (1.0f - t) * frames[i] + t * frames[i + 1];
+				}
+			}
+			if(interpolation == Interpolation::CubicSpline) {
+				// TODO
+			}
+		}
 	};
 	using TranslationChannel = Channel<glm::vec3>;
 	using RotationChannel = Channel<glm::quat>;
@@ -75,41 +104,14 @@ struct SkeletalAnimationClip {
 		WeightsChannel	   weightsKeyFrames;
 
 		NodePose at(float t) const {
-			auto translate = at(translationKeyFrames, t);
-			auto rotation = at(rotationKeyFrames, t);
-			auto scale = at(scaleKeyFrames, t, glm::vec3(1.0f));
-			auto weights = at(weightsKeyFrames, t);
+			auto translate = translationKeyFrames.at(t);
+			auto rotation = rotationKeyFrames.at(t);
+			auto scale = scaleKeyFrames.at(t, glm::vec3(1.0f));
+			auto weights = weightsKeyFrames.at(t);
 			return {
 				.transform = glm::translate(glm::mat4(1.0f), translate) * glm::toMat4(rotation) * glm::scale(glm::mat4(1.0f), scale),
 				.weights = weights,
 			};
-		}
-
-		template<typename T>
-		T at(const Channel<T> chan, float t, T def = T()) const {
-			if(chan.times.empty()) {
-				return def;
-			} else if(chan.times.size() == 1 || chan.interpolation == Interpolation::Step) {
-				size_t i = 0;
-				while(i + 1 < chan.times.size() && chan.times[i + 1] < t)
-					++i;
-				return chan.frames[i];
-			}
-			t = std::fmod(t, chan.times.back());
-			size_t i = 0;
-			while(i + 2 < chan.times.size() && chan.times[i + 1] < t)
-				++i;
-			if(chan.interpolation == Interpolation::Linear) {
-				t = (t - chan.times[i]) / (chan.times[i + 1] - chan.times[i]);
-				if constexpr(std::is_same<T, glm::quat>()) {
-					return glm::slerp(chan.frames[i], chan.frames[i + 1], t);
-				} else {
-					return (1.0f - t) * chan.frames[i] + t * chan.frames[i + 1];
-				}
-			}
-			if(chan.interpolation == Interpolation::CubicSpline) {
-				// TODO
-			}
 		}
 	};
 
