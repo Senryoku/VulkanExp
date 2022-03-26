@@ -213,6 +213,8 @@ class Editor {
 	void createGatherPass();
 	void createProbeDebugPass();
 
+	float _timeScale = 1.0f;
+
 	LightBuffer _light;
 	bool		_deriveLightPositionFromTime = false;
 	float		_dayCycleSpeed = 48.0;

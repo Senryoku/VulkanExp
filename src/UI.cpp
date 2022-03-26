@@ -603,6 +603,10 @@ void Editor::drawUI() {
 		recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
 								// of a uniform buffer (like the model matrix?)
 	}
+	if(ImGui::Begin("Settings")) {
+		ImGui::SliderFloat("Time Scale", &_timeScale, 0, 2.0);
+	}
+	ImGui::End();
 
 	if(ImGui::Begin("Rendering Settings")) {
 		ImGui::Checkbox("Raytracing Debug", &_raytracingDebug);

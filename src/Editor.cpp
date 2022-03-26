@@ -210,7 +210,7 @@ void Editor::mainLoop() {
 		}
 		// FIXME: PASS proper deltaTime
 		const auto						   time = std::chrono::high_resolution_clock::now();
-		const std::chrono::duration<float> delta = time - lastUpdate;
+		const std::chrono::duration<float> delta = _timeScale * (time - lastUpdate);
 		lastUpdate = time;
 		const auto updates = _scene.update(_device, delta.count());
 		if(_outdatedCommandBuffers || updates) {
