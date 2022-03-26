@@ -40,5 +40,12 @@ void main()
     vec3 motionVector = newPosition - Output[VertexStride * (i + dstOffset) + 0].xyz;
     Output[VertexStride * (i + dstOffset) + 0].xyz = newPosition;
 
+    // Approximate normal & tangent
+    vec3 normal = mat3(skinMatrix) * vec3(Vertices[VertexStride * (i + dstOffset) + 1].zw, Vertices[VertexStride * (i + dstOffset) + 2].x);
+    vec3 tangent = mat3(skinMatrix) * vec3(Vertices[VertexStride * (i + dstOffset) + 2].yzw);
+    Output[VertexStride * (i + srcOffset) + 1].zw = normal.xy;
+    Output[VertexStride * (i + srcOffset) + 2].x = normal.z;
+    Output[VertexStride * (i + srcOffset) + 2].yzw = tangent;
+
     // TODO: Store Motion Vectors (difference with previous value)
 }
