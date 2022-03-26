@@ -2,13 +2,15 @@
 
 #include <filesystem>
 
+#include <entt.hpp>
+
+#include <DescriptorPool.hpp>
 #include <Mesh.hpp>
+#include <Pipeline.hpp>
 #include <Query.hpp>
 #include <Raytracing.hpp>
 #include <RollingBuffer.hpp>
 #include <TaggedType.hpp>
-
-#include <entt.hpp>
 
 // TODO: Move this :)
 inline std::vector<Material> Materials;
@@ -134,13 +136,13 @@ class Scene {
 		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
 			   auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
 			   auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
-			   if(auto* mesh = _registry.try_get<MeshRendererComponent>(entity); mesh != nullptr) {
-				   auto bounds = _meshes[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].computeBounds();
+			   if(mesh || skinnedMesh) {
+				   const auto& bounds = _meshes[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].getBounds();
 				   if(!init) {
-					   _bounds = transform * _meshes[mesh->meshIndex].computeBounds();
+					   _bounds = transform * bounds;
 					   init = true;
 				   } else
-					   _bounds += transform * _meshes[mesh->meshIndex].computeBounds();
+					   _bounds += transform * bounds;
 			   }
 		   });
 
@@ -171,14 +173,20 @@ class Scene {
 	DeviceMemory			 OffsetTableMemory;
 	DeviceMemory			 VertexMemory;
 	DeviceMemory			 IndexMemory;
+	DeviceMemory			 JointsMemory;
+	DeviceMemory			 WeightsMemory;
 	size_t					 NextVertexMemoryOffsetInBytes = 0;
 	size_t					 NextIndexMemoryOffsetInBytes = 0;
+	size_t					 NextJointsMemoryOffsetInBytes = 0;
+	size_t					 NextWeightsMemoryOffsetInBytes = 0;
 	Buffer					 VertexBuffer;
 	Buffer					 IndexBuffer;
 	Buffer					 OffsetTableBuffer;
-	uint32_t				 StaticVertexBufferSizeInBytes;
-	uint32_t				 StaticIndexBufferSizeInBytes;
-	uint32_t				 StaticOffsetTableSizeInBytes;
+	uint32_t				 StaticVertexBufferSizeInBytes = 0;
+	uint32_t				 StaticIndexBufferSizeInBytes = 0;
+	uint32_t				 StaticOffsetTableSizeInBytes = 0;
+	uint32_t				 StaticJointsBufferSizeInBytes = 0;
+	uint32_t				 StaticWeightsBufferSizeInBytes = 0;
 	std::vector<OffsetEntry> _offsetTable;
 	Buffer					 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
 	DeviceMemory			 _blasScratchMemory;
@@ -205,7 +213,11 @@ class Scene {
 	bool updateDynamicVertexBuffer(const Device& device, float deltaTime);
 	bool updateDynamicBLAS(const Device&);
 
+	void createVertexSkinningPipeline(const Device& device);
+	void destroyVertexSkinningPipeline();
+
 	void free(const Device& device);
+	void freeMeshesDeviceMemory();
 	///////////////////////////////////////////////////////////////////////////////////////
 
 	entt::registry&		  getRegistry() { return _registry; }
@@ -250,6 +262,14 @@ class Scene {
 	RollingBuffer<float>   _tlasUpdateTimes;
 	RollingBuffer<float>   _cpuTLASUpdateTimes;
 	RollingBuffer<float>   _cpuBLASUpdateTimes;
+
+	DescriptorPool		_vertexSkinningDescriptorPool;
+	DescriptorSetLayout _vertexSkinningDescriptorSetLayout;
+	Pipeline			_vertexSkinningPipeline;
+	const uint32_t		MaxJoints = 512;
+	Buffer				_jointsBuffer;
+	DeviceMemory		_jointsMemory;
+	void				writeSkinningDescriptorSet(const Device&, const SkinnedMeshRendererComponent&);
 
 	// FIXME: Should not be there.
 	template<typename T>

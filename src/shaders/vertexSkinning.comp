@@ -1,0 +1,44 @@
+#version 460
+#extension GL_EXT_shader_16bit_storage : enable
+
+layout (local_size_x = 1) in;
+
+layout(set = 0, binding = 0) buffer JointTransformsBuffer {
+    mat4 JointTransforms[];
+};
+layout(set = 0, binding = 1) buffer SkinJointsBuffer {
+    uint16_t SkinJoints[];
+};
+layout(set = 0, binding = 2) buffer SkinWeightsBuffer {
+    vec4 SkinWeights[];
+};
+layout(set = 0, binding = 3) buffer VertexBuffer {
+    vec4 Vertices[];
+};
+layout(set = 0, binding = 4) buffer OuputBuffer {
+    vec4 Output[];
+};
+
+layout(push_constant) uniform constants
+{
+	uint srcOffset;
+	uint dstOffset;
+};
+
+#include "Vertex.glsl"
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+
+	mat4 skinMatrix = SkinWeights[i][0] * JointTransforms[uint(SkinJoints[4 * i + 0])] + 
+                      SkinWeights[i][1] * JointTransforms[uint(SkinJoints[4 * i + 1])] +
+					  SkinWeights[i][2] * JointTransforms[uint(SkinJoints[4 * i + 2])] + 
+                      SkinWeights[i][3] * JointTransforms[uint(SkinJoints[4 * i + 3])];
+
+    vec3 newPosition = (skinMatrix * vec4(unpackVertexPosition(i + srcOffset), 1.0f)).xyz;
+    vec3 motionVector = newPosition - Output[VertexStride * (i + dstOffset) + 0].xyz;
+    Output[VertexStride * (i + dstOffset) + 0].xyz = newPosition;
+
+    // TODO: Store Motion Vectors (difference with previous value)
+}

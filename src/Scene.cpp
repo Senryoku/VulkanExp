@@ -20,6 +20,7 @@
 #include <vulkan/Image.hpp>
 #include <vulkan/ImageView.hpp>
 #include <vulkan/Material.hpp>
+#include <vulkan/Shader.hpp>
 
 Scene::Scene() {
 	_registry.on_destroy<NodeComponent>().connect<&Scene::onDestroyNodeComponent>(this);
@@ -309,7 +310,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 			// TODO: Use the Mesh's SKIN!
 			if(skinnedMesh)
-				mesh.setSkin(SkinVertexData{weights, joints});
+				mesh.setSkinVertexData(SkinVertexData{weights, joints});
 
 			if(positionAccessor.contains("min") && positionAccessor.contains("max")) {
 				mesh.setBounds({
@@ -885,186 +886,6 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 	return false;
 }
 
-void Scene::allocateMeshes(const Device& device) {
-	if(VertexBuffer) {
-		VertexBuffer.destroy();
-		IndexBuffer.destroy();
-		OffsetTableBuffer.destroy();
-		VertexMemory.free();
-		IndexMemory.free();
-		OffsetTableMemory.free();
-
-		NextVertexMemoryOffsetInBytes = 0;
-		NextIndexMemoryOffsetInBytes = 0;
-	}
-
-	updateMeshOffsetTable();
-	auto vertexMemoryTypeBits = getMeshes()[0].getVertexBuffer().getMemoryRequirements().memoryTypeBits;
-	auto indexMemoryTypeBits = getMeshes()[0].getIndexBuffer().getMemoryRequirements().memoryTypeBits;
-	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(vertexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-						  StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
-	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(indexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), StaticIndexBufferSizeInBytes);
-	for(auto meshIdx = 0; meshIdx < getMeshes().size(); ++meshIdx) {
-		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffsetInBytes);
-		NextVertexMemoryOffsetInBytes += getMeshes()[meshIdx].getVertexBuffer().getMemoryRequirements().size;
-		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffsetInBytes);
-		NextIndexMemoryOffsetInBytes += getMeshes()[meshIdx].getIndexBuffer().getMemoryRequirements().size;
-	}
-	// Create views to the entire dataset
-	VertexBuffer.create(device,
-						VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-						StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes);
-	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
-	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, StaticIndexBufferSizeInBytes);
-	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
-
-	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-							 StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry)); // FIXME: Static memory for 1024 additional dynamic instances
-	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	uploadMeshOffsetTable(device);
-
-	allocateDynamicMeshes(device);
-}
-
-void Scene::updateMeshOffsetTable() {
-	size_t totalVertexSize = 0;
-	size_t totalIndexSize = 0;
-	_offsetTable.clear();
-	for(auto& m : getMeshes()) {
-		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
-		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
-		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
-		_offsetTable.push_back(OffsetEntry{
-			static_cast<uint32_t>(m.defaultMaterialIndex),
-			static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
-			static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t)),
-		});
-		totalVertexSize += vertexBufferMemReq.size;
-		totalIndexSize += indexBufferMemReq.size;
-	}
-	StaticVertexBufferSizeInBytes = totalVertexSize;
-	StaticIndexBufferSizeInBytes = totalIndexSize;
-	StaticOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
-}
-
-void Scene::uploadMeshOffsetTable(const Device& device) {
-	copyViaStagingBuffer(device, OffsetTableBuffer, _offsetTable);
-}
-
-void Scene::allocateDynamicMeshes(const Device& device) {
-	sortRenderers();
-	updateDynamicMeshOffsetTable();
-	uploadDynamicMeshOffsetTable(device);
-	if(!_updateQueryPools.empty())
-		_updateQueryPools.clear();
-	_updateQueryPools.resize(2);
-	for(size_t i = 0; i < 2; i++) {
-		_updateQueryPools[i].create(device, VK_QUERY_TYPE_TIMESTAMP, 2);
-	}
-}
-
-void Scene::updateDynamicMeshOffsetTable() {
-	auto   instances = getRegistry().view<SkinnedMeshRendererComponent>();
-	size_t totalVertexSize = 0;
-	size_t idx = 0;
-	_dynamicOffsetTable.clear();
-	for(auto& entity : instances) {
-		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
-		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
-		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size() + _dynamicOffsetTable.size());
-		_dynamicOffsetTable.push_back(OffsetEntry{
-			static_cast<uint32_t>(skinnedMeshRenderer.materialIndex),
-			static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
-			static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset),
-		});
-		totalVertexSize += vertexBufferMemReq.size;
-	}
-	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
-	assert(_dynamicOffsetTable.size() < 1024);
-
-	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
-}
-
-void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
-	if(_dynamicOffsetTable.size() > 0)
-		copyViaStagingBuffer(device, OffsetTableBuffer, _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
-}
-
-bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
-	// TODO: Move this to its own method
-	// TODO: Morph (i.e. weights animation)
-	auto animatedNodes = _registry.view<AnimationComponent>();
-	for(auto& entity : animatedNodes) {
-		auto& animationComponent = _registry.get<AnimationComponent>(entity);
-		animationComponent.time += deltaTime;
-		if(animationComponent.animationIndex != InvalidAnimationIndex)
-			for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
-				auto pose = n.second.at(animationComponent.time);
-				// Use this pose transform in the hierarchy
-				markDirty(n.first);
-				_registry.get<NodeComponent>(n.first).transform = pose.transform;
-			}
-	}
-
-	// TODO: CPU first, then move it to a compute shader?
-	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
-	if(instances.empty())
-		return false;
-	std::vector<Vertex>			   transformedVertices;
-	std::mutex					   verticesMutex;
-	std::vector<std::future<void>> wait;
-
-	size_t				verticesCounts = 0;
-	std::vector<size_t> offsets;
-	for(auto& entity : instances) {
-		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
-		offsets.push_back(verticesCounts);
-		verticesCounts += _meshes[skinnedMeshRenderer.meshIndex].getVertices().size();
-	}
-	if(verticesCounts == 0)
-		return false;
-	transformedVertices.resize(verticesCounts);
-
-	size_t instanceIdx = 0;
-	for(auto& entity : instances) {
-		size_t offset = offsets[instanceIdx];
-		wait.emplace_back(ThreadPool::GetInstance().queue([&, entity, offset] {
-			auto&		skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
-			const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
-
-			const auto& mesh = _meshes[skinnedMeshRenderer.meshIndex];
-			const auto& vertices = mesh.getVertices();
-			const auto& joints = mesh.getSkin().joints;
-			const auto& weights = mesh.getSkin().weights;
-
-			// Compute the world-space transform of each joint, convert entity id to joint index, and precompute transform * inverseBindMatrices
-			std::vector<glm::mat4> jointPoses;
-			size_t				   idx = 0;
-			// FIXME: Not sure what inverseGlobalTransform should be.
-			auto	  parent = _registry.get<NodeComponent>(entity).parent;
-			glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(parent)));
-			for(auto& j : skin.joints) {
-				jointPoses.push_back(inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(j)) * skin.inverseBindMatrices[idx]);
-				++idx;
-			}
-
-			for(size_t i = 0; i < vertices.size(); ++i) {
-				auto skinMatrix = weights[i][0] * jointPoses[joints[i].indices[0]] + weights[i][1] * jointPoses[joints[i].indices[1]] +
-								  weights[i][2] * jointPoses[joints[i].indices[2]] + weights[i][3] * jointPoses[joints[i].indices[3]];
-				transformedVertices[offset + i] = vertices[i];
-				transformedVertices[offset + i].pos = glm::vec3(skinMatrix * glm::vec4(transformedVertices[offset + i].pos, 1.0));
-			}
-		}));
-		++instanceIdx;
-	}
-	for(auto& f : wait)
-		f.wait();
-
-	copyViaStagingBuffer(device, VertexBuffer, transformedVertices, 0, StaticVertexBufferSizeInBytes);
-	return true;
-}
-
 bool Scene::update(const Device& device, float deltaTime) {
 	QuickTimer qt(_updateTimes);
 	bool	   hierarchicalChanges = false;
@@ -1085,6 +906,118 @@ bool Scene::update(const Device& device, float deltaTime) {
 		updateTLAS(device);
 
 	return hierarchicalChanges;
+}
+
+bool Scene::isAncestor(entt::entity ancestor, entt::entity entity) const {
+	const auto& node = _registry.get<NodeComponent>(entity);
+	auto		parent = node.parent;
+	while(parent != entt::null) {
+		if(parent == ancestor)
+			return true;
+		parent = _registry.get<NodeComponent>(parent).parent;
+	}
+	return false;
+}
+
+glm::mat4 Scene::getGlobalTransform(const NodeComponent& node) const {
+	auto transform = node.transform;
+	auto parent = node.parent;
+	while(parent != entt::null) {
+		const auto& parentNode = _registry.get<NodeComponent>(parent);
+		transform = parentNode.transform * transform;
+		parent = parentNode.parent;
+	}
+	return transform;
+}
+
+entt::entity Scene::intersectNodes(Ray& ray) {
+	Hit			 best;
+	entt::entity bestNode = entt::null;
+	const auto&	 meshes = getMeshes();
+	// FIXME: Uses base geometry of SkinnedMesh, which will lead to imprecise results
+	// Note: If we had cached/precomputed node bounds (without the need of meshes), we could speed this up a lot (basically an acceleration structure).
+	forEachNode([&](entt::entity entity, glm::mat4 transform) {
+		auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
+		auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
+		if(auto meshIndex = mesh ? mesh->meshIndex : skinnedMesh ? skinnedMesh->meshIndex : InvalidMeshIndex; meshIndex != InvalidMeshIndex) {
+			auto hit = intersect(ray, transform * meshes[meshIndex].getBounds());
+			if(hit.hit && hit.depth < best.depth) {
+				Ray localRay = glm::inverse(transform) * ray;
+				hit = intersect(localRay, meshes[meshIndex]);
+				hit.depth = glm::length(glm::vec3(transform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - ray.origin);
+				if(hit.hit && hit.depth < best.depth) {
+					best = hit;
+					bestNode = entity;
+				}
+			}
+		}
+	});
+	return bestNode;
+}
+
+void Scene::removeFromHierarchy(entt::entity entity) {
+	auto& node = _registry.get<NodeComponent>(entity);
+	if(node.prev != entt::null)
+		_registry.get<NodeComponent>(node.prev).next = node.next;
+	if(node.next != entt::null)
+		_registry.get<NodeComponent>(node.next).prev = node.prev;
+	if(node.parent != entt::null) {
+		auto& parentNode = _registry.get<NodeComponent>(node.parent);
+		if(parentNode.first == entity)
+			parentNode.first = node.next;
+		--parentNode.children;
+	}
+	node.next = entt::null;
+	node.prev = entt::null;
+	node.parent = entt::null;
+}
+
+void Scene::addChild(entt::entity parent, entt::entity child) {
+	assert(parent != child);
+	auto& parentNode = _registry.get<NodeComponent>(parent);
+	auto& childNode = _registry.get<NodeComponent>(child);
+	assert(childNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+	if(parentNode.first == entt::null) {
+		parentNode.first = child;
+	} else {
+		auto lastChild = parentNode.first;
+		while(_registry.get<NodeComponent>(lastChild).next != entt::null) {
+			lastChild = _registry.get<NodeComponent>(lastChild).next;
+		}
+		_registry.get<NodeComponent>(lastChild).next = child;
+		childNode.prev = lastChild;
+	}
+	childNode.parent = parent;
+	++parentNode.children;
+	markDirty(parent);
+	markDirty(child);
+}
+
+void Scene::addSibling(entt::entity target, entt::entity other) {
+	assert(target != other);
+	auto& targetNode = _registry.get<NodeComponent>(target);
+	auto& otherNode = _registry.get<NodeComponent>(other);
+	assert(otherNode.parent == entt::null); // We should probably handle this case, but we don't right now!
+	auto& parentNode = _registry.get<NodeComponent>(targetNode.parent);
+	++parentNode.children;
+	otherNode.parent = targetNode.parent;
+	if(targetNode.next != entt::null)
+		_registry.get<NodeComponent>(targetNode.next).prev = other;
+	otherNode.next = targetNode.next;
+	otherNode.prev = target;
+	targetNode.next = other;
+}
+
+void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity) {
+	auto& node = registry.get<NodeComponent>(entity);
+	print("Scene::onDestroyNodeComponent '{}' ({})\n", node.name, entity);
+	removeFromHierarchy(entity);
+	auto child = node.first;
+	while(child != entt::null) {
+		auto tmp = registry.get<NodeComponent>(child).next;
+		registry.destroy(child); // Mmmh...?
+		child = tmp;
+	}
 }
 
 void Scene::destroyAccelerationStructure(const Device& device) {
@@ -1115,6 +1048,7 @@ void Scene::destroyTLAS(const Device& device) {
 
 void Scene::free(const Device& device) {
 	destroyAccelerationStructure(device);
+	destroyVertexSkinningPipeline();
 
 	if(!_updateQueryPools.empty())
 		_updateQueryPools.clear();
@@ -1122,16 +1056,201 @@ void Scene::free(const Device& device) {
 	for(auto& m : getMeshes())
 		m.destroy();
 
+	freeMeshesDeviceMemory();
+}
+
+void Scene::freeMeshesDeviceMemory() {
 	OffsetTableBuffer.destroy();
 	IndexBuffer.destroy();
 	VertexBuffer.destroy();
+
 	OffsetTableMemory.free();
 	VertexMemory.free();
 	IndexMemory.free();
+	JointsMemory.free();
+	WeightsMemory.free();
+
 	NextVertexMemoryOffsetInBytes = 0;
 	NextIndexMemoryOffsetInBytes = 0;
 	StaticOffsetTableSizeInBytes = 0;
 	StaticVertexBufferSizeInBytes = 0;
+
+	NextJointsMemoryOffsetInBytes = 0;
+	NextWeightsMemoryOffsetInBytes = 0;
+	StaticJointsBufferSizeInBytes = 0;
+	StaticWeightsBufferSizeInBytes = 0;
+}
+
+void Scene::allocateMeshes(const Device& device) {
+	if(VertexBuffer)
+		freeMeshesDeviceMemory();
+
+	updateMeshOffsetTable();
+	auto vertexMemoryTypeBits = getMeshes()[0].getVertexBuffer().getMemoryRequirements().memoryTypeBits;
+	auto indexMemoryTypeBits = getMeshes()[0].getIndexBuffer().getMemoryRequirements().memoryTypeBits;
+	VertexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(vertexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+						  StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
+	IndexMemory.allocate(device, device.getPhysicalDevice().findMemoryType(indexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), StaticIndexBufferSizeInBytes);
+	for(auto meshIdx = 0; meshIdx < getMeshes().size(); ++meshIdx) {
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getVertexBuffer(), VertexMemory, NextVertexMemoryOffsetInBytes);
+		NextVertexMemoryOffsetInBytes += getMeshes()[meshIdx].getVertexBuffer().getMemoryRequirements().size;
+		vkBindBufferMemory(device, getMeshes()[meshIdx].getIndexBuffer(), IndexMemory, NextIndexMemoryOffsetInBytes);
+		NextIndexMemoryOffsetInBytes += getMeshes()[meshIdx].getIndexBuffer().getMemoryRequirements().size;
+
+		if(getMeshes()[meshIdx].isSkinned()) {
+			if(!JointsMemory) {
+				JointsMemory.allocate(device,
+									  device.getPhysicalDevice().findMemoryType(getMeshes()[meshIdx].getSkinJointsBuffer().getMemoryRequirements().memoryTypeBits,
+																				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+									  StaticJointsBufferSizeInBytes);
+				WeightsMemory.allocate(device,
+									   device.getPhysicalDevice().findMemoryType(getMeshes()[meshIdx].getSkinWeightsBuffer().getMemoryRequirements().memoryTypeBits,
+																				 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+									   StaticWeightsBufferSizeInBytes);
+			}
+			vkBindBufferMemory(device, getMeshes()[meshIdx].getSkinJointsBuffer(), JointsMemory, NextJointsMemoryOffsetInBytes);
+			NextJointsMemoryOffsetInBytes += getMeshes()[meshIdx].getSkinJointsBuffer().getMemoryRequirements().size;
+			vkBindBufferMemory(device, getMeshes()[meshIdx].getSkinWeightsBuffer(), WeightsMemory, NextWeightsMemoryOffsetInBytes);
+			NextWeightsMemoryOffsetInBytes += getMeshes()[meshIdx].getSkinWeightsBuffer().getMemoryRequirements().size;
+		}
+	}
+	// Create views to the entire dataset
+	VertexBuffer.create(device,
+						VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+							VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+						StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes);
+	vkBindBufferMemory(device, VertexBuffer, VertexMemory, 0);
+	IndexBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, StaticIndexBufferSizeInBytes);
+	vkBindBufferMemory(device, IndexBuffer, IndexMemory, 0);
+
+	OffsetTableBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+							 StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry)); // FIXME: Static memory for 1024 additional dynamic instances
+	OffsetTableMemory.allocate(device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	uploadMeshOffsetTable(device);
+
+	allocateDynamicMeshes(device);
+}
+
+void Scene::updateMeshOffsetTable() {
+	size_t totalVertexSize = 0;
+	size_t totalIndexSize = 0;
+	StaticJointsBufferSizeInBytes = 0;
+	StaticWeightsBufferSizeInBytes = 0;
+	_offsetTable.clear();
+	for(auto& m : getMeshes()) {
+		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
+		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
+		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
+		_offsetTable.push_back(OffsetEntry{
+			static_cast<uint32_t>(m.defaultMaterialIndex),
+			static_cast<uint32_t>(totalVertexSize / sizeof(Vertex)),
+			static_cast<uint32_t>(totalIndexSize / sizeof(uint32_t)),
+		});
+		totalVertexSize += vertexBufferMemReq.size;
+		totalIndexSize += indexBufferMemReq.size;
+
+		if(m.isSkinned()) {
+			StaticJointsBufferSizeInBytes += m.getSkinJointsBuffer().getMemoryRequirements().size;
+			StaticWeightsBufferSizeInBytes += m.getSkinWeightsBuffer().getMemoryRequirements().size;
+		}
+	}
+	StaticVertexBufferSizeInBytes = totalVertexSize;
+	StaticIndexBufferSizeInBytes = totalIndexSize;
+	StaticOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _offsetTable.size());
+}
+
+void Scene::uploadMeshOffsetTable(const Device& device) {
+	copyViaStagingBuffer(device, OffsetTableBuffer, _offsetTable);
+}
+
+void Scene::allocateDynamicMeshes(const Device& device) {
+	sortRenderers();
+	updateDynamicMeshOffsetTable();
+	uploadDynamicMeshOffsetTable(device);
+
+	_updateQueryPools.clear();
+	_updateQueryPools.resize(2);
+	for(auto& query : _updateQueryPools)
+		query.create(device, VK_QUERY_TYPE_TIMESTAMP, 2);
+}
+
+void Scene::updateDynamicMeshOffsetTable() {
+	auto   instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	size_t totalVertexSize = 0;
+	size_t idx = 0;
+	_dynamicOffsetTable.clear();
+	for(auto& entity : instances) {
+		auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		auto  vertexBufferMemReq = _meshes[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
+		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size() + _dynamicOffsetTable.size());
+		_dynamicOffsetTable.push_back(OffsetEntry{
+			static_cast<uint32_t>(skinnedMeshRenderer.materialIndex),
+			static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
+			static_cast<uint32_t>(_offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset),
+		});
+		totalVertexSize += vertexBufferMemReq.size;
+	}
+	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
+	assert(_dynamicOffsetTable.size() < 1024);
+
+	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
+}
+
+void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
+	if(_dynamicOffsetTable.size() > 0)
+		copyViaStagingBuffer(device, OffsetTableBuffer, _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
+}
+
+struct VertexSkinningPushConstant {
+	uint32_t srcOffset = 0;
+	uint32_t dstOffset = 0;
+};
+
+bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
+	// TODO: Move this to its own method
+	// TODO: Morph (i.e. weights animation)
+	auto animatedNodes = _registry.view<AnimationComponent>();
+	for(auto& entity : animatedNodes) {
+		auto& animationComponent = _registry.get<AnimationComponent>(entity);
+		animationComponent.time += deltaTime;
+		if(animationComponent.animationIndex != InvalidAnimationIndex)
+			for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
+				auto pose = n.second.at(animationComponent.time);
+				// Use this pose transform in the hierarchy
+				markDirty(n.first);
+				_registry.get<NodeComponent>(n.first).transform = pose.transform;
+			}
+	}
+
+	auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
+	for(auto& entity : instances) {
+		const auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+		const auto& skin = _skins[skinnedMeshRenderer.skinIndex];
+
+		std::vector<glm::mat4> jointPoses;
+		jointPoses.resize(skin.joints.size());
+		// FIXME: Not sure what inverseGlobalTransform should be.
+		const auto		parent = _registry.get<NodeComponent>(entity).parent;
+		const glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(getGlobalTransform(_registry.get<NodeComponent>(parent)));
+		for(auto i = 0; i < skin.joints.size(); ++i)
+			jointPoses[i] = (inverseGlobalTransform * getGlobalTransform(_registry.get<NodeComponent>(skin.joints[i])) * skin.inverseBindMatrices[i]);
+		_jointsMemory.fill(jointPoses.data(), jointPoses.size());
+		writeSkinningDescriptorSet(device, skinnedMeshRenderer);
+
+		device.immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
+			_vertexSkinningPipeline.bind(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _vertexSkinningPipeline.getLayout(), 0, 1, &_vertexSkinningDescriptorPool.getDescriptorSets()[0],
+									0, 0);
+			VertexSkinningPushConstant constants{
+				.srcOffset = _offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset,
+				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
+			};
+			vkCmdPushConstants(commandBuffer, _vertexSkinningPipeline.getLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VertexSkinningPushConstant), &constants);
+			vkCmdDispatch(commandBuffer, _meshes[skinnedMeshRenderer.meshIndex].getVertices().size(), 1, 1);
+		});
+	}
+	return true;
 }
 
 inline static [[nodiscard]] VkAccelerationStructureBuildSizesInfoKHR getBuildSize(const Device&										device,
@@ -1250,7 +1369,6 @@ void Scene::createAccelerationStructure(const Device& device) {
 
 		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
 		// Create an additional BLAS for each skinned mesh instance.
-		updateDynamicVertexBuffer(device, 0); // Make sure the vertex data is available. FIXME: Should not be there.
 		auto instances = getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
 			auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
@@ -1589,114 +1707,124 @@ void Scene::updateTransforms(const Device& device) {
 	copyViaStagingBuffer(device, _instancesBuffer, _instancesData);
 }
 
-bool Scene::isAncestor(entt::entity ancestor, entt::entity entity) const {
-	const auto& node = _registry.get<NodeComponent>(entity);
-	auto		parent = node.parent;
-	while(parent != entt::null) {
-		if(parent == ancestor)
-			return true;
-		parent = _registry.get<NodeComponent>(parent).parent;
-	}
-	return false;
-}
+void Scene::createVertexSkinningPipeline(const Device& device) {
+	if(_vertexSkinningPipeline)
+		destroyVertexSkinningPipeline();
 
-glm::mat4 Scene::getGlobalTransform(const NodeComponent& node) const {
-	auto transform = node.transform;
-	auto parent = node.parent;
-	while(parent != entt::null) {
-		const auto& parentNode = _registry.get<NodeComponent>(parent);
-		transform = parentNode.transform * transform;
-		parent = parentNode.parent;
-	}
-	return transform;
-}
+	DescriptorSetLayoutBuilder skinningDSLB;
+	skinningDSLB
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 0 Joints
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 1 Skin Joints
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 2 Skin Weights
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Base Vertices
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 4 Output Vertices
+		;
+	_vertexSkinningDescriptorSetLayout = skinningDSLB.build(device);
+	VkPushConstantRange pushConstants{
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.offset = 0,
+		.size = 2 * sizeof(uint32_t),
+	};
+	_vertexSkinningPipeline.getLayout().create(device, {_vertexSkinningDescriptorSetLayout}, {pushConstants});
+	Shader						vertexSkinningShader(device, "./shaders_spv/vertexSkinning.comp.spv");
+	VkComputePipelineCreateInfo info{
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.stage = vertexSkinningShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+		.layout = _vertexSkinningPipeline.getLayout(),
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = 0,
+	};
+	_vertexSkinningPipeline.create(device, info);
 
-entt::entity Scene::intersectNodes(Ray& ray) {
-	Hit			 best;
-	entt::entity bestNode = entt::null;
-	const auto&	 meshes = getMeshes();
-	// FIXME: Uses base geometry of SkinnedMesh, which will lead to imprecise results
-	// Note: If we had cached/precomputed node bounds (without the need of meshes), we could speed this up a lot (basically an acceleration structure).
-	forEachNode([&](entt::entity entity, glm::mat4 transform) {
-		auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
-		auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
-		if(auto meshIndex = mesh ? mesh->meshIndex : skinnedMesh ? skinnedMesh->meshIndex : InvalidMeshIndex; meshIndex != InvalidMeshIndex) {
-			auto hit = intersect(ray, transform * meshes[meshIndex].getBounds());
-			if(hit.hit && hit.depth < best.depth) {
-				Ray localRay = glm::inverse(transform) * ray;
-				hit = intersect(localRay, meshes[meshIndex]);
-				hit.depth = glm::length(glm::vec3(transform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - ray.origin);
-				if(hit.hit && hit.depth < best.depth) {
-					best = hit;
-					bestNode = entity;
-				}
-			}
+	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
+	layoutsToAllocate.push_back(_vertexSkinningDescriptorSetLayout);
+	_vertexSkinningDescriptorPool.create(device, layoutsToAllocate.size(),
+										 std::array<VkDescriptorPoolSize, 1>{
+											 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5},
+										 });
+	_vertexSkinningDescriptorPool.allocate(layoutsToAllocate);
+
+	_jointsBuffer.create(device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, MaxJoints * sizeof(glm::mat4));
+	_jointsMemory.allocate(device, _jointsBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// Copy base vertices. Skinning will only update the relevant data (position (& normal?))
+	// FIXME: This is probably not the place to do this.
+	device.immediateSubmitTransfert([&](const CommandBuffer& commandBuffer) {
+		auto					  instances = getRegistry().view<SkinnedMeshRendererComponent>();
+		std::vector<VkBufferCopy> regions;
+		for(auto& entity : instances) {
+			auto& skinnedMeshRenderer = getRegistry().get<SkinnedMeshRendererComponent>(entity);
+			auto  vertexSize = _meshes[skinnedMeshRenderer.meshIndex].getVertexByteSize();
+			regions.push_back({
+				.srcOffset = _offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset * sizeof(Vertex),
+				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset * sizeof(Vertex),
+				.size = vertexSize,
+			});
 		}
+		if(!regions.empty())
+			vkCmdCopyBuffer(commandBuffer, VertexBuffer, VertexBuffer, regions.size(), regions.data());
 	});
-	return bestNode;
 }
 
-void Scene::removeFromHierarchy(entt::entity entity) {
-	auto& node = _registry.get<NodeComponent>(entity);
-	if(node.prev != entt::null)
-		_registry.get<NodeComponent>(node.prev).next = node.next;
-	if(node.next != entt::null)
-		_registry.get<NodeComponent>(node.next).prev = node.prev;
-	if(node.parent != entt::null) {
-		auto& parentNode = _registry.get<NodeComponent>(node.parent);
-		if(parentNode.first == entity)
-			parentNode.first = node.next;
-		--parentNode.children;
-	}
-	node.next = entt::null;
-	node.prev = entt::null;
-	node.parent = entt::null;
+void Scene::writeSkinningDescriptorSet(const Device& device, const SkinnedMeshRendererComponent& comp) {
+	const auto&			mesh = _meshes[comp.meshIndex];
+	DescriptorSetWriter writer(_vertexSkinningDescriptorPool.getDescriptorSets()[0]);
+	writer
+		.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			 {
+				 .buffer = _jointsBuffer,
+				 .offset = 0,
+				 .range = VK_WHOLE_SIZE,
+			 })
+		.add(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			 {
+				 .buffer = mesh.getSkinJointsBuffer(),
+				 .offset = 0,
+				 .range = VK_WHOLE_SIZE,
+			 })
+		.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			 {
+				 .buffer = mesh.getSkinWeightsBuffer(),
+				 .offset = 0,
+				 .range = VK_WHOLE_SIZE,
+			 })
+		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			 {
+				 .buffer = VertexBuffer,
+				 .offset = 0,
+				 .range = VK_WHOLE_SIZE,
+			 })
+		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			 {
+				 .buffer = VertexBuffer,
+				 .offset = 0,
+				 .range = VK_WHOLE_SIZE,
+			 })
+		/*
+		// We could bind the slice that we're interested in, but this would require us to adhere to storage alignement requirements,
+		// I'll just pass the offsets as push constants, at least for now.
+		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		 {
+			 .buffer = VertexBuffer,
+			 .offset = _offsetTable[mesh.indexIntoOffsetTable].vertexOffset,
+			 .range = mesh.getVertexByteSize(),
+		 })
+		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		 {
+			 .buffer = VertexBuffer,
+			 .offset = _dynamicOffsetTable[comp.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
+			 .range = mesh.getVertexByteSize(),
+		 })
+		 */
+		.update(device);
 }
 
-void Scene::addChild(entt::entity parent, entt::entity child) {
-	assert(parent != child);
-	auto& parentNode = _registry.get<NodeComponent>(parent);
-	auto& childNode = _registry.get<NodeComponent>(child);
-	assert(childNode.parent == entt::null); // We should probably handle this case, but we don't right now!
-	if(parentNode.first == entt::null) {
-		parentNode.first = child;
-	} else {
-		auto lastChild = parentNode.first;
-		while(_registry.get<NodeComponent>(lastChild).next != entt::null) {
-			lastChild = _registry.get<NodeComponent>(lastChild).next;
-		}
-		_registry.get<NodeComponent>(lastChild).next = child;
-		childNode.prev = lastChild;
-	}
-	childNode.parent = parent;
-	++parentNode.children;
-	markDirty(parent);
-	markDirty(child);
-}
-
-void Scene::addSibling(entt::entity target, entt::entity other) {
-	assert(target != other);
-	auto& targetNode = _registry.get<NodeComponent>(target);
-	auto& otherNode = _registry.get<NodeComponent>(other);
-	assert(otherNode.parent == entt::null); // We should probably handle this case, but we don't right now!
-	auto& parentNode = _registry.get<NodeComponent>(targetNode.parent);
-	++parentNode.children;
-	otherNode.parent = targetNode.parent;
-	if(targetNode.next != entt::null)
-		_registry.get<NodeComponent>(targetNode.next).prev = other;
-	otherNode.next = targetNode.next;
-	otherNode.prev = target;
-	targetNode.next = other;
-}
-
-void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity) {
-	auto& node = registry.get<NodeComponent>(entity);
-	print("Scene::onDestroyNodeComponent '{}' ({})\n", node.name, entity);
-	removeFromHierarchy(entity);
-	auto child = node.first;
-	while(child != entt::null) {
-		auto tmp = registry.get<NodeComponent>(child).next;
-		registry.destroy(child); // Mmmh...?
-		child = tmp;
-	}
+void Scene::destroyVertexSkinningPipeline() {
+	_vertexSkinningPipeline.destroy();
+	_vertexSkinningDescriptorSetLayout.destroy();
+	_vertexSkinningDescriptorPool.destroy();
+	_jointsBuffer.destroy();
+	_jointsMemory.free();
 }

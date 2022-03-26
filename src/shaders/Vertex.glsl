@@ -10,16 +10,17 @@ struct Vertex {
 	uint padding;
 };
 
+const uint VertexStride = 4; // 4 vec4 per vertex
+
 // Expect an array named "Vertices" to be accessible
 Vertex unpack(uint index)
 {
 	// Unpack the vertices from the SSBO
-	const uint stride = 4; // 4 vec4 per vertex
 
-	vec4 d0 = Vertices[stride * index + 0];
-	vec4 d1 = Vertices[stride * index + 1];
-	vec4 d2 = Vertices[stride * index + 2];
-	vec4 d3 = Vertices[stride * index + 3];
+	vec4 d0 = Vertices[VertexStride * index + 0];
+	vec4 d1 = Vertices[VertexStride * index + 1];
+	vec4 d2 = Vertices[VertexStride * index + 2];
+	vec4 d3 = Vertices[VertexStride * index + 3];
 
 	Vertex v;
 	v.pos = d0.xyz;
@@ -30,5 +31,9 @@ Vertex unpack(uint index)
 	v.padding = floatBitsToUint(d3.w);
 
 	return v;
+}
+
+vec3 unpackVertexPosition(uint index) {
+	return Vertices[VertexStride * index + 0].xyz;
 }
 #endif

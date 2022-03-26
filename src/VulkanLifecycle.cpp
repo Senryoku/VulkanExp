@@ -170,6 +170,7 @@ void Editor::uploadScene() {
 
 	uploadMaterials();
 
+	_scene.createVertexSkinningPipeline(_device);
 	_scene.createAccelerationStructure(_device);
 }
 

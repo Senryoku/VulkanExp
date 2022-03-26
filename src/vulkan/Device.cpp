@@ -9,9 +9,14 @@ Device::Device(VkSurfaceKHR surface, const PhysicalDevice& physicalDevice, const
 	VkPhysicalDeviceFeatures deviceFeatures{
 		.samplerAnisotropy = VK_TRUE,
 	};
+	VkPhysicalDevice16BitStorageFeatures storage16Bits{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+		.pNext = nullptr,
+		.storageBuffer16BitAccess = VK_TRUE,
+	};
 	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
-		.pNext = nullptr,
+		.pNext = &storage16Bits,
 		.shaderSharedFloat32Atomics = true,
 		.shaderSharedFloat32AtomicAdd = true,
 	};

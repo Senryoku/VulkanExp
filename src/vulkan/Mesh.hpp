@@ -41,16 +41,30 @@ class Mesh {
 		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | usageBitsForRayTracing, indexDataSize);
 		auto vertexDataSize = getVertexByteSize();
 		_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | usageBitsForRayTracing, vertexDataSize);
+
+		if(_skinJointsBuffer) {
+			_skinJointsBuffer.destroy();
+			_skinWeightsBuffer.destroy();
+		}
+		if(isSkinned()) {
+			_skinJointsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getJointsByteSize());
+			_skinWeightsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getWeightsByteSize());
+		}
 	}
 
 	void upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue) {
 		stagingMemory.fill(_vertices);
-		auto vertexDataSize = getVertexByteSize();
-		_vertexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, vertexDataSize, queue);
+		_vertexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getVertexByteSize(), queue);
 
 		stagingMemory.fill(_indices);
-		auto indexDataSize = getIndexByteSize();
-		_indexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, indexDataSize, queue);
+		_indexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getIndexByteSize(), queue);
+
+		if(isSkinned()) {
+			stagingMemory.fill(getSkinVertexData().joints);
+			_skinJointsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getJointsByteSize(), queue);
+			stagingMemory.fill(getSkinVertexData().weights);
+			_skinWeightsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getWeightsByteSize(), queue);
+		}
 	}
 
 	inline size_t getVertexByteSize() const { return sizeof(_vertices[0]) * _vertices.size(); }
@@ -62,6 +76,8 @@ class Mesh {
 	void destroy() {
 		_indexBuffer.destroy();
 		_vertexBuffer.destroy();
+		_skinJointsBuffer.destroy();
+		_skinWeightsBuffer.destroy();
 	}
 
 	inline const std::vector<Vertex>&	getVertices() const { return _vertices; }
@@ -69,13 +85,18 @@ class Mesh {
 	inline std::vector<Vertex>&			getVertices() { return _vertices; }
 	inline std::vector<uint32_t>&		getIndices() { return _indices; }
 
-	inline const Bounds&  getBounds() const { return _bounds; }
-	inline void			  setBounds(const Bounds& b) { _bounds = b; }
-	const Bounds&		  computeBounds();
-	bool				  isSkinned() const { return _skin.has_value(); }
-	const SkinVertexData& getSkin() const { return _skin.value(); }
-	SkinVertexData&		  getSkin() { return _skin.value(); }
-	void				  setSkin(const SkinVertexData& s) { _skin.emplace(s); }
+	inline const Bounds& getBounds() const { return _bounds; }
+	inline void			 setBounds(const Bounds& b) { _bounds = b; }
+	const Bounds&		 computeBounds();
+
+	inline bool					 isSkinned() const { return _skinVertexData.has_value(); }
+	inline const SkinVertexData& getSkinVertexData() const { return _skinVertexData.value(); }
+	inline SkinVertexData&		 getSkinVertexData() { return _skinVertexData.value(); }
+	inline void					 setSkinVertexData(const SkinVertexData& s) { _skinVertexData.emplace(s); }
+	inline const Buffer&		 getSkinJointsBuffer() const { return _skinJointsBuffer; }
+	inline const Buffer&		 getSkinWeightsBuffer() const { return _skinWeightsBuffer; }
+	inline size_t				 getJointsByteSize() const { return sizeof(getSkinVertexData().joints[0]) * getSkinVertexData().joints.size(); }
+	inline size_t				 getWeightsByteSize() const { return sizeof(getSkinVertexData().weights[0]) * getSkinVertexData().weights.size(); }
 
 	void normalizeVertices();
 	void computeVertexNormals();
@@ -87,7 +108,9 @@ class Mesh {
 	std::vector<Vertex>	  _vertices;
 	std::vector<uint32_t> _indices;
 
-	std::optional<SkinVertexData> _skin{};
+	std::optional<SkinVertexData> _skinVertexData{};
+	Buffer						  _skinJointsBuffer;
+	Buffer						  _skinWeightsBuffer;
 
 	Bounds _bounds;
 };
