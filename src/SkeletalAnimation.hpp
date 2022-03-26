@@ -104,7 +104,7 @@ struct SkeletalAnimationClip {
 				if constexpr(std::is_same<T, glm::quat>()) {
 					return glm::slerp(chan.frames[i], chan.frames[i + 1], t);
 				} else {
-					return t * chan.frames[i] + (1.0f - t) * chan.frames[i + 1];
+					return (1.0f - t) * chan.frames[i] + t * chan.frames[i + 1];
 				}
 			}
 			if(chan.interpolation == Interpolation::CubicSpline) {
