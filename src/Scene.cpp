@@ -217,10 +217,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			const auto& positionBufferView = object["bufferViews"][positionAccessor["bufferView"].as<int>()];
 			const auto& positionBuffer = buffers[positionBufferView["buffer"].as<int>()];
 
-			const auto& normalAccessor = object["accessors"][p["attributes"]["NORMAL"].as<int>()];
-			const auto& normalBufferView = object["bufferViews"][normalAccessor["bufferView"].as<int>()];
-			const auto& normalBuffer = buffers[normalBufferView["buffer"].as<int>()];
-
 			auto initAccessor = [&](const std::string& name, const char** bufferData, size_t* cursor, size_t* stride, const int defaultStride = 4 * sizeof(float),
 									ComponentType expectedComponentType = ComponentType::Float, const std::string& expectedType = "VEC4") {
 				const auto& accessor = object["accessors"][p["attributes"][name].as<int>()];
@@ -233,20 +229,24 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				*stride = bufferView("byteStride", defaultStride);
 			};
 
+			const char* normalBufferData = nullptr;
+			size_t		normalCursor = 0;
+			size_t		normalStride = 0;
+			if(p["attributes"].contains("NORMAL"))
+				initAccessor("NORMAL", &normalBufferData, &normalCursor, &normalStride, sizeof(glm::vec3), ComponentType::Float, "VEC3");
+
 			const char* tangentBufferData = nullptr;
 			size_t		tangentCursor = 0;
 			size_t		tangentStride = 0;
-			if(p["attributes"].contains("TANGENT")) {
+			if(p["attributes"].contains("TANGENT"))
 				initAccessor("TANGENT", &tangentBufferData, &tangentCursor, &tangentStride);
-			}
 			// TODO: Compute tangents if not present in file.
 
 			const char* texCoordBufferData = nullptr;
 			size_t		texCoordCursor = 0;
 			size_t		texCoordStride = 0;
-			if(p["attributes"].contains("TEXCOORD_0")) {
+			if(p["attributes"].contains("TEXCOORD_0"))
 				initAccessor("TEXCOORD_0", &texCoordBufferData, &texCoordCursor, &texCoordStride, 2 * sizeof(float), ComponentType::Float, "VEC2");
-			}
 
 			bool		skinnedMesh = p["attributes"].contains("WEIGHTS_0");
 			const char* weightsBufferData = nullptr;
@@ -266,22 +266,19 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 
 			if(positionAccessor["type"].asString() == "VEC3") {
 				assert(static_cast<ComponentType>(positionAccessor["componentType"].as<int>()) == ComponentType::Float); // TODO
-				assert(static_cast<ComponentType>(normalAccessor["componentType"].as<int>()) == ComponentType::Float);	 // TODO
 				size_t positionCursor = positionAccessor("byteOffset", 0) + positionBufferView("byteOffset", 0);
 				size_t positionStride = positionBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
 
-				size_t normalCursor = normalAccessor("byteOffset", 0) + normalBufferView("byteOffset", 0);
-				size_t normalStride = normalBufferView("byteStride", static_cast<int>(3 * sizeof(float)));
-
-				assert(positionAccessor["count"].as<int>() == normalAccessor["count"].as<int>());
 				mesh.getVertices().reserve(positionAccessor["count"].as<int>());
 				for(size_t i = 0; i < positionAccessor["count"].as<int>(); ++i) {
 					Vertex v{glm::vec3{0.0, 0.0, 0.0}, glm::vec3{1.0, 1.0, 1.0}};
 					v.pos = *reinterpret_cast<const glm::vec3*>(positionBuffer.data() + positionCursor);
 					positionCursor += positionStride;
 
-					v.normal = *reinterpret_cast<const glm::vec3*>(normalBuffer.data() + normalCursor);
-					normalCursor += normalStride;
+					if(normalBufferData) {
+						v.normal = *reinterpret_cast<const glm::vec3*>(normalBufferData + normalCursor);
+						normalCursor += normalStride;
+					}
 
 					if(tangentBufferData) {
 						v.tangent = *reinterpret_cast<const glm::vec4*>(tangentBufferData + tangentCursor);
