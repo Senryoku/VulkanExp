@@ -1,18 +1,18 @@
 #version 460
 #extension GL_EXT_shader_16bit_storage : enable
 
-layout (local_size_x = 1) in;
+layout (local_size_x = 128) in;
 
-layout(set = 0, binding = 0) buffer JointTransformsBuffer {
+layout(set = 0, binding = 0) readonly restrict buffer JointTransformsBuffer {
     mat4 JointTransforms[];
 };
-layout(set = 0, binding = 1) buffer SkinJointsBuffer {
+layout(set = 0, binding = 1) readonly restrict buffer SkinJointsBuffer {
     uint16_t SkinJoints[];
 };
-layout(set = 0, binding = 2) buffer SkinWeightsBuffer {
+layout(set = 0, binding = 2) readonly restrict buffer SkinWeightsBuffer {
     vec4 SkinWeights[];
 };
-layout(set = 0, binding = 3) buffer VertexBuffer {
+layout(set = 0, binding = 3) readonly buffer VertexBuffer {
     vec4 Vertices[];
 };
 layout(set = 0, binding = 4) buffer OuputBuffer {
@@ -23,6 +23,7 @@ layout(push_constant) uniform constants
 {
 	uint srcOffset;
 	uint dstOffset;
+    uint size;
 };
 
 #include "Vertex.glsl"
@@ -30,6 +31,7 @@ layout(push_constant) uniform constants
 void main()
 {
     uint i = gl_GlobalInvocationID.x;
+    if(i >= size) return;
 
 	mat4 skinMatrix = SkinWeights[i][0] * JointTransforms[uint(SkinJoints[4 * i + 0])] + 
                       SkinWeights[i][1] * JointTransforms[uint(SkinJoints[4 * i + 1])] +
@@ -40,7 +42,7 @@ void main()
     vec3 motionVector = newPosition - Output[VertexStride * (i + dstOffset) + 0].xyz;
     Output[VertexStride * (i + dstOffset) + 0].xyz = newPosition;
 
-    // Approximate normal & tangent
+    // Approximate normal & tangent (Is it good enough?)
     vec3 normal = mat3(skinMatrix) * vec3(Vertices[VertexStride * (i + dstOffset) + 1].zw, Vertices[VertexStride * (i + dstOffset) + 2].x);
     vec3 tangent = mat3(skinMatrix) * vec3(Vertices[VertexStride * (i + dstOffset) + 2].yzw);
     Output[VertexStride * (i + srcOffset) + 1].zw = normal.xy;

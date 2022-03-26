@@ -1232,6 +1232,7 @@ void Scene::uploadDynamicMeshOffsetTable(const Device& device) {
 struct VertexSkinningPushConstant {
 	uint32_t srcOffset = 0;
 	uint32_t dstOffset = 0;
+	uint32_t size = 0;
 };
 
 bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
@@ -1272,9 +1273,10 @@ bool Scene::updateDynamicVertexBuffer(const Device& device, float deltaTime) {
 			VertexSkinningPushConstant constants{
 				.srcOffset = _offsetTable[_meshes[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset,
 				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
+				.size = static_cast<uint32_t>(_meshes[skinnedMeshRenderer.meshIndex].getVertices().size()),
 			};
 			vkCmdPushConstants(commandBuffer, _vertexSkinningPipeline.getLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VertexSkinningPushConstant), &constants);
-			vkCmdDispatch(commandBuffer, _meshes[skinnedMeshRenderer.meshIndex].getVertices().size(), 1, 1);
+			vkCmdDispatch(commandBuffer, std::ceil(_meshes[skinnedMeshRenderer.meshIndex].getVertices().size() / 128.0), 1, 1);
 		});
 	}
 	return true;
@@ -1750,7 +1752,7 @@ void Scene::createVertexSkinningPipeline(const Device& device) {
 	VkPushConstantRange pushConstants{
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 		.offset = 0,
-		.size = 2 * sizeof(uint32_t),
+		.size = sizeof(VertexSkinningPushConstant),
 	};
 	_vertexSkinningPipeline.getLayout().create(device, {_vertexSkinningDescriptorSetLayout}, {pushConstants});
 	Shader						vertexSkinningShader(device, "./shaders_spv/vertexSkinning.comp.spv");
