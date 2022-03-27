@@ -3,6 +3,7 @@
 #include <DescriptorPool.hpp>
 #include <IrradianceProbes.hpp>
 #include <Light.hpp>
+#include <Renderer.hpp>
 
 inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 	uint32_t				   texturesCount = static_cast<uint32_t>(Textures.size());
@@ -24,14 +25,15 @@ inline DescriptorSetLayoutBuilder baseDescriptorSetLayout() {
 }
 
 // Writes all the necessary descriptors for ray tracing
-inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const Scene& scene, const IrradianceProbes& irradianceProbes, const Buffer& lightBuffer) {
+inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet descSet, const Renderer& renderer, const IrradianceProbes& irradianceProbes,
+										   const Buffer& lightBuffer) {
 	DescriptorSetWriter dsw(descSet);
 
 	// Setup the descriptor for binding our top level acceleration structure to the ray tracing shaders
 	dsw.add(0, {
 				   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 				   .accelerationStructureCount = 1,
-				   .pAccelerationStructures = &scene.getTLAS(),
+				   .pAccelerationStructures = &renderer.getTLAS(),
 			   });
 
 	// Bind all textures used in the scene.
@@ -50,21 +52,21 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 	// Vertices
 	dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = scene.VertexBuffer,
+				.buffer = renderer.VertexBuffer,
 				.offset = 0,
 				.range = VK_WHOLE_SIZE,
 			});
 	// Indices
 	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = scene.IndexBuffer,
+				.buffer = renderer.IndexBuffer,
 				.offset = 0,
 				.range = VK_WHOLE_SIZE,
 			});
 	// Instance Offsets
 	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			{
-				.buffer = scene.OffsetTableBuffer,
+				.buffer = renderer.OffsetTableBuffer,
 				.offset = 0,
 				.range = VK_WHOLE_SIZE,
 			});

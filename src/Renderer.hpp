@@ -3,11 +3,13 @@
 #include <glm/glm.hpp>
 
 #include <DescriptorPool.hpp>
+#include <IrradianceProbes.hpp>
 #include <Pipeline.hpp>
 #include <Query.hpp>
 #include <RollingBuffer.hpp>
 #include <Scene.hpp>
 
+/* Allocator with fixed capacity and no deallocation */
 class StaticDeviceAllocator {
 	void init(size_t capacity_) { capacity = capacity_; }
 
@@ -37,8 +39,8 @@ class Renderer {
 	Renderer() = default;
 	Renderer(Scene& scene) : _scene(&scene) {}
 
-	void setDevice(Device& device) { _device = &device; }
-	void setScene(Scene& scene) { _scene = &scene; }
+	inline void setDevice(Device& device) { _device = &device; }
+	inline void setScene(Scene& scene) { _scene = &scene; }
 
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
@@ -49,9 +51,9 @@ class Renderer {
 	const RollingBuffer<float>& getCPUBLASUpdateTimes() const { return _cpuBLASUpdateTimes; }
 	const RollingBuffer<float>& getCPUTLASUpdateTimes() const { return _cpuTLASUpdateTimes; }
 
-	void createAccelerationStructure();
+	void createAccelerationStructures();
+	void destroyAccelerationStructures();
 	void createTLAS();
-	void destroyAccelerationStructure();
 	void destroyTLAS();
 
 	void updateTLAS();
@@ -67,9 +69,9 @@ class Renderer {
 	void updateDynamicMeshOffsetTable();
 	void uploadDynamicMeshOffsetTable();
 
-	void onHierarchicalChanges();
+	void onHierarchicalChanges(float deltaTime);
 	void update();
-	bool updateAnimations(float deltaTime);
+	bool updateAnimations(float deltaTime); // FIXME: This should probably not be in the Renderer
 	bool updateDynamicVertexBuffer();
 	bool updateDynamicBLAS();
 
@@ -80,29 +82,28 @@ class Renderer {
 
 	void free();
 
+	DeviceMemory OffsetTableMemory;
+	DeviceMemory VertexMemory;
+	DeviceMemory IndexMemory;
+	DeviceMemory JointsMemory;
+	DeviceMemory WeightsMemory;
+	size_t		 NextVertexMemoryOffsetInBytes = 0;
+	size_t		 NextIndexMemoryOffsetInBytes = 0;
+	size_t		 NextJointsMemoryOffsetInBytes = 0;
+	size_t		 NextWeightsMemoryOffsetInBytes = 0;
+	Buffer		 VertexBuffer;
+	Buffer		 IndexBuffer;
+	Buffer		 OffsetTableBuffer;
+	uint32_t	 StaticVertexBufferSizeInBytes = 0;
+	uint32_t	 StaticIndexBufferSizeInBytes = 0;
+	uint32_t	 StaticOffsetTableSizeInBytes = 0;
+	uint32_t	 StaticJointsBufferSizeInBytes = 0;
+	uint32_t	 StaticWeightsBufferSizeInBytes = 0;
+
   private:
 	Scene*	_scene = nullptr;
 	Device* _device = nullptr;
 
-	inline auto& getMeshes() const { return _scene->getMeshes(); }
-
-	DeviceMemory			 OffsetTableMemory;
-	DeviceMemory			 VertexMemory;
-	DeviceMemory			 IndexMemory;
-	DeviceMemory			 JointsMemory;
-	DeviceMemory			 WeightsMemory;
-	size_t					 NextVertexMemoryOffsetInBytes = 0;
-	size_t					 NextIndexMemoryOffsetInBytes = 0;
-	size_t					 NextJointsMemoryOffsetInBytes = 0;
-	size_t					 NextWeightsMemoryOffsetInBytes = 0;
-	Buffer					 VertexBuffer;
-	Buffer					 IndexBuffer;
-	Buffer					 OffsetTableBuffer;
-	uint32_t				 StaticVertexBufferSizeInBytes = 0;
-	uint32_t				 StaticIndexBufferSizeInBytes = 0;
-	uint32_t				 StaticOffsetTableSizeInBytes = 0;
-	uint32_t				 StaticJointsBufferSizeInBytes = 0;
-	uint32_t				 StaticWeightsBufferSizeInBytes = 0;
 	std::vector<OffsetEntry> _offsetTable;
 	Buffer					 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
 	DeviceMemory			 _blasScratchMemory;
@@ -120,8 +121,6 @@ class Renderer {
 
 	Buffer											_staticBLASBuffer;
 	DeviceMemory									_staticBLASMemory;
-	Buffer											_dynamicBLASBuffer;
-	DeviceMemory									_dynamicBLASMemory;
 	Buffer											_tlasBuffer;
 	DeviceMemory									_tlasMemory;
 	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
@@ -151,17 +150,18 @@ class Renderer {
 	const uint32_t		MaxJoints = 512;
 	Buffer				_jointsBuffer;
 	DeviceMemory		_jointsMemory;
-	void				writeSkinningDescriptorSet(const SkinnedMeshRendererComponent&);
 
-	void sortRenderers();
+	void		 writeSkinningDescriptorSet(const SkinnedMeshRendererComponent&);
+	void		 sortRenderers();
+	inline auto& getMeshes() const { return _scene->getMeshes(); }
 
 	// FIXME: Should not be there.
 	template<typename T>
 	void copyViaStagingBuffer(Buffer& buffer, const std::vector<T>& data, uint32_t srcOffset = 0, uint32_t dstOffset = 0) {
 		Buffer		 stagingBuffer;
 		DeviceMemory stagingMemory;
-		stagingBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(T) * data.size());
-		stagingMemory.allocate(device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		stagingBuffer.create(*_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(T) * data.size());
+		stagingMemory.allocate(*_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		stagingMemory.fill(data.data(), data.size());
 
 		_device->immediateSubmitTransfert([&](const CommandBuffer& cmdBuff) {

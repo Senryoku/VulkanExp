@@ -241,6 +241,7 @@ class Editor {
 
 	Scene	 _scene;
 	Renderer _renderer;
+	Renderer _editorRenderer;
 
 	bool							 _probeDebug = false;
 	bool							 _irradianceProbeAutoUpdate = true;

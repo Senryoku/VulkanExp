@@ -16,9 +16,10 @@ inline static [[nodiscard]] VkAccelerationStructureBuildSizesInfoKHR getBuildSiz
 }
 
 void Renderer::free() {
-	destroyAccelerationStructure();
+	destroyAccelerationStructures();
 	destroyVertexSkinningPipeline();
 	freeMeshesDeviceMemory();
+	_updateQueryPools.clear();
 }
 
 void Renderer::freeMeshesDeviceMemory() {
@@ -43,7 +44,7 @@ void Renderer::freeMeshesDeviceMemory() {
 	StaticWeightsBufferSizeInBytes = 0;
 }
 
-void Renderer::destroyAccelerationStructure() {
+void Renderer::destroyAccelerationStructures() {
 	destroyTLAS();
 
 	for(const auto& blas : _bottomLevelAccelerationStructures)
@@ -196,6 +197,7 @@ struct VertexSkinningPushConstant {
 };
 
 bool Renderer::updateAnimations(float deltaTime) {
+	bool changes = false;
 	// TODO: Morph (i.e. weights animation)
 	auto animatedNodes = _scene->getRegistry().view<AnimationComponent>();
 	for(auto& entity : animatedNodes) {
@@ -207,8 +209,10 @@ bool Renderer::updateAnimations(float deltaTime) {
 				// Use this pose transform in the hierarchy
 				_scene->markDirty(n.first);
 				_scene->getRegistry().get<NodeComponent>(n.first).transform = pose.transform;
+				changes = true;
 			}
 	}
+	return changes;
 }
 
 bool Renderer::updateDynamicVertexBuffer() {
@@ -243,9 +247,9 @@ bool Renderer::updateDynamicVertexBuffer() {
 	return true;
 }
 
-void Renderer::createAccelerationStructure() {
+void Renderer::createAccelerationStructures() {
 	if(_topLevelAccelerationStructure) {
-		destroyAccelerationStructure();
+		destroyAccelerationStructures();
 	}
 
 	VkFormatProperties2 formatProperties{
@@ -663,8 +667,9 @@ void Renderer::updateTLAS() {
 	_updateQueryPools[1].newSampleFlag = true;
 }
 
-void Renderer::onHierarchicalChanges() {
+void Renderer::onHierarchicalChanges(float deltaTime) {
 	updateTransforms();
+	auto updates = updateAnimations(deltaTime);
 	updateAccelerationStructureInstances();
 	auto vertexUpdate = updateDynamicVertexBuffer();
 	if(vertexUpdate)

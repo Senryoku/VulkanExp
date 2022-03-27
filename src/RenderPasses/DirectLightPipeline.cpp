@@ -1,4 +1,5 @@
 #include "Editor.hpp"
+
 #include <RaytracingDescriptors.hpp>
 
 void Editor::createDirectLightPass() {
@@ -194,7 +195,7 @@ void Editor::createDirectLightPass() {
 
 void Editor::writeDirectLightDescriptorSets() {
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_device, _directLightDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);
+		auto writer = baseSceneWriter(_device, _directLightDescriptorPool.getDescriptorSets()[i], _renderer, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
 		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {

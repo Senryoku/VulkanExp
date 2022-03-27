@@ -2,7 +2,6 @@
 
 #include <ImGuizmo.h>
 #include <Raytracing.hpp>
-#include <RaytracingDescriptors.hpp>
 #include <voxels/Chunk.hpp>
 #include <vulkan/Extension.hpp>
 
@@ -161,8 +160,8 @@ void Editor::mainLoop() {
 		if(_dirtyHierarchy) {
 			// Recreate Acceleration Structure
 			vkDeviceWaitIdle(_device); // TODO: Better sync?
-			_scene.destroyTLAS(_device);
-			_scene.createTLAS(_device);
+			_renderer.destroyTLAS();
+			_renderer.createTLAS();
 			onTLASCreation();
 			_outdatedCommandBuffers = true;
 			_dirtyHierarchy = false;
@@ -208,13 +207,15 @@ void Editor::mainLoop() {
 			_irradianceProbes.setLightBuffer(_lightUniformBuffers[_lastImageIndex]);
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
-		// FIXME: PASS proper deltaTime
+
 		const auto						   time = std::chrono::high_resolution_clock::now();
 		const std::chrono::duration<float> delta = _timeScale * (time - lastUpdate);
+		const auto						   deltaTime = delta.count();
 		lastUpdate = time;
-		const auto updates = _scene.update(delta.count());
+
+		const auto updates = _scene.update(deltaTime);
 		if(updates)
-			_renderer.onHierarchicalChanges();
+			_renderer.onHierarchicalChanges(deltaTime);
 		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
@@ -473,7 +474,7 @@ void Editor::onTLASCreation() {
 					   });
 			dsw.update(_device);
 		}
-	_irradianceProbes.writeDescriptorSet(_scene, _lightUniformBuffers[0]);
+	_irradianceProbes.writeDescriptorSet(_renderer, _lightUniformBuffers[0]);
 	// GBuffer also uses the transform buffer that was just re-created
 	writeGBufferDescriptorSets();
 }

@@ -722,14 +722,14 @@ void Editor::drawUI() {
 		if(ImPlot::BeginPlot("Updates (CPU)")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 			plot("Scene Update", _scene.getUpdateTimes());
-			plot("BLAS Update", _scene.getCPUBLASUpdateTimes());
-			plot("TLAS Update", _scene.getCPUTLASUpdateTimes());
+			plot("BLAS Update", _renderer.getCPUBLASUpdateTimes());
+			plot("TLAS Update", _renderer.getCPUTLASUpdateTimes());
 			ImPlot::EndPlot();
 		}
 		if(ImPlot::BeginPlot("Updates (GPU)")) {
 			ImPlot::SetupAxes("Frame Number", "Time (ms)", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-			plot("Dynamic BLAS", _scene.getDynamicBLASUpdateTimes());
-			plot("TLAS", _scene.getTLASUpdateTimes());
+			plot("Dynamic BLAS", _renderer.getDynamicBLASUpdateTimes());
+			plot("TLAS", _renderer.getTLASUpdateTimes());
 			ImPlot::EndPlot();
 		}
 	}
