@@ -212,7 +212,9 @@ void Editor::mainLoop() {
 		const auto						   time = std::chrono::high_resolution_clock::now();
 		const std::chrono::duration<float> delta = _timeScale * (time - lastUpdate);
 		lastUpdate = time;
-		const auto updates = _scene.update(_device, delta.count());
+		const auto updates = _scene.update(delta.count());
+		if(updates)
+			_renderer.onHierarchicalChanges();
 		if(_outdatedCommandBuffers || updates) {
 			std::vector<VkFence> fencesHandles;
 			fencesHandles.reserve(_inFlightFences.size());
@@ -467,7 +469,7 @@ void Editor::onTLASCreation() {
 			dsw.add(0, {
 						   .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
 						   .accelerationStructureCount = 1,
-						   .pAccelerationStructures = &_scene.getTLAS(),
+						   .pAccelerationStructures = &_renderer.getTLAS(),
 					   });
 			dsw.update(_device);
 		}

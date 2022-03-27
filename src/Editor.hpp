@@ -48,6 +48,7 @@
 #include <Light.hpp>
 #include <PipelineCache.hpp>
 #include <QuickTimer.hpp>
+#include <Renderer.hpp>
 #include <RollingBuffer.hpp>
 
 struct CameraBuffer {
@@ -238,7 +239,8 @@ class Editor {
 	CommandPool				 _imguiCommandPool;
 	CommandBuffers			 _imguiCommandBuffers;
 
-	Scene _scene;
+	Scene	 _scene;
+	Renderer _renderer;
 
 	bool							 _probeDebug = false;
 	bool							 _irradianceProbeAutoUpdate = true;

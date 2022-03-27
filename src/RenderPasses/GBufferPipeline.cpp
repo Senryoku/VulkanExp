@@ -338,7 +338,7 @@ void Editor::writeGBufferDescriptorSets() {
 		DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[_swapChainImages.size() * Materials.size() + i]);
 		dsw.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 				{
-					.buffer = _scene.getInstanceBuffer(),
+					.buffer = _renderer.getInstanceBuffer(),
 					.offset = 0,
 					.range = VK_WHOLE_SIZE,
 				});

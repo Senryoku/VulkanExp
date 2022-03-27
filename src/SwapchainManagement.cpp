@@ -349,7 +349,7 @@ void Editor::recordCommandBuffers() {
 				auto					currentMaterial = InvalidMaterialIndex;
 				auto					currentMesh = InvalidMeshIndex;
 				auto					skinnedMeshRenderers = _scene.getRegistry().view<SkinnedMeshRendererComponent>();
-				std::array<VkBuffer, 1> buffers{_scene.VertexBuffer};
+				std::array<VkBuffer, 1> buffers{_renderer.VertexBuffer};
 				for(const auto& entity : skinnedMeshRenderers) {
 					const auto& meshRenderer = _scene.getRegistry().get<SkinnedMeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {
@@ -373,9 +373,10 @@ void Editor::recordCommandBuffers() {
 #else
 					auto offsets = std::array<VkDeviceSize, 1>{0};
 					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
-					vkCmdDrawIndexed(b, indexCount, 1, 0,
-									 _scene._dynamicOffsetTable[meshRenderer.indexIntoOffsetTable - _scene.StaticOffsetTableSizeInBytes / sizeof(Scene::OffsetEntry)].vertexOffset,
-									 instanceBaseOffset);
+					vkCmdDrawIndexed(
+						b, indexCount, 1, 0,
+						_renderer.getDynamicOffsetTable()[meshRenderer.indexIntoOffsetTable - _renderer.StaticOffsetTableSizeInBytes / sizeof(Renderer::OffsetEntry)].vertexOffset,
+						instanceBaseOffset);
 #endif
 					++instanceBaseOffset;
 				}

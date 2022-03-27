@@ -195,8 +195,8 @@ void Editor::drawUI() {
 				if(payload) {
 					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
 					*matIdx = droppedMat;
-					_scene.updateMeshOffsetTable();
-					_scene.uploadMeshOffsetTable(_device);
+					_renderer.updateMeshOffsetTable();
+					_renderer.uploadMeshOffsetTable();
 					_outdatedCommandBuffers = true;
 				}
 				ImGui::EndDragDropTarget();
@@ -210,8 +210,8 @@ void Editor::drawUI() {
 				if(payload) {
 					auto droppedMat = *static_cast<MaterialIndex*>(payload->Data);
 					*matIdx = droppedMat;
-					_scene.updateMeshOffsetTable();
-					_scene.uploadMeshOffsetTable(_device);
+					_renderer.updateMeshOffsetTable();
+					_renderer.uploadMeshOffsetTable();
 					_outdatedCommandBuffers = true;
 				}
 				ImGui::EndDragDropTarget();
