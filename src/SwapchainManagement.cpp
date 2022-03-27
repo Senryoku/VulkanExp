@@ -349,7 +349,7 @@ void Editor::recordCommandBuffers() {
 				auto					currentMaterial = InvalidMaterialIndex;
 				auto					currentMesh = InvalidMeshIndex;
 				auto					skinnedMeshRenderers = _scene.getRegistry().view<SkinnedMeshRendererComponent>();
-				std::array<VkBuffer, 1> buffers{_renderer.VertexBuffer};
+				std::array<VkBuffer, 1> buffers{_renderer.Vertices.buffer()};
 				for(const auto& entity : skinnedMeshRenderers) {
 					const auto& meshRenderer = _scene.getRegistry().get<SkinnedMeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {

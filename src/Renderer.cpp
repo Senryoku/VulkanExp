@@ -19,29 +19,21 @@ void Renderer::free() {
 	destroyAccelerationStructures();
 	destroyVertexSkinningPipeline();
 	freeMeshesDeviceMemory();
-	_updateQueryPools.clear();
 }
 
 void Renderer::freeMeshesDeviceMemory() {
-	OffsetTableBuffer.destroy();
-	IndexBuffer.destroy();
-	VertexBuffer.destroy();
+	OffsetTable.free();
+	Vertices.free();
+	Indices.free();
+	Joints.free();
+	Weights.free();
 
-	OffsetTableMemory.free();
-	VertexMemory.free();
-	IndexMemory.free();
-	JointsMemory.free();
-	WeightsMemory.free();
-
-	NextVertexMemoryOffsetInBytes = 0;
-	NextIndexMemoryOffsetInBytes = 0;
 	StaticOffsetTableSizeInBytes = 0;
 	StaticVertexBufferSizeInBytes = 0;
-
-	NextJointsMemoryOffsetInBytes = 0;
-	NextWeightsMemoryOffsetInBytes = 0;
 	StaticJointsBufferSizeInBytes = 0;
 	StaticWeightsBufferSizeInBytes = 0;
+
+	_updateQueryPools.clear();
 }
 
 void Renderer::destroyAccelerationStructures() {
@@ -71,48 +63,33 @@ void Renderer::destroyTLAS() {
 }
 
 void Renderer::allocateMeshes() {
-	if(VertexBuffer)
+	if(Vertices)
 		freeMeshesDeviceMemory();
 
 	updateMeshOffsetTable();
-	auto vertexMemoryTypeBits = getMeshes()[0].getVertexBuffer().getMemoryRequirements().memoryTypeBits;
 	auto indexMemoryTypeBits = getMeshes()[0].getIndexBuffer().getMemoryRequirements().memoryTypeBits;
-	VertexMemory.allocate(*_device, _device->getPhysicalDevice().findMemoryType(vertexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-						  StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes); // Allocate more memory for dynamic (skinned) meshes.
-	IndexMemory.allocate(*_device, _device->getPhysicalDevice().findMemoryType(indexMemoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), StaticIndexBufferSizeInBytes);
+	Vertices.init(*_device,
+				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+					  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+	Indices.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticIndexBufferSizeInBytes,
+				 VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	for(const auto& mesh : getMeshes()) {
-		vkBindBufferMemory(*_device, mesh.getVertexBuffer(), VertexMemory, NextVertexMemoryOffsetInBytes);
-		NextVertexMemoryOffsetInBytes += mesh.getVertexBuffer().getMemoryRequirements().size;
-		vkBindBufferMemory(*_device, mesh.getIndexBuffer(), IndexMemory, NextIndexMemoryOffsetInBytes);
-		NextIndexMemoryOffsetInBytes += mesh.getIndexBuffer().getMemoryRequirements().size;
+		Vertices.bind(mesh.getVertexBuffer());
+		Indices.bind(mesh.getIndexBuffer());
 
 		if(mesh.isSkinned()) {
-			if(!JointsMemory) {
-				JointsMemory.allocate(
-					*_device, _device->getPhysicalDevice().findMemoryType(mesh.getSkinJointsBuffer().getMemoryRequirements().memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-					StaticJointsBufferSizeInBytes);
-				WeightsMemory.allocate(
-					*_device, _device->getPhysicalDevice().findMemoryType(mesh.getSkinWeightsBuffer().getMemoryRequirements().memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-					StaticWeightsBufferSizeInBytes);
+			if(!Joints) {
+				Joints.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticJointsBufferSizeInBytes);
+				Weights.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticWeightsBufferSizeInBytes);
 			}
-			vkBindBufferMemory(*_device, mesh.getSkinJointsBuffer(), JointsMemory, NextJointsMemoryOffsetInBytes);
-			NextJointsMemoryOffsetInBytes += mesh.getSkinJointsBuffer().getMemoryRequirements().size;
-			vkBindBufferMemory(*_device, mesh.getSkinWeightsBuffer(), WeightsMemory, NextWeightsMemoryOffsetInBytes);
-			NextWeightsMemoryOffsetInBytes += mesh.getSkinWeightsBuffer().getMemoryRequirements().size;
+			Joints.bind(mesh.getSkinJointsBuffer());
+			Weights.bind(mesh.getSkinWeightsBuffer());
 		}
 	}
-	// Create views to the entire dataset
-	VertexBuffer.create(*_device,
-						VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-							VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-						StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes);
-	vkBindBufferMemory(*_device, VertexBuffer, VertexMemory, 0);
-	IndexBuffer.create(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, StaticIndexBufferSizeInBytes);
-	vkBindBufferMemory(*_device, IndexBuffer, IndexMemory, 0);
 
-	OffsetTableBuffer.create(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-							 StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry)); // FIXME: Static memory for 1024 additional dynamic instances
-	OffsetTableMemory.allocate(*_device, OffsetTableBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	OffsetTable.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
 	uploadMeshOffsetTable();
 
@@ -149,7 +126,7 @@ void Renderer::updateMeshOffsetTable() {
 
 void Renderer::uploadMeshOffsetTable() {
 	if(!_offsetTable.empty())
-		copyViaStagingBuffer(OffsetTableBuffer, _offsetTable);
+		copyViaStagingBuffer(OffsetTable.buffer(), _offsetTable);
 }
 
 void Renderer::allocateDynamicMeshes() {
@@ -187,7 +164,7 @@ void Renderer::updateDynamicMeshOffsetTable() {
 
 void Renderer::uploadDynamicMeshOffsetTable() {
 	if(_dynamicOffsetTable.size() > 0)
-		copyViaStagingBuffer(OffsetTableBuffer, _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
+		copyViaStagingBuffer(OffsetTable.buffer(), _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
 }
 
 struct VertexSkinningPushConstant {
@@ -228,7 +205,7 @@ bool Renderer::updateDynamicVertexBuffer() {
 		const glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(_scene->getRegistry().get<NodeComponent>(parent).globalTransform);
 		for(auto i = 0; i < skin.joints.size(); ++i)
 			jointPoses[i] = (inverseGlobalTransform * _scene->getRegistry().get<NodeComponent>(skin.joints[i]).globalTransform * skin.inverseBindMatrices[i]);
-		_jointsMemory.fill(jointPoses.data(), jointPoses.size());
+		_currentJoints.memory().fill(jointPoses.data(), jointPoses.size());
 		writeSkinningDescriptorSet(skinnedMeshRenderer);
 
 		_device->immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
@@ -362,7 +339,7 @@ void Renderer::createAccelerationStructures() {
 			skinnedMeshRenderer.blasIndex = buildInfos.size();
 
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{
-				VertexBuffer.getDeviceAddress() +
+				Vertices.buffer().getDeviceAddress() +
 				sizeof(Vertex) * _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset};
 			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size());
 			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
@@ -743,8 +720,8 @@ void Renderer::createVertexSkinningPipeline() {
 										 });
 	_vertexSkinningDescriptorPool.allocate(layoutsToAllocate);
 
-	_jointsBuffer.create(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, MaxJoints * sizeof(glm::mat4));
-	_jointsMemory.allocate(*_device, _jointsBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_currentJoints.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+						VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, MaxJoints * sizeof(glm::mat4));
 
 	// Copy base vertices. Skinning will only update the relevant data (position (& normal?))
 	// FIXME: This is probably not the place to do this.
@@ -761,7 +738,7 @@ void Renderer::createVertexSkinningPipeline() {
 			});
 		}
 		if(!regions.empty())
-			vkCmdCopyBuffer(commandBuffer, VertexBuffer, VertexBuffer, regions.size(), regions.data());
+			vkCmdCopyBuffer(commandBuffer, Vertices.buffer(), Vertices.buffer(), regions.size(), regions.data());
 	});
 }
 
@@ -771,7 +748,7 @@ void Renderer::writeSkinningDescriptorSet(const SkinnedMeshRendererComponent& co
 	writer
 		.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			 {
-				 .buffer = _jointsBuffer,
+				 .buffer = _currentJoints.buffer(),
 				 .offset = 0,
 				 .range = VK_WHOLE_SIZE,
 			 })
@@ -789,13 +766,13 @@ void Renderer::writeSkinningDescriptorSet(const SkinnedMeshRendererComponent& co
 			 })
 		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			 {
-				 .buffer = VertexBuffer,
+				 .buffer = Vertices.buffer(),
 				 .offset = 0,
 				 .range = VK_WHOLE_SIZE,
 			 })
 		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			 {
-				 .buffer = VertexBuffer,
+				 .buffer = Vertices.buffer(),
 				 .offset = 0,
 				 .range = VK_WHOLE_SIZE,
 			 })
@@ -822,6 +799,5 @@ void Renderer::destroyVertexSkinningPipeline() {
 	_vertexSkinningPipeline.destroy();
 	_vertexSkinningDescriptorSetLayout.destroy();
 	_vertexSkinningDescriptorPool.destroy();
-	_jointsBuffer.destroy();
-	_jointsMemory.free();
+	_currentJoints.free();
 }

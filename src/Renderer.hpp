@@ -8,16 +8,7 @@
 #include <Query.hpp>
 #include <RollingBuffer.hpp>
 #include <Scene.hpp>
-
-/* Allocator with fixed capacity and no deallocation */
-class StaticDeviceAllocator {
-	void init(size_t capacity_) { capacity = capacity_; }
-
-	DeviceMemory memory;
-	Buffer		 buffer;
-	size_t		 size = 0;
-	size_t		 capacity = 0;
-};
+#include <StaticDeviceAllocator.hpp>
 
 class Renderer {
   public:
@@ -82,23 +73,16 @@ class Renderer {
 
 	void free();
 
-	DeviceMemory OffsetTableMemory;
-	DeviceMemory VertexMemory;
-	DeviceMemory IndexMemory;
-	DeviceMemory JointsMemory;
-	DeviceMemory WeightsMemory;
-	size_t		 NextVertexMemoryOffsetInBytes = 0;
-	size_t		 NextIndexMemoryOffsetInBytes = 0;
-	size_t		 NextJointsMemoryOffsetInBytes = 0;
-	size_t		 NextWeightsMemoryOffsetInBytes = 0;
-	Buffer		 VertexBuffer;
-	Buffer		 IndexBuffer;
-	Buffer		 OffsetTableBuffer;
-	uint32_t	 StaticVertexBufferSizeInBytes = 0;
-	uint32_t	 StaticIndexBufferSizeInBytes = 0;
-	uint32_t	 StaticOffsetTableSizeInBytes = 0;
-	uint32_t	 StaticJointsBufferSizeInBytes = 0;
-	uint32_t	 StaticWeightsBufferSizeInBytes = 0;
+	StaticDeviceAllocator OffsetTable;
+	StaticDeviceAllocator Vertices;
+	StaticDeviceAllocator Indices;
+	StaticDeviceAllocator Joints;
+	StaticDeviceAllocator Weights;
+	uint32_t			  StaticVertexBufferSizeInBytes = 0;
+	uint32_t			  StaticIndexBufferSizeInBytes = 0;
+	uint32_t			  StaticOffsetTableSizeInBytes = 0;
+	uint32_t			  StaticJointsBufferSizeInBytes = 0;
+	uint32_t			  StaticWeightsBufferSizeInBytes = 0;
 
   private:
 	Scene*	_scene = nullptr;
@@ -144,12 +128,11 @@ class Renderer {
 	RollingBuffer<float>   _cpuTLASUpdateTimes;
 	RollingBuffer<float>   _cpuBLASUpdateTimes;
 
-	DescriptorPool		_vertexSkinningDescriptorPool;
-	DescriptorSetLayout _vertexSkinningDescriptorSetLayout;
-	Pipeline			_vertexSkinningPipeline;
-	const uint32_t		MaxJoints = 512;
-	Buffer				_jointsBuffer;
-	DeviceMemory		_jointsMemory;
+	DescriptorPool		  _vertexSkinningDescriptorPool;
+	DescriptorSetLayout	  _vertexSkinningDescriptorSetLayout;
+	Pipeline			  _vertexSkinningPipeline;
+	const uint32_t		  MaxJoints = 512;
+	StaticDeviceAllocator _currentJoints;
 
 	void		 writeSkinningDescriptorSet(const SkinnedMeshRendererComponent&);
 	void		 sortRenderers();
@@ -157,7 +140,7 @@ class Renderer {
 
 	// FIXME: Should not be there.
 	template<typename T>
-	void copyViaStagingBuffer(Buffer& buffer, const std::vector<T>& data, uint32_t srcOffset = 0, uint32_t dstOffset = 0) {
+	void copyViaStagingBuffer(const Buffer& buffer, const std::vector<T>& data, uint32_t srcOffset = 0, uint32_t dstOffset = 0) {
 		Buffer		 stagingBuffer;
 		DeviceMemory stagingMemory;
 		stagingBuffer.create(*_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(T) * data.size());
