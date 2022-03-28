@@ -87,14 +87,14 @@ class Scene {
 
 	bool save(const std::filesystem::path& path);
 
-	entt::registry&					getRegistry() { return _registry; }
-	const entt::registry&			getRegistry() const { return _registry; }
-	const RollingBuffer<float>&		getUpdateTimes() const { return _updateTimes; }
-	inline entt::entity				getRoot() const { return _root; }
-	inline std::vector<Mesh>&		getMeshes() { return _meshes; }
-	inline const std::vector<Mesh>& getMeshes() const { return _meshes; }
-	inline std::vector<Skin>&		getSkins() { return _skins; }
-	inline const std::vector<Skin>& getSkins() const { return _skins; }
+	inline entt::registry&			   getRegistry() { return _registry; }
+	inline const entt::registry&	   getRegistry() const { return _registry; }
+	inline const RollingBuffer<float>& getUpdateTimes() const { return _updateTimes; }
+	inline entt::entity				   getRoot() const { return _root; }
+	inline std::vector<Mesh>&		   getMeshes() { return _meshes; }
+	inline const std::vector<Mesh>&	   getMeshes() const { return _meshes; }
+	inline std::vector<Skin>&		   getSkins() { return _skins; }
+	inline const std::vector<Skin>&	   getSkins() const { return _skins; }
 
 	inline void markDirty(entt::entity node) { _dirtyNodes.push_back(node); }
 	bool		update(float deltaTime);
@@ -110,34 +110,17 @@ class Scene {
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }
-	const Bounds&		 computeBounds() {
-		   bool init = false;
-
-		   forEachNode([&](entt::entity entity, glm::mat4 transform) {
-			   auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
-			   auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
-			   if(mesh || skinnedMesh) {
-				   const auto& bounds = _meshes[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].getBounds();
-				   if(!init) {
-					   _bounds = transform * bounds;
-					   init = true;
-				   } else
-					   _bounds += transform * bounds;
-			   }
-		   });
-
-		   return _bounds;
-	}
+	const Bounds&		 computeBounds();
 
 	// Depth-First traversal of the node hierarchy
 	// Callback will be call for each entity with the entity and its world transformation as parameters.
 	void forEachNode(const std::function<void(entt::entity entity, glm::mat4)>& call) { visitNode(getRoot(), glm::mat4(1.0f), call); }
 
-	Mesh& operator[](MeshIndex index) {
+	inline Mesh& operator[](MeshIndex index) {
 		assert(index != InvalidMeshIndex);
 		return _meshes[index];
 	}
-	const Mesh& operator[](MeshIndex index) const {
+	inline const Mesh& operator[](MeshIndex index) const {
 		assert(index != InvalidMeshIndex);
 		return _meshes[index];
 	}
@@ -160,16 +143,8 @@ class Scene {
 
 	// Called on NodeComponent destruction
 	void onDestroyNodeComponent(entt::registry& registry, entt::entity node);
-
 	// Used for depth-first traversal of the node hierarchy
-	void visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call) {
-		const auto& node = _registry.get<NodeComponent>(entity);
-		transform = transform * node.transform;
-		for(auto c = node.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
-			visitNode(c, transform, call);
-
-		call(entity, transform);
-	};
+	void visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call);
 };
 
 JSON::value toJSON(const NodeComponent&);

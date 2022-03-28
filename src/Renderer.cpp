@@ -19,6 +19,7 @@ void Renderer::free() {
 	destroyAccelerationStructures();
 	destroyVertexSkinningPipeline();
 	freeMeshesDeviceMemory();
+	stagingBuffer.free();
 }
 
 void Renderer::freeMeshesDeviceMemory() {
@@ -41,8 +42,8 @@ void Renderer::destroyAccelerationStructures() {
 
 	for(const auto& blas : _bottomLevelAccelerationStructures)
 		vkDestroyAccelerationStructureKHR(*_device, blas, nullptr);
-	_staticBLASBuffer.destroy();
-	_staticBLASMemory.free();
+	_blasBuffer.destroy();
+	_blasMemory.free();
 	_bottomLevelAccelerationStructures.clear();
 	_blasScratchBuffer.destroy();
 	_blasScratchMemory.free();
@@ -372,8 +373,8 @@ void Renderer::createAccelerationStructures() {
 			_dynamicBLASBuildRangeInfos.push_back(rangeInfos.back());
 		}
 
-		_staticBLASBuffer.create(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
-		_staticBLASMemory.allocate(*_device, _staticBLASBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_blasBuffer.create(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
+		_blasMemory.allocate(*_device, _blasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		size_t runningOffset = 0;
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
 			// Create the acceleration structure
@@ -381,7 +382,7 @@ void Renderer::createAccelerationStructures() {
 			VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{
 				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
 				.pNext = VK_NULL_HANDLE,
-				.buffer = _staticBLASBuffer,
+				.buffer = _blasBuffer,
 				.offset = runningOffset,
 				.size = buildSizesInfo[i].accelerationStructureSize,
 				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,

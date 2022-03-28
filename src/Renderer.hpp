@@ -89,8 +89,6 @@ class Renderer {
 	Device* _device = nullptr;
 
 	std::vector<OffsetEntry> _offsetTable;
-	Buffer					 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
-	DeviceMemory			 _blasScratchMemory;
 	// FIXME: This scratch buffer is used for static AND dynamic BLAS, all the static portion isn't used at all after the initial BLAS building, this should be better allocated
 	// (the easiest is wimply to separate BLAS building into two pass, static and dynamic, sharing no memory).
 
@@ -103,8 +101,8 @@ class Renderer {
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _dynamicBLASBuildGeometryInfos;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 _dynamicBLASBuildRangeInfos;
 
-	Buffer											_staticBLASBuffer;
-	DeviceMemory									_staticBLASMemory;
+	Buffer											_blasBuffer;
+	DeviceMemory									_blasMemory;
 	Buffer											_tlasBuffer;
 	DeviceMemory									_tlasMemory;
 	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
@@ -121,6 +119,8 @@ class Renderer {
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;
 	DeviceMemory _tlasScratchMemory;
+	Buffer		 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
+	DeviceMemory _blasScratchMemory;
 
 	std::vector<QueryPool> _updateQueryPools;
 	RollingBuffer<float>   _dynamicBLASUpdateTimes;
@@ -138,22 +138,25 @@ class Renderer {
 	void		 sortRenderers();
 	inline auto& getMeshes() const { return _scene->getMeshes(); }
 
+	StaticDeviceAllocator stagingBuffer;
 	// FIXME: Should not be there.
 	template<typename T>
 	void copyViaStagingBuffer(const Buffer& buffer, const std::vector<T>& data, uint32_t srcOffset = 0, uint32_t dstOffset = 0) {
-		Buffer		 stagingBuffer;
-		DeviceMemory stagingMemory;
-		stagingBuffer.create(*_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(T) * data.size());
-		stagingMemory.allocate(*_device, stagingBuffer, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		stagingMemory.fill(data.data(), data.size());
+		auto byteSize = sizeof(T) * data.size();
+		if(!stagingBuffer || stagingBuffer.capacity() < byteSize) {
+			if(stagingBuffer)
+				stagingBuffer.free();
+			stagingBuffer.init(*_device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, byteSize);
+		}
+		stagingBuffer.memory().fill(data.data(), data.size());
 
 		_device->immediateSubmitTransfert([&](const CommandBuffer& cmdBuff) {
 			VkBufferCopy copyRegion{
 				.srcOffset = srcOffset,
 				.dstOffset = dstOffset,
-				.size = sizeof(T) * data.size(),
+				.size = byteSize,
 			};
-			vkCmdCopyBuffer(cmdBuff, stagingBuffer, buffer, 1, &copyRegion);
+			vkCmdCopyBuffer(cmdBuff, stagingBuffer.buffer(), buffer, 1, &copyRegion);
 		});
 	}
 };

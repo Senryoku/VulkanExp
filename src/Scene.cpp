@@ -1028,6 +1028,35 @@ void Scene::onDestroyNodeComponent(entt::registry& registry, entt::entity entity
 		child = tmp;
 	}
 }
+
+const Bounds& Scene::computeBounds() {
+	bool init = false;
+
+	forEachNode([&](entt::entity entity, glm::mat4 transform) {
+		auto* mesh = _registry.try_get<MeshRendererComponent>(entity);
+		auto* skinnedMesh = _registry.try_get<SkinnedMeshRendererComponent>(entity);
+		if(mesh || skinnedMesh) {
+			const auto& bounds = _meshes[mesh ? mesh->meshIndex : skinnedMesh->meshIndex].getBounds();
+			if(!init) {
+				_bounds = transform * bounds;
+				init = true;
+			} else
+				_bounds += transform * bounds;
+		}
+	});
+
+	return _bounds;
+}
+
+void Scene::visitNode(entt::entity entity, glm::mat4 transform, const std::function<void(entt::entity entity, glm::mat4)>& call) {
+	const auto& node = _registry.get<NodeComponent>(entity);
+	transform = transform * node.transform;
+	for(auto c = node.first; c != entt::null; c = _registry.get<NodeComponent>(c).next)
+		visitNode(c, transform, call);
+
+	call(entity, transform);
+};
+
 void Scene::free() {
 	for(auto& m : getMeshes())
 		m.destroy();

@@ -237,7 +237,9 @@ void Editor::cleanupVulkan() {
 	cleanupSwapChain();
 
 	_irradianceProbes.destroy();
+
 	_probeMesh.free();
+	_editorRenderer.free();
 
 	_pipelineCache.save(PipelineCacheFilepath);
 	_pipelineCache.destroy();
