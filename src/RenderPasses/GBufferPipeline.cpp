@@ -336,12 +336,7 @@ void Editor::writeGBufferDescriptorSets() {
 	}
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[_swapChainImages.size() * Materials.size() + i]);
-		dsw.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				{
-					.buffer = _renderer.getInstanceBuffer(),
-					.offset = 0,
-					.range = VK_WHOLE_SIZE,
-				});
+		dsw.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _renderer.getInstanceBuffer());
 		dsw.update(_device);
 	}
 }

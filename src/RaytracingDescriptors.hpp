@@ -46,50 +46,17 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 		});
 	}
 
-	// FIXME: All these buffers should be relative to the scene.
 	dsw.add(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureInfos);
-
 	// Vertices
-	dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			{
-				.buffer = renderer.Vertices.buffer(),
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			});
+	dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, renderer.Vertices.buffer());
 	// Indices
-	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			{
-				.buffer = renderer.Indices.buffer(),
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			});
+	dsw.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, renderer.Indices.buffer());
 	// Instance Offsets
-	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			{
-				.buffer = renderer.OffsetTable.buffer(),
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			});
-
+	dsw.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, renderer.OffsetTable.buffer());
 	// Materials
-	dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			{
-				.buffer = MaterialBuffer,
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			});
-	dsw.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			{
-				.buffer = irradianceProbes.getGridParametersBuffer(),
-				.offset = 0,
-				.range = sizeof(IrradianceProbes::GridInfo),
-			});
-	dsw.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			{
-				.buffer = irradianceProbes.getProbeInfoBuffer(),
-				.offset = 0,
-				.range = VK_WHOLE_SIZE,
-			});
+	dsw.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MaterialBuffer);
+	dsw.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, irradianceProbes.getGridParametersBuffer(), 0, sizeof(IrradianceProbes::GridInfo));
+	dsw.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, irradianceProbes.getProbeInfoBuffer());
 	dsw.add(
 		8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		{
@@ -104,12 +71,7 @@ inline DescriptorSetWriter baseSceneWriter(const Device& device, VkDescriptorSet
 			.imageView = irradianceProbes.getDepthView(),
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		});
-	dsw.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			{
-				.buffer = lightBuffer,
-				.offset = 0,
-				.range = sizeof(LightBuffer),
-			});
+	dsw.add(10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, lightBuffer);
 
 	return dsw;
 }

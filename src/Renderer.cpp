@@ -168,12 +168,6 @@ void Renderer::uploadDynamicMeshOffsetTable() {
 		copyViaStagingBuffer(OffsetTable.buffer(), _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
 }
 
-struct VertexSkinningPushConstant {
-	uint32_t srcOffset = 0;
-	uint32_t dstOffset = 0;
-	uint32_t size = 0;
-};
-
 bool Renderer::updateAnimations(float deltaTime) {
 	bool changes = false;
 	// TODO: Morph (i.e. weights animation)
@@ -192,6 +186,12 @@ bool Renderer::updateAnimations(float deltaTime) {
 	}
 	return changes;
 }
+
+struct VertexSkinningPushConstant {
+	uint32_t srcOffset = 0;
+	uint32_t dstOffset = 0;
+	uint32_t size = 0;
+};
 
 bool Renderer::updateDynamicVertexBuffer() {
 	auto instances = _scene->getRegistry().view<SkinnedMeshRendererComponent>();
@@ -686,15 +686,13 @@ void Renderer::createVertexSkinningPipeline() {
 	if(_vertexSkinningPipeline)
 		destroyVertexSkinningPipeline();
 
-	DescriptorSetLayoutBuilder skinningDSLB;
-	skinningDSLB
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 0 Joints
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 1 Skin Joints
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 2 Skin Weights
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Base Vertices
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 4 Output Vertices
-		;
-	_vertexSkinningDescriptorSetLayout = skinningDSLB.build(*_device);
+	_vertexSkinningDescriptorSetLayout = DescriptorSetLayoutBuilder()
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 0 Joints
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 1 Skin Joints
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 2 Skin Weights
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Base Vertices
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 4 Output Vertices
+											 .build(*_device);
 	VkPushConstantRange pushConstants{
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 		.offset = 0,
@@ -746,37 +744,11 @@ void Renderer::createVertexSkinningPipeline() {
 void Renderer::writeSkinningDescriptorSet(const SkinnedMeshRendererComponent& comp) {
 	const auto&			mesh = getMeshes()[comp.meshIndex];
 	DescriptorSetWriter writer(_vertexSkinningDescriptorPool.getDescriptorSets()[0]);
-	writer
-		.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			 {
-				 .buffer = _currentJoints.buffer(),
-				 .offset = 0,
-				 .range = VK_WHOLE_SIZE,
-			 })
-		.add(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			 {
-				 .buffer = mesh.getSkinJointsBuffer(),
-				 .offset = 0,
-				 .range = VK_WHOLE_SIZE,
-			 })
-		.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			 {
-				 .buffer = mesh.getSkinWeightsBuffer(),
-				 .offset = 0,
-				 .range = VK_WHOLE_SIZE,
-			 })
-		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			 {
-				 .buffer = Vertices.buffer(),
-				 .offset = 0,
-				 .range = VK_WHOLE_SIZE,
-			 })
-		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			 {
-				 .buffer = Vertices.buffer(),
-				 .offset = 0,
-				 .range = VK_WHOLE_SIZE,
-			 })
+	writer.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _currentJoints.buffer())
+		.add(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, mesh.getSkinJointsBuffer())
+		.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, mesh.getSkinWeightsBuffer())
+		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, Vertices.buffer())
+		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, Vertices.buffer())
 		/*
 		// We could bind the slice that we're interested in, but this would require us to adhere to storage alignement requirements,
 		// I'll just pass the offsets as push constants, at least for now.

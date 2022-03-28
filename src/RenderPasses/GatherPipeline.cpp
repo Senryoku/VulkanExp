@@ -303,12 +303,7 @@ void Editor::createGatherPass() {
 					 .offset = 0,
 					 .range = sizeof(IrradianceProbes::GridInfo),
 				 })
-			.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				 {
-					 .buffer = _irradianceProbes.getProbeInfoBuffer(),
-					 .offset = 0,
-					 .range = VK_WHOLE_SIZE,
-				 })
+			.add(7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _irradianceProbes.getProbeInfoBuffer())
 			.add(8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				 {
 					 .sampler =

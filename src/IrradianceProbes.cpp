@@ -299,7 +299,7 @@ void IrradianceProbes::writeDescriptorSet(const Renderer& renderer, const Buffer
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayDirectionView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workIrradianceView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
-	writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, {.buffer = _probesToUpdate, .offset = 0, .range = VK_WHOLE_SIZE});
+	writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _probesToUpdate);
 	writer.update(*_device);
 }
 

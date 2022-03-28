@@ -14,6 +14,7 @@ class Renderer {
   public:
 	struct InstanceData {
 		glm::mat4 transform{1.0f};
+		// Should the MaterielIndex be there?
 	};
 
 	struct OffsetEntry {
