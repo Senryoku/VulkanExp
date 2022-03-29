@@ -658,17 +658,7 @@ void Renderer::onHierarchicalChanges(float deltaTime) {
 void Renderer::update() {}
 
 void Renderer::updateTransforms() {
-	// Sort by material then by mesh
-	_scene->getRegistry().sort<MeshRendererComponent>([](const auto& lhs, const auto& rhs) {
-		if(lhs.materialIndex == rhs.materialIndex)
-			return lhs.meshIndex < rhs.meshIndex;
-		return lhs.materialIndex < rhs.materialIndex;
-	});
-	_scene->getRegistry().sort<SkinnedMeshRendererComponent>([](const auto& lhs, const auto& rhs) {
-		if(lhs.materialIndex == rhs.materialIndex)
-			return lhs.meshIndex < rhs.meshIndex;
-		return lhs.materialIndex < rhs.materialIndex;
-	});
+	sortRenderers();
 	auto meshRenderers = _scene->getRegistry().view<MeshRendererComponent, NodeComponent>();
 	auto skinnedMeshRenderers = _scene->getRegistry().view<SkinnedMeshRendererComponent, NodeComponent>();
 	// TODO: Optimize by only updating dirtyNode when possible
