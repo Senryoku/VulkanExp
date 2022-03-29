@@ -308,8 +308,6 @@ void Editor::drawUI() {
 		if(skinnedMesh) {
 			const auto& skin = _scene.getSkins()[skinnedMesh->skinIndex];
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
-			auto		winpos = ImGui::GetMainViewport()->Pos;
-			glm::vec2	glmwinpos{winpos.x, winpos.y};
 			for(const auto& entity : skin.joints) {
 				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
 				auto		transform = node.globalTransform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
@@ -345,6 +343,80 @@ void Editor::drawUI() {
 	if(_selectedNode != entt::null && updatedTransform) {
 		_scene.markDirty(_selectedNode);
 	}
+
+	if(ImGui::Begin("Animation")) {
+		if(_selectedNode == entt::null) {
+			ImGui::Text("No selected node.");
+		} else {
+			AnimationComponent* animComp = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode);
+			if(!animComp) {
+				ImGui::Text("Selected node doesn't have an Animation Component.");
+			} else if(animComp->animationIndex == InvalidAnimationIndex || animComp->animationIndex >= Animations.size()) {
+				ImGui::Text("Animation Component doesn't refer to a valid animation.");
+			} else {
+				auto		winpos = ImGui::GetWindowPos();
+				auto		winsize = ImGui::GetWindowSize();
+				auto&		anim = Animations[animComp->animationIndex];
+				ImDrawList* drawlist = ImGui::GetWindowDrawList();
+				ImVec2		plotPos{10 + winpos.x, 70 + winpos.y};
+				ImVec2		plotSize{winsize.x - 20, 360};
+				drawlist->AddRectFilled(plotPos, {plotPos.x + plotSize.x, plotPos.y + plotSize.y}, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+				static entt::entity		  selectedAnimationNode = entt::null;
+				static int				  currentNodeIndex = 0;
+				std::vector<entt::entity> nodes;
+				std::vector<const char*>  nodeNames;
+				for(auto& n : anim.nodeAnimations) {
+					nodes.push_back(n.first);
+					nodeNames.push_back(_scene.getRegistry().get<NodeComponent>(n.first).name.c_str());
+				}
+				if(ImGui::Combo("Animation Node", &currentNodeIndex, nodeNames.data(), anim.nodeAnimations.size()))
+					selectedAnimationNode = nodes[currentNodeIndex];
+				if(selectedAnimationNode != entt::null && anim.nodeAnimations.contains(selectedAnimationNode)) {
+					if(ImGui::BeginTabBar("#Track")) {
+						auto& na = anim.nodeAnimations[selectedAnimationNode];
+						auto  duration = na.rotationKeyFrames.times.back(); // FIXME
+						auto  timeToX = [&](float t) { return plotPos.x + ((int)(plotSize.x * t / duration)); };
+						drawlist->AddLine({timeToX(std::fmod(animComp->time, duration)), plotPos.y}, {timeToX(std::fmod(animComp->time, duration)), plotPos.y + plotSize.y},
+										  IM_COL32_WHITE);
+						if(ImGui::BeginTabItem("Position")) {
+							if(na.translationKeyFrames.times.size() > 0) {
+								for(size_t c = 0; c < 3; ++c) {
+									ImVec2 lastPoint{timeToX(na.translationKeyFrames.times[0]), na.translationKeyFrames.frames[0][c]};
+									for(size_t i = 1; i < na.translationKeyFrames.times.size(); ++i) {
+										ImVec2 point{timeToX(na.translationKeyFrames.times[i]), na.translationKeyFrames.frames[i][c]};
+										drawlist->AddLine(lastPoint, point, ImGui::GetColorU32(ImGuiCol_PlotLines));
+										lastPoint = point;
+									}
+								}
+							}
+							ImGui::EndTabItem();
+						}
+						if(ImGui::BeginTabItem("Rotation")) {
+							if(na.rotationKeyFrames.times.size() > 0) {
+								for(size_t c = 0; c < 3; ++c) {
+									auto   euler = 360.0f / (2.0f * glm::pi<float>()) * glm::eulerAngles(na.rotationKeyFrames.frames[0]);
+									ImVec2 lastPoint{timeToX(na.rotationKeyFrames.times[0]), plotPos.y + euler[c]};
+									drawlist->AddTriangleFilled({lastPoint.x, lastPoint.y - 2}, {lastPoint.x - 2, lastPoint.y + 2}, {lastPoint.x + 2, lastPoint.y + 2},
+																ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+									for(size_t i = 1; i < na.translationKeyFrames.times.size(); ++i) {
+										ImVec2 point{timeToX(na.rotationKeyFrames.times[i]),
+													 plotPos.y + 180 + 360.0f / (2.0f * glm::pi<float>()) * glm::eulerAngles(na.rotationKeyFrames.frames[i])[c]};
+										drawlist->AddTriangleFilled({point.x, point.y - 2}, {point.x - 2, point.y + 2}, {point.x + 2, point.y + 2},
+																	ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+										drawlist->AddLine(lastPoint, point, ImGui::GetColorU32(ImGuiCol_PlotLines));
+										lastPoint = point;
+									}
+								}
+							}
+							ImGui::EndTabItem();
+						}
+						ImGui::EndTabBar();
+					}
+				}
+			}
+		}
+	}
+	ImGui::End();
 
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
