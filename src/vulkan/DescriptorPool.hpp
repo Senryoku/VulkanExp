@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+#include "Buffer.hpp"
 #include "DescriptorSetLayout.hpp"
 #include "HandleWrapper.hpp"
 
@@ -134,6 +135,15 @@ class DescriptorSetWriter {
 				.pImageInfo = &_imageInfos[_imageInfos.size() - infos.size()],
 			});
 		return *this;
+	}
+
+	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const Buffer& buffer, VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) {
+		return add(binding, type,
+				   {
+					   .buffer = buffer,
+					   .offset = 0,
+					   .range = VK_WHOLE_SIZE,
+				   });
 	}
 
 	DescriptorSetWriter& add(uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo& info) {

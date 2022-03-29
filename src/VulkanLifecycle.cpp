@@ -76,6 +76,9 @@ void Editor::initVulkan() {
 		vkGetDeviceQueue(_device, computeFamily, 0, &_computeQueue);
 	vkGetDeviceQueue(_device, presentFamily, 0, &_presentQueue);
 
+	_renderer.setDevice(_device);
+	_renderer.setScene(_scene);
+
 	createSwapChain();
 	_commandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	_imguiCommandPool.create(_device, graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -90,9 +93,11 @@ void Editor::initVulkan() {
 	uploadScene();
 
 	{
+		_editorRenderer.setDevice(_device);
+		_editorRenderer.setScene(_probeMesh);
 		for(auto& m : _probeMesh.getMeshes())
 			m.init(_device); // Prepare the final buffers
-		_probeMesh.allocateMeshes(_device);
+		_editorRenderer.allocateMeshes();
 		for(auto& m : _probeMesh.getMeshes())
 			m.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
 	}
@@ -152,8 +157,8 @@ void Editor::uploadScene() {
 	{
 		QuickTimer qt("Mesh Generation");
 		for(auto& m : _scene.getMeshes())
-			m.init(_device);			// Pepare the final buffers
-		_scene.allocateMeshes(_device); // Allocate memory for all meshes and bind the buffers
+			m.init(_device);		// Pepare the final buffers
+		_renderer.allocateMeshes(); // Allocate memory for all meshes and bind the buffers
 		for(auto& m : _scene.getMeshes())
 			m.upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
 		uploadTextures(_device, _graphicsQueue, _commandPool, _stagingBuffer);
@@ -170,8 +175,8 @@ void Editor::uploadScene() {
 
 	uploadMaterials();
 
-	_scene.createVertexSkinningPipeline(_device);
-	_scene.createAccelerationStructure(_device);
+	_renderer.createVertexSkinningPipeline();
+	_renderer.createAccelerationStructures();
 }
 
 void Editor::uploadMaterials() {
@@ -232,7 +237,9 @@ void Editor::cleanupVulkan() {
 	cleanupSwapChain();
 
 	_irradianceProbes.destroy();
-	_probeMesh.free(_device);
+
+	_probeMesh.free();
+	_editorRenderer.free();
 
 	_pipelineCache.save(PipelineCacheFilepath);
 	_pipelineCache.destroy();
@@ -241,7 +248,8 @@ void Editor::cleanupVulkan() {
 	_commandPool.destroy();
 	_transfertCommandPool.destroy();
 	_computeCommandPool.destroy();
-	_scene.free(_device);
+	_renderer.free();
+	_scene.free();
 	MaterialBuffer.destroy();
 	MaterialMemory.free();
 	Materials.clear();

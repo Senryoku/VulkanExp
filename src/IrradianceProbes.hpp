@@ -11,6 +11,8 @@
 #include <ShaderBindingTable.hpp>
 #include <vulkan/Query.hpp>
 
+class Renderer;
+
 class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max);
@@ -18,7 +20,7 @@ class IrradianceProbes {
 	void createPipeline();
 	void destroyPipeline();
 	void createShaderBindingTable();
-	void writeDescriptorSet(const Scene& scene, const Buffer& lightBuffer);
+	void writeDescriptorSet(const Renderer& renderer, const Buffer& lightBuffer);
 	void updateUniforms();
 	void update(const Scene& scene, VkQueue queue);
 	void destroy();

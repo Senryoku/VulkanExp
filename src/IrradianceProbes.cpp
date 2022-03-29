@@ -1,6 +1,8 @@
 #include "IrradianceProbes.hpp"
 
+#include <Light.hpp>
 #include <RaytracingDescriptors.hpp>
+#include <Renderer.hpp>
 #include <Shader.hpp>
 
 struct PushConstant {
@@ -290,14 +292,14 @@ void IrradianceProbes::createPipeline() {
 	_queryPool.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 5);
 }
 
-void IrradianceProbes::writeDescriptorSet(const Scene& scene, const Buffer& lightBuffer) {
+void IrradianceProbes::writeDescriptorSet(const Renderer& renderer, const Buffer& lightBuffer) {
 	setLightBuffer(lightBuffer);
-	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], scene, *this, lightBuffer);
+	auto writer = baseSceneWriter(*_device, _descriptorPool.getDescriptorSets()[0], renderer, *this, lightBuffer);
 	writer.add(11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayIrradianceDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _rayDirectionView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(13, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workIrradianceView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
 	writer.add(14, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, {.imageView = _workDepthView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL});
-	writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, {.buffer = _probesToUpdate, .offset = 0, .range = VK_WHOLE_SIZE});
+	writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _probesToUpdate);
 	writer.update(*_device);
 }
 

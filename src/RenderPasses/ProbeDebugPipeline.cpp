@@ -217,12 +217,7 @@ void Editor::createProbeDebugPass() {
 					.offset = 0,
 					.range = sizeof(IrradianceProbes::GridInfo),
 				});
-		dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				{
-					.buffer = _irradianceProbes.getProbeInfoBuffer(),
-					.offset = 0,
-					.range = VK_WHOLE_SIZE,
-				});
+		dsw.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _irradianceProbes.getProbeInfoBuffer());
 		dsw.add(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 				{
 					.sampler = *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,

@@ -1,6 +1,6 @@
 #include "Editor.hpp"
 
-#include "RaytracingDescriptors.hpp"
+#include <RaytracingDescriptors.hpp>
 
 void Editor::createStorageImage() {
 	_rayTraceStorageImages.resize(_swapChainImages.size());
@@ -120,7 +120,7 @@ void Editor::destroyRayTracingPipeline() {
 }
 
 void Editor::createRaytracingDescriptorSets() {
-	assert(_scene.getTLAS() != VK_NULL_HANDLE);
+	assert(_renderer.getTLAS() != VK_NULL_HANDLE);
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		layoutsToAllocate.push_back(_rayTracingDescriptorSetLayout);
@@ -138,7 +138,7 @@ void Editor::createRaytracingDescriptorSets() {
 
 void Editor::writeRaytracingDescriptorSets() {
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		auto writer = baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _scene, _irradianceProbes, _lightUniformBuffers[i]);
+		auto writer = baseSceneWriter(_device, _rayTracingDescriptorPool.getDescriptorSets()[i], _renderer, _irradianceProbes, _lightUniformBuffers[i]);
 		// Camera
 		writer.add(11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				   {
