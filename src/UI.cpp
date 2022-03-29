@@ -354,13 +354,12 @@ void Editor::drawUI() {
 			} else if(animComp->animationIndex == InvalidAnimationIndex || animComp->animationIndex >= Animations.size()) {
 				ImGui::Text("Animation Component doesn't refer to a valid animation.");
 			} else {
-				auto		winpos = ImGui::GetWindowPos();
-				auto		winsize = ImGui::GetWindowSize();
-				auto&		anim = Animations[animComp->animationIndex];
-				ImDrawList* drawlist = ImGui::GetWindowDrawList();
-				ImVec2		plotPos{10 + winpos.x, 70 + winpos.y};
-				ImVec2		plotSize{winsize.x - 20, 360};
-				drawlist->AddRectFilled(plotPos, {plotPos.x + plotSize.x, plotPos.y + plotSize.y}, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+				auto					  winpos = ImGui::GetWindowPos();
+				auto					  winsize = ImGui::GetWindowSize();
+				auto&					  anim = Animations[animComp->animationIndex];
+				ImDrawList*				  drawlist = ImGui::GetWindowDrawList();
+				ImVec2					  plotPos{10 + winpos.x, 70 + winpos.y};
+				ImVec2					  plotSize{winsize.x - 20, 360};
 				static entt::entity		  selectedAnimationNode = entt::null;
 				static int				  currentNodeIndex = 0;
 				std::vector<entt::entity> nodes;
@@ -375,37 +374,37 @@ void Editor::drawUI() {
 					if(ImGui::BeginTabBar("#Track")) {
 						auto& na = anim.nodeAnimations[selectedAnimationNode];
 						auto  duration = na.rotationKeyFrames.times.back(); // FIXME
-						auto  timeToX = [&](float t) { return plotPos.x + ((int)(plotSize.x * t / duration)); };
-						drawlist->AddLine({timeToX(std::fmod(animComp->time, duration)), plotPos.y}, {timeToX(std::fmod(animComp->time, duration)), plotPos.y + plotSize.y},
-										  IM_COL32_WHITE);
 						if(ImGui::BeginTabItem("Position")) {
 							if(na.translationKeyFrames.times.size() > 0) {
-								for(size_t c = 0; c < 3; ++c) {
-									ImVec2 lastPoint{timeToX(na.translationKeyFrames.times[0]), na.translationKeyFrames.frames[0][c]};
-									for(size_t i = 1; i < na.translationKeyFrames.times.size(); ++i) {
-										ImVec2 point{timeToX(na.translationKeyFrames.times[i]), na.translationKeyFrames.frames[i][c]};
-										drawlist->AddLine(lastPoint, point, ImGui::GetColorU32(ImGuiCol_PlotLines));
-										lastPoint = point;
-									}
-								}
+								// TODO
 							}
 							ImGui::EndTabItem();
 						}
 						if(ImGui::BeginTabItem("Rotation")) {
 							if(na.rotationKeyFrames.times.size() > 0) {
-								for(size_t c = 0; c < 3; ++c) {
-									auto   euler = 360.0f / (2.0f * glm::pi<float>()) * glm::eulerAngles(na.rotationKeyFrames.frames[0]);
-									ImVec2 lastPoint{timeToX(na.rotationKeyFrames.times[0]), plotPos.y + euler[c]};
-									drawlist->AddTriangleFilled({lastPoint.x, lastPoint.y - 2}, {lastPoint.x - 2, lastPoint.y + 2}, {lastPoint.x + 2, lastPoint.y + 2},
-																ImGui::GetColorU32(ImGuiCol_PlotHistogram));
-									for(size_t i = 1; i < na.translationKeyFrames.times.size(); ++i) {
-										ImVec2 point{timeToX(na.rotationKeyFrames.times[i]),
-													 plotPos.y + 180 + 360.0f / (2.0f * glm::pi<float>()) * glm::eulerAngles(na.rotationKeyFrames.frames[i])[c]};
-										drawlist->AddTriangleFilled({point.x, point.y - 2}, {point.x - 2, point.y + 2}, {point.x + 2, point.y + 2},
-																	ImGui::GetColorU32(ImGuiCol_PlotHistogram));
-										drawlist->AddLine(lastPoint, point, ImGui::GetColorU32(ImGuiCol_PlotLines));
-										lastPoint = point;
+								ImPlotAxisFlags ax_flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks;
+								if(ImPlot::BeginPlot("##Rotation", ImVec2(-1, 0), ImPlotFlags_CanvasOnly | ImPlotFlags_NoInputs)) {
+									ImPlot::SetupAxes(0, 0, ax_flags, ax_flags);
+									ImPlot::SetupAxesLimits(0, duration, -180, 180);
+
+									float time = std::fmod(animComp->time, duration);
+									ImPlot::PlotVLines("Time", &time, 1);
+									for(size_t c = 0; c < 3; ++c) {
+										std::vector<ImPlotPoint> points;
+										for(size_t i = 0; i < na.rotationKeyFrames.times.size(); ++i) {
+											auto		euler = glm::eulerAngles(na.rotationKeyFrames.frames[i]);
+											ImPlotPoint point{na.rotationKeyFrames.times[i], 360.0f / (2.0f * glm::pi<float>()) * euler[c]};
+											if(ImPlot::DragPoint(c * na.rotationKeyFrames.times.size() + i, &point.x, &point.y, ImVec4(0, 0.9f, 0, 1), 4)) {
+												euler[c] = point.y / (360.0f / (2.0f * glm::pi<float>()));
+												na.rotationKeyFrames.frames[i] = glm::quat(euler);
+											}
+											points.push_back(point);
+										}
+										ImPlot::SetNextLineStyle(ImVec4(1, 0.5f, 1, 1));
+										ImPlot::PlotLine("##h1", &points[0].x, &points[0].y, points.size(), 0, sizeof(ImPlotPoint));
 									}
+
+									ImPlot::EndPlot();
 								}
 							}
 							ImGui::EndTabItem();
