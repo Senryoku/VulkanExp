@@ -213,6 +213,7 @@ void Editor::mainLoop() {
 		const auto						   deltaTime = delta.count();
 		lastUpdate = time;
 
+		_renderer.updateAnimations(deltaTime);
 		const auto updates = _scene.update(deltaTime);
 		if(updates)
 			_renderer.onHierarchicalChanges(deltaTime);

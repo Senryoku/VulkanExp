@@ -305,10 +305,16 @@ void Editor::drawUI() {
 				drawlist->AddLine(screen_aabb[segments[i]], screen_aabb[segments[i + 1]], ImGui::ColorConvertFloat4ToU32(ImVec4(0.0, 0.0, 1.0, 0.5)));
 		}
 		// Display Bones & Joints
-		if(skinnedMesh) {
-			const auto& skin = _scene.getSkins()[skinnedMesh->skinIndex];
+		auto* animationComponent = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode);
+		if(skinnedMesh || animationComponent) {
+			std::vector<entt::entity> joints;
+			if(skinnedMesh)
+				joints = _scene.getSkins()[skinnedMesh->skinIndex].joints;
+			else
+				for(const auto& na : Animations[animationComponent->animationIndex].nodeAnimations)
+					joints.push_back(na.first);
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
-			for(const auto& entity : skin.joints) {
+			for(const auto& entity : joints) {
 				const auto& node = _scene.getRegistry().get<NodeComponent>(entity);
 				auto		transform = node.globalTransform * glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
 				ImGuizmo::DrawCubes(&_camera.getViewMatrix()[0][0], &_camera.getProjectionMatrix()[0][0], &transform[0][0], 1);
@@ -354,12 +360,14 @@ void Editor::drawUI() {
 			} else if(animComp->animationIndex == InvalidAnimationIndex || animComp->animationIndex >= Animations.size()) {
 				ImGui::Text("Animation Component doesn't refer to a valid animation.");
 			} else {
-				auto					  winpos = ImGui::GetWindowPos();
-				auto					  winsize = ImGui::GetWindowSize();
-				auto&					  anim = Animations[animComp->animationIndex];
-				ImDrawList*				  drawlist = ImGui::GetWindowDrawList();
-				ImVec2					  plotPos{10 + winpos.x, 70 + winpos.y};
-				ImVec2					  plotSize{winsize.x - 20, 360};
+				auto& anim = Animations[animComp->animationIndex];
+				if(ImGui::Button("Play")) {
+					animComp->running = true;
+				}
+				ImGui::SameLine();
+				if(ImGui::Button("Pause")) {
+					animComp->running = false;
+				}
 				static entt::entity		  selectedAnimationNode = entt::null;
 				static int				  currentNodeIndex = 0;
 				std::vector<entt::entity> nodes;
@@ -368,6 +376,10 @@ void Editor::drawUI() {
 					nodes.push_back(n.first);
 					nodeNames.push_back(_scene.getRegistry().get<NodeComponent>(n.first).name.c_str());
 				}
+				if(selectedAnimationNode == entt::null && !nodes.empty())
+					selectedAnimationNode = nodes[0];
+				else if(nodes.empty())
+					selectedAnimationNode = entt::null;
 				if(ImGui::Combo("Animation Node", &currentNodeIndex, nodeNames.data(), anim.nodeAnimations.size()))
 					selectedAnimationNode = nodes[currentNodeIndex];
 				if(selectedAnimationNode != entt::null && anim.nodeAnimations.contains(selectedAnimationNode)) {
@@ -387,20 +399,31 @@ void Editor::drawUI() {
 									ImPlot::SetupAxes(0, 0, ax_flags, ax_flags);
 									ImPlot::SetupAxesLimits(0, duration, -180, 180);
 
-									float time = std::fmod(animComp->time, duration);
+									double time = std::fmod(animComp->time, duration);
+									ImPlot::SetNextLineStyle(ImVec4(1, 1, 1, 1));
 									ImPlot::PlotVLines("Time", &time, 1);
+									ImPlot::TagX(time, ImVec4(1, 1, 1, 1));
+									const static ImVec4 axisColors[3]{
+										ImVec4(1, 0, 0, 1),
+										ImVec4(0, 1, 0, 1),
+										ImVec4(0, 0, 1, 1),
+									};
 									for(size_t c = 0; c < 3; ++c) {
 										std::vector<ImPlotPoint> points;
 										for(size_t i = 0; i < na.rotationKeyFrames.times.size(); ++i) {
 											auto		euler = glm::eulerAngles(na.rotationKeyFrames.frames[i]);
 											ImPlotPoint point{na.rotationKeyFrames.times[i], 360.0f / (2.0f * glm::pi<float>()) * euler[c]};
-											if(ImPlot::DragPoint(c * na.rotationKeyFrames.times.size() + i, &point.x, &point.y, ImVec4(0, 0.9f, 0, 1), 4)) {
+											if(ImPlot::DragPoint(c * na.rotationKeyFrames.times.size() + i, &point.x, &point.y, axisColors[c], 4)) {
 												euler[c] = point.y / (360.0f / (2.0f * glm::pi<float>()));
 												na.rotationKeyFrames.frames[i] = glm::quat(euler);
+
+												animComp->running = false;
+												animComp->forceUpdate = true;
+												animComp->time = na.rotationKeyFrames.times[i];
 											}
 											points.push_back(point);
 										}
-										ImPlot::SetNextLineStyle(ImVec4(1, 0.5f, 1, 1));
+										ImPlot::SetNextLineStyle(axisColors[c]);
 										ImPlot::PlotLine("##h1", &points[0].x, &points[0].y, points.size(), 0, sizeof(ImPlotPoint));
 									}
 
@@ -650,6 +673,7 @@ void Editor::drawUI() {
 			}
 			if(auto* animComp = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode); animComp != nullptr) {
 				if(ImGui::TreeNodeEx("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
+					ImGui::Checkbox("Running", &animComp->running);
 					ImGui::InputFloat("Time", &animComp->time);
 					int anim = animComp->animationIndex;
 					if(ImGui::InputInt("Animation Clip", &anim)) {

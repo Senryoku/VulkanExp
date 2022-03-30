@@ -174,15 +174,18 @@ bool Renderer::updateAnimations(float deltaTime) {
 	auto animatedNodes = _scene->getRegistry().view<AnimationComponent>();
 	for(auto& entity : animatedNodes) {
 		auto& animationComponent = _scene->getRegistry().get<AnimationComponent>(entity);
-		animationComponent.time += deltaTime;
-		if(animationComponent.animationIndex != InvalidAnimationIndex)
-			for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
-				auto pose = n.second.at(animationComponent.time);
-				// Use this pose transform in the hierarchy
-				_scene->markDirty(n.first);
-				_scene->getRegistry().get<NodeComponent>(n.first).transform = pose.transform;
-				changes = true;
-			}
+		if(animationComponent.running || animationComponent.forceUpdate) {
+			animationComponent.time += deltaTime;
+			animationComponent.forceUpdate = false;
+			if(animationComponent.animationIndex != InvalidAnimationIndex)
+				for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
+					auto pose = n.second.at(animationComponent.time);
+					// Use this pose transform in the hierarchy
+					_scene->markDirty(n.first);
+					_scene->getRegistry().get<NodeComponent>(n.first).transform = pose.transform;
+					changes = true;
+				}
+		}
 	}
 	return changes;
 }
@@ -647,7 +650,6 @@ void Renderer::updateTLAS() {
 
 void Renderer::onHierarchicalChanges(float deltaTime) {
 	updateTransforms();
-	auto updates = updateAnimations(deltaTime);
 	updateAccelerationStructureInstances();
 	auto vertexUpdate = updateDynamicVertexBuffer();
 	if(vertexUpdate)
