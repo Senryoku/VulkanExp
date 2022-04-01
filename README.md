@@ -75,5 +75,7 @@ Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
  - GLFW 3.3.6 [https://www.glfw.org/] (included in ext/)
  - GLM 0.9.9.9 [https://glm.g-truc.net] (included in ext/)
  - Dear ImGui docking branch [https://github.com/ocornut/imgui] (included in ext/)
+   - ImGuizmo [https://github.com/CedricGuillemet/ImGuizmo] (included in ext/)
+   - ImPlot [https://github.com/epezent/implot] (included in ext/)
  - FMT 7.1.3 [https://fmt.dev/]
  - EnTT 3.9.0 [https://github.com/skypjack/entt] (included in ext/)

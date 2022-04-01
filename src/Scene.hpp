@@ -43,7 +43,9 @@ struct SkinnedMeshRendererComponent {
 };
 
 struct AnimationComponent {
+	bool		   running = true;
 	float		   time = 0;
+	bool		   forceUpdate = false; // FIXME: Get rid of that?
 	AnimationIndex animationIndex = InvalidAnimationIndex;
 };
 
