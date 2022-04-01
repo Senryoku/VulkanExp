@@ -41,7 +41,7 @@ void main()
 
         payload.isBackface = false;
         payload.depth = tmax;
-		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
+		traceRayEXT(topLevelAS, 0, 0x01, 0, 0, 0, origin.xyz, tmin, direction, tmax, 0);
         if(payload.depth < maxDistance) {
             if(payload.isBackface) ++backfaceHits;
             vec3 position = origin.xyz + payload.depth * direction;
