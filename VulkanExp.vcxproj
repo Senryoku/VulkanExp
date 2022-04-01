@@ -85,6 +85,7 @@
     <ClInclude Include="ext\implot\implot.h" />
     <ClInclude Include="ext\implot\implot_internal.h" />
     <ClInclude Include="ext\stb_image.h" />
+    <ClInclude Include="src\EditHistory.hpp" />
     <ClInclude Include="src\Editor.hpp" />
     <ClInclude Include="src\Base64.hpp" />
     <ClInclude Include="src\Bounds.hpp" />
@@ -107,6 +108,7 @@
     <ClInclude Include="src\stringutils.hpp" />
     <ClInclude Include="src\TaggedType.hpp" />
     <ClInclude Include="src\ThreadPool.hpp" />
+    <ClInclude Include="src\Undoable.hpp" />
     <ClInclude Include="src\voxels\Chunk.hpp" />
     <ClInclude Include="src\vulkan\Buffer.hpp" />
     <ClInclude Include="src\vulkan\CommandBuffer.hpp" />

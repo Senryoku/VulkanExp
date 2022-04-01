@@ -679,11 +679,25 @@ bool Scene::loadMaterial(const JSON::value& mat, uint32_t textureOffset) {
 bool Scene::loadTextures(const std::filesystem::path& path, const JSON::value& json) {
 	if(json.contains("textures"))
 		for(const auto& texture : json["textures"]) {
-			Textures.push_back(Texture{
-				.source = path.parent_path() / json["images"][texture["source"].as<int>()]["uri"].asString(),
-				.format = VK_FORMAT_R8G8B8A8_SRGB,
-				.samplerDescription = json["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
-			});
+			auto		imageIndex = texture["source"].as<int>();
+			const auto& image = json["images"][imageIndex];
+			if(image.contains("uri")) {
+				Textures.push_back(Texture{
+					.source = path.parent_path() / json["images"][texture["source"].as<int>()]["uri"].asString(),
+					.format = VK_FORMAT_R8G8B8A8_SRGB,
+					.samplerDescription = json["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
+				});
+			} else {
+				auto		bufferViewIndex = image["bufferView"].as<int>();
+				const auto& bufferView = json["bufferViews"][bufferViewIndex];
+				auto		mimeType = image["mimeType"].asString();
+				warn("Scene::loadTextures: Embeded textures are not yet supported (replaced by blank image). Type: '{}', BufferView: '{}'.\n", mimeType, bufferViewIndex);
+				Textures.push_back(Texture{
+					.source = "data/blank.png",
+					.format = VK_FORMAT_R8G8B8A8_SRGB,
+					.samplerDescription = json["samplers"][texture("sampler", 0)].asObject(), // When undefined, a sampler with repeat wrapping and auto filtering should be used.
+				});
+			}
 		}
 	return true;
 }

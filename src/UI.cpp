@@ -311,7 +311,7 @@ void Editor::drawUI() {
 			std::vector<entt::entity> joints;
 			if(skinnedMesh)
 				joints = _scene.getSkins()[skinnedMesh->skinIndex].joints;
-			else
+			else if(animationComponent->animationIndex != InvalidAnimationIndex)
 				for(const auto& na : Animations[animationComponent->animationIndex].nodeAnimations)
 					joints.push_back(na.first);
 			for(const auto& entity : joints) {
