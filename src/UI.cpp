@@ -361,12 +361,8 @@ void Editor::drawUI() {
 				ImGui::Text("Animation Component doesn't refer to a valid animation.");
 			} else {
 				auto& anim = Animations[animComp->animationIndex];
-				if(ImGui::Button("Play")) {
-					animComp->running = true;
-				}
-				ImGui::SameLine();
-				if(ImGui::Button("Pause")) {
-					animComp->running = false;
+				if(ImGui::Button(animComp->running ? "Pause" : "Play") || ImGui::IsKeyPressed(GLFW_KEY_SPACE, false)) {
+					animComp->running = !animComp->running;
 				}
 				static entt::entity		  selectedAnimationNode = entt::null;
 				static int				  currentNodeIndex = 0;
@@ -394,10 +390,17 @@ void Editor::drawUI() {
 						}
 						if(ImGui::BeginTabItem("Rotation")) {
 							if(na.rotationKeyFrames.times.size() > 0) {
-								ImPlotAxisFlags ax_flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoTickMarks;
-								if(ImPlot::BeginPlot("##Rotation", ImVec2(-1, 0), ImPlotFlags_CanvasOnly | ImPlotFlags_NoInputs)) {
+								ImPlotAxisFlags ax_flags = ImPlotAxisFlags_Lock;
+								if(ImPlot::BeginPlot("##Rotation", ImVec2(-1, 0), ImPlotFlags_CanvasOnly)) {
 									ImPlot::SetupAxes(0, 0, ax_flags, ax_flags);
-									ImPlot::SetupAxesLimits(0, duration, -180, 180);
+									ImPlot::SetupAxesLimits(0, duration, -180, 180, ImPlotCond_Always);
+
+									if(ImPlot::IsPlotHovered() && ImGui::IsMouseDown(0)) {
+										auto pos = ImPlot::GetPlotMousePos();
+										animComp->running = false;
+										animComp->forceUpdate = true;
+										animComp->time = pos.x;
+									}
 
 									double time = std::fmod(animComp->time, duration);
 									ImPlot::SetNextLineStyle(ImVec4(1, 1, 1, 1));
@@ -411,22 +414,23 @@ void Editor::drawUI() {
 									for(size_t c = 0; c < 3; ++c) {
 										std::vector<ImPlotPoint> points;
 										for(size_t i = 0; i < na.rotationKeyFrames.times.size(); ++i) {
-											auto		euler = glm::eulerAngles(na.rotationKeyFrames.frames[i]);
+											auto		euler = glm::eulerAngles(na.rotationKeyFrames.frames[i]); // FIXME: Instable
 											ImPlotPoint point{na.rotationKeyFrames.times[i], 360.0f / (2.0f * glm::pi<float>()) * euler[c]};
 											if(ImPlot::DragPoint(c * na.rotationKeyFrames.times.size() + i, &point.x, &point.y, axisColors[c], 4)) {
 												euler[c] = point.y / (360.0f / (2.0f * glm::pi<float>()));
+												na.rotationKeyFrames.times[i] = point.x > 0 ? point.x : 0;
 												na.rotationKeyFrames.frames[i] = glm::quat(euler);
 
 												animComp->running = false;
 												animComp->forceUpdate = true;
 												animComp->time = na.rotationKeyFrames.times[i];
 											}
+											// ImPlot::Annotation(point.x, point.y, ImVec4(1, 1, 1, 1), ImVec2(0, 6), false, "%f %f", point.x, point.y);
 											points.push_back(point);
 										}
 										ImPlot::SetNextLineStyle(axisColors[c]);
 										ImPlot::PlotLine("##h1", &points[0].x, &points[0].y, points.size(), 0, sizeof(ImPlotPoint));
 									}
-
 									ImPlot::EndPlot();
 								}
 							}

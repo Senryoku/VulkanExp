@@ -174,8 +174,9 @@ bool Renderer::updateAnimations(float deltaTime) {
 	auto animatedNodes = _scene->getRegistry().view<AnimationComponent>();
 	for(auto& entity : animatedNodes) {
 		auto& animationComponent = _scene->getRegistry().get<AnimationComponent>(entity);
-		if(animationComponent.running || animationComponent.forceUpdate) {
+		if(animationComponent.running)
 			animationComponent.time += deltaTime;
+		if(animationComponent.running || animationComponent.forceUpdate) {
 			animationComponent.forceUpdate = false;
 			if(animationComponent.animationIndex != InvalidAnimationIndex)
 				for(const auto& n : Animations[animationComponent.animationIndex].nodeAnimations) {
