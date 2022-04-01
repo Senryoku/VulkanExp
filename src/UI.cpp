@@ -338,8 +338,18 @@ void Editor::drawUI() {
 		bool	  gizmoUpdated =
 			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
 								 _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
+		// Keep track of the starting point of the modification
+		static bool		 updatingGizmo = false;
+		static glm::mat4 startingTransform;
 		if(gizmoUpdated) {
+			if(!updatingGizmo) {
+				updatingGizmo = true;
+				startingTransform = node.transform;
+			}
 			node.transform = glm::inverse(parentTransform) * worldTransform;
+		} else if(updatingGizmo) { // Finalize the transform modification
+			updatingGizmo = false;
+			_history.push(new NodeTransformModification(_scene, _selectedNode, startingTransform, node.transform));
 		}
 		updatedTransform = gizmoUpdated || updatedTransform;
 
@@ -485,7 +495,16 @@ void Editor::drawUI() {
 
 	if(ImGui::BeginMainMenuBar()) {
 		if(ImGui::BeginMenu("File")) {
-			if(ImGui::MenuItem("Load Scene")) {}
+			if(ImGui::MenuItem("Load Scene")) {
+				_scene.load("data/default.scene");
+			}
+			ImGui::EndMenu();
+		}
+		if(ImGui::BeginMenu("Edit")) {
+			if(ImGui::MenuItem("Undo", "CTRL+Z", false, _history.canUndo()))
+				_history.undo();
+			if(ImGui::MenuItem("Redo", "CTRL+Y", false, _history.canRedo()))
+				_history.redo();
 			ImGui::EndMenu();
 		}
 		if(ImGui::BeginMenu("Debug")) {
@@ -656,9 +675,11 @@ void Editor::drawUI() {
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Scale      ", matrixScale) || updatedTransform;
-				if(updatedTransform)
+				if(updatedTransform) {
+					auto prevTransform = node.transform;
 					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
-
+					_history.push(new NodeTransformModification(_scene, _selectedNode, prevTransform, node.transform));
+				}
 				if(ImGui::RadioButton("Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
 					_currentGizmoOperation = ImGuizmo::TRANSLATE;
 				ImGui::SameLine();

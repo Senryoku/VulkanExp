@@ -43,6 +43,7 @@
 
 #include <ImGuizmo/ImGuizmo.h>
 
+#include <EditHistory.hpp>
 #include <IrradianceProbes.hpp>
 #include <KeyboardShortcut.hpp>
 #include <Light.hpp>
@@ -125,6 +126,20 @@ class Editor {
 	RollingBuffer<float>	 _gatherTimes;
 	RollingBuffer<float>	 _presentTimes;
 
+	EditHistory _history;
+
+	bool		_drawUI = true;
+	float		_timeScale = 1.0f;
+	LightBuffer _light;
+	bool		_deriveLightPositionFromTime = false;
+	float		_dayCycleSpeed = 48.0;
+	int			_dayOfTheYear = 160;
+	int			_hour = 12;
+	float		_minute = 0;
+	float		_longitude = 5;
+	float		_latitude = 45;
+	int			_utctimezone = 1; // _timezone is a macro...
+
 	Buffer		 _stagingBuffer;
 	DeviceMemory _stagingMemory;
 
@@ -197,7 +212,6 @@ class Editor {
 	std::vector<QueryPool>			 _mainTimingQueryPools;
 
 	bool _enableReflections = true;
-	bool _drawUI = true;
 
 	void createGBufferPass();
 	void createGBufferRenderPass();
@@ -213,18 +227,6 @@ class Editor {
 	void writeDirectLightDescriptorSets();
 	void createGatherPass();
 	void createProbeDebugPass();
-
-	float _timeScale = 1.0f;
-
-	LightBuffer _light;
-	bool		_deriveLightPositionFromTime = false;
-	float		_dayCycleSpeed = 48.0;
-	int			_dayOfTheYear = 160;
-	int			_hour = 12;
-	float		_minute = 0;
-	float		_longitude = 5;
-	float		_latitude = 45;
-	int			_utctimezone = 1; // _timezone is a macro...
 
 	size_t				_uboStride = 0;
 	std::vector<Buffer> _cameraUniformBuffers;

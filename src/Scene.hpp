@@ -2,11 +2,13 @@
 
 #include <filesystem>
 
+#include <entt.hpp>
+
 #include <Mesh.hpp>
 #include <Raytracing.hpp>
 #include <RollingBuffer.hpp>
 #include <TaggedType.hpp>
-#include <entt.hpp>
+#include <Undoable.hpp>
 
 // TODO: Move this :)
 inline std::vector<Material> Materials;
@@ -151,3 +153,23 @@ class Scene {
 };
 
 JSON::value toJSON(const NodeComponent&);
+
+class NodeTransformModification : public Undoable {
+  public:
+	NodeTransformModification(Scene& scene, entt::entity entity, const glm::mat4& prevTransform, const glm::mat4& newTransform)
+		: _scene(scene), _entity(entity), _prevTransform(prevTransform), _newTransform(newTransform) {}
+	virtual void undo() override {
+		_scene.getRegistry().get<NodeComponent>(_entity).transform = _prevTransform;
+		_scene.markDirty(_entity);
+	}
+	virtual void redo() override {
+		_scene.getRegistry().get<NodeComponent>(_entity).transform = _newTransform;
+		_scene.markDirty(_entity);
+	}
+
+  private:
+	Scene&		 _scene;
+	entt::entity _entity;
+	glm::mat4	 _prevTransform;
+	glm::mat4	 _newTransform;
+};

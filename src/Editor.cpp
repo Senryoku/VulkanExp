@@ -30,6 +30,9 @@ void Editor::initWindow() {
 	_shortcuts[{GLFW_KEY_F1}] = [&]() { _drawUI = !_drawUI; };
 	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/defaut.scene"); };
 	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
+	_shortcuts[{GLFW_KEY_Z, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _history.undo(); }; // QWERTY
+	_shortcuts[{GLFW_KEY_W, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _history.undo(); }; // AZERTY
+	_shortcuts[{GLFW_KEY_Y, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _history.redo(); };
 	_shortcuts[{GLFW_KEY_X, GLFW_PRESS}] = [&]() { _useSnap = !_useSnap; };
 	_shortcuts[{GLFW_KEY_T, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::TRANSLATE; };
 	_shortcuts[{GLFW_KEY_Z, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::TRANSLATE; };
