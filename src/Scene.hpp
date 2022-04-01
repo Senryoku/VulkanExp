@@ -75,6 +75,7 @@ class Scene {
 		UnsignedInt = 5125,
 		Float = 5126,
 		Double = 5130,
+		Any = 0
 	};
 
 	Scene();

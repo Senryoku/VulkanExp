@@ -99,6 +99,14 @@ std::vector<T> extract(const JSON::value& object, const std::vector<std::vector<
 	return data;
 }
 
+template<typename T>
+JointIndices extractJoints(const char* data, size_t cursor) {
+	JointIndices ji;
+	for(int i = 0; i < 4; ++i)
+		ji.indices[i] = reinterpret_cast<const T*>(data + cursor)[i];
+	return ji;
+}
+
 bool Scene::loadglTF(const std::filesystem::path& path) {
 	JSON						   json;
 	std::vector<std::vector<char>> buffers;
@@ -213,7 +221,7 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			auto initAccessor = [&](const std::string& name, const char** bufferData, size_t* cursor, size_t* stride, const int defaultStride = 4 * sizeof(float),
 									ComponentType expectedComponentType = ComponentType::Float, const std::string& expectedType = "VEC4") {
 				const auto& accessor = object["accessors"][p["attributes"][name].as<int>()];
-				assert(static_cast<ComponentType>(accessor["componentType"].as<int>()) == expectedComponentType);
+				assert(expectedComponentType == ComponentType::Any || static_cast<ComponentType>(accessor["componentType"].as<int>()) == expectedComponentType);
 				assert(accessor["type"].as<std::string>() == expectedType);
 				const auto& bufferView = object["bufferViews"][accessor["bufferView"].as<int>()];
 				const auto& buffer = buffers[bufferView["buffer"].as<int>()];
@@ -249,10 +257,12 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 			size_t		jointsCursor = 0;
 			size_t		jointsStride = 0;
 
+			ComponentType jointsIndexType = ComponentType::UnsignedShort;
 			if(skinnedMesh) {
 				initAccessor("WEIGHTS_0", &weightsBufferData, &weightsCursor, &weightsStride);
 				assert(p["attributes"].contains("JOINTS_0"));
-				initAccessor("JOINTS_0", &jointsBufferData, &jointsCursor, &jointsStride, 4 * sizeof(JointIndex), ComponentType::UnsignedShort);
+				jointsIndexType = static_cast<ComponentType>(object["accessors"][p["attributes"]["JOINTS_0"].as<int>()]["componentType"].as<int>());
+				initAccessor("JOINTS_0", &jointsBufferData, &jointsCursor, &jointsStride, 4 * sizeof(JointIndex), ComponentType::Any);
 			}
 			std::vector<glm::vec4>	  weights;
 			std::vector<JointIndices> joints;
@@ -288,7 +298,16 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 					if(skinnedMesh) {
 						weights.push_back(*reinterpret_cast<const glm::vec4*>(weightsBufferData + weightsCursor));
 						weightsCursor += weightsStride;
-						joints.push_back(*reinterpret_cast<const JointIndices*>(jointsBufferData + jointsCursor));
+						if(jointsIndexType != ComponentType::UnsignedShort) {
+							switch(jointsIndexType) {
+								case ComponentType::Byte: joints.push_back(extractJoints<int8_t>(jointsBufferData, jointsCursor)); break;
+								case ComponentType::UnsignedByte: joints.push_back(extractJoints<uint8_t>(jointsBufferData, jointsCursor)); break;
+								case ComponentType::Short: joints.push_back(extractJoints<int16_t>(jointsBufferData, jointsCursor)); break;
+								case ComponentType::Int: joints.push_back(extractJoints<int32_t>(jointsBufferData, jointsCursor)); break;
+								case ComponentType::UnsignedInt: joints.push_back(extractJoints<uint32_t>(jointsBufferData, jointsCursor)); break;
+							}
+						} else
+							joints.push_back(*reinterpret_cast<const JointIndices*>(jointsBufferData + jointsCursor));
 						jointsCursor += jointsStride;
 					}
 
@@ -298,7 +317,6 @@ bool Scene::loadglTF(const std::filesystem::path& path) {
 				error("Error: Unsupported accessor type '{}'.", positionAccessor["type"].asString());
 			}
 
-			// TODO: Use the Mesh's SKIN!
 			if(skinnedMesh)
 				mesh.setSkinVertexData(SkinVertexData{weights, joints});
 
