@@ -52,9 +52,33 @@ struct SkeletalAnimationClip {
 		std::vector<float> times;
 		std::vector<T>	   frames;
 
+		float duration() const { return times.empty() ? 0 : times.back(); }
+		void  setDuration(float t) {
+			 if(!times.empty()) {
+				 for(auto& ft : times) {
+					 if(ft > t)
+						 ft = t;
+				 }
+				 times.back() = t;
+			 }
+		}
+
 		void add(float t, const T& d) {
-			times.push_back(t);
-			frames.push_back(d);
+			if(!times.empty() && t < duration()) {
+				size_t index = 0;
+				while(times[index] < t)
+					++index;
+				times.insert(times.begin() + index, t);
+				frames.insert(frames.begin() + index, d);
+			} else {
+				times.push_back(t);
+				frames.push_back(d);
+			}
+		}
+
+		void del(size_t index) {
+			times.erase(times.begin() + index);
+			frames.erase(frames.begin() + index);
 		}
 
 		T at(float t, const T& def = T()) const {
@@ -102,6 +126,8 @@ struct SkeletalAnimationClip {
 		RotationChannel	   rotationKeyFrames;
 		ScaleChannel	   scaleKeyFrames;
 		WeightsChannel	   weightsKeyFrames;
+
+		float duration() const { return std::max({0.0f, translationKeyFrames.duration(), rotationKeyFrames.duration(), scaleKeyFrames.duration(), weightsKeyFrames.duration()}); }
 
 		NodePose at(float t) const {
 			auto translate = translationKeyFrames.at(t);
