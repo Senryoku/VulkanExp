@@ -1,9 +1,19 @@
 # VulkanExp
 
+# Features
+  - Renderer
+    - Rasterisation and Raytracing hybrid: Rasterized GBuffer and additional raytraced passes for effects (shadows/reflections). 
+    - [Dynamic Diffuse Global Illumination (DDGI)](https://morgan3d.github.io/articles/2019-04-01-ddgi/) : [Presentation](https://www.gdcvault.com/play/1026182/)
+    - Raytraced Shadows (Single source for now, a directional sun, could be easily expanded to a second one using the same output buffer.)
+      - Single ray per pixel
+      - Filtered by a depth-aware gaussian kernel.
+      - Accumulated over multiple frames with reprojection and history invalidation.
+    - Raytraced Reflections
+      - Also 1spp and filtered in a similar way as shadows. 
+
 ## Todos
 
 ### Bugs
-  - TLAS update slowed down significantly? (is it really because of EnTT, or did I mess something else up?)
   - Probably a lot.
 
 ### Major Features
@@ -11,6 +21,8 @@
  - Scene
    - Save (!)
      - Decide on a format...
+     - Actually support all existing components and resources
+     - Convert images to a common format? QOI?
    - Select Nodes
      - Edit Material
      - Create empty node, add 'components'
@@ -20,19 +32,21 @@
      - Refer to Materials by path/name (make sure names are unique on load)
    - Manually load textures
    - Manually create new materials
- - Reflections
-   - Start by using SSR and raytrace only as a fallback (will probably need a bit of restructuring, doing SSR in a raygen shader seems to be horrible)
- - Sun Direction in UBO
-   - Use the actual sun intensity/size for the direct lights? (it is way too high for our renderer rn)
- - GI. Irradiance Probes for Indirect lightning.
-   - With visibility term: https://www.gdcvault.com/play/1026182/
-   - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
-   - More refined probes state (rn they're "Off", "On"), maybe re-introduce the reduce refresh-rate state?
-   - Light leaks. Especially visible in the sun temple. May not be a direct consequence of the statistical nature of the probes visibility term: Walls in the sun temple are simply too thin.
- - Some sort of (small scale) AO
+ - Motions vectors
+ - Some sort of (small scale) AO. Also raytraced? or SSAO? or even baked? 
+   - Also allow the use of texture AO.
  
 ### Improvements 
-- Correctly reproject reflections for temporal filtering (See http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html)
+- Reflections
+  - Start by using SSR and raytrace only as a fallback (will probably need a bit of restructuring, doing SSR in a raygen shader seems to be horrible)
+  - Correctly reproject reflections for temporal filtering (See http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html, needs a depth hystory)
+  - Use motions vectors for reprojection and accumulation
+- Shadows
+  - Sun Direction in UBO
+  - Use motions vectors for reprojection and accumulation 
+- GI
+  - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
+  - More refined probes state?
 - Move all rendering related code to its own class (Mostly remove all rendering code from Scene)
 - Many
 
@@ -79,3 +93,5 @@ Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
    - ImPlot [https://github.com/epezent/implot] (included in ext/)
  - FMT 7.1.3 [https://fmt.dev/]
  - EnTT 3.9.0 [https://github.com/skypjack/entt] (included in ext/)
+ - FileWatch [https://github.com/ThomasMonkman/filewatch] (included in ext/) For automatic shader recompilation. 
+ - stb_image v2.27 [https://github.com/nothings/stb] (included in ext/)
