@@ -732,6 +732,12 @@ bool Scene::save(const std::filesystem::path& path) {
 				{"materialIndex", static_cast<int>(mesh->materialIndex)},
 			};
 		}
+		if(auto* comp = _registry.try_get<SkinnedMeshRendererComponent>(entity); comp != nullptr) {
+			warn("Scene::save: SkinnedMeshRendererComponents are not supported yet.");
+		}
+		if(auto* comp = _registry.try_get<AnimationComponent>(entity); comp != nullptr) {
+			warn("Scene::save: AnimationComponents are not supported yet.");
+		}
 		entitiesIndices[entity] = entities.size(); // Maps entity id to index in the file array, used to create children array
 		entities.push_back(nodeJSON);
 	}
@@ -905,6 +911,7 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 			auto indexArrayIndex = m["indexArray"].as<int>() - 1;
 			mesh.getIndices().assign(reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data()),
 									 reinterpret_cast<uint32_t*>(buffers[indexArrayIndex].data() + buffers[indexArrayIndex].size()));
+			mesh.computeBounds();
 		}
 
 		// Find root (FIXME: There's probably a better way to do this. Should we order the nodes when saving so the root is always the first node in the array? It's also probably a
@@ -914,6 +921,7 @@ bool Scene::loadScene(const std::filesystem::path& path) {
 				_root = e;
 				break;
 			}
+		markDirty(_root);
 		computeBounds();
 		return true;
 	}

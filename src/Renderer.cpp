@@ -590,7 +590,9 @@ bool Renderer::updateDynamicBLAS() {
 }
 
 void Renderer::updateAccelerationStructureInstances() {
-	for(size_t i = 0; i < _instancesData.size(); ++i) {
+	if(_accStructInstances.size() < _instancesData.size())
+		warn("_instancesData and _accStructInstances out of sync (sizes: {} and {})\n", _instancesData.size(), _accStructInstances.size());
+	for(size_t i = 0; i < std::min(_instancesData.size(), _accStructInstances.size()); ++i) {
 		auto t = glm::transpose(_instancesData[i].transform);
 		_accStructInstances[i].transform = *reinterpret_cast<VkTransformMatrixKHR*>(&t);
 	}

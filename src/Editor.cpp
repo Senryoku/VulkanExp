@@ -127,7 +127,7 @@ void Editor::run() {
 				//"./data/models/SunTemple-glTF/suntemple.gltf",
 				//"./data/models/postwar_city_-_exterior_scene/scene.gltf",
 				//"./data/models/sea_keep_lonely_watcher/scene.gltf",
-				"./data/models/RiggedSimple/glTF/RiggedSimple.gltf",
+				//"./data/models/RiggedSimple/glTF/RiggedSimple.gltf",
 			})
 			_scene.load(str);
 	}

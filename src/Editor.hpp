@@ -291,7 +291,9 @@ class Editor {
 
 	entt::entity		_selectedNode = entt::null;
 	bool				_useSnap = false;
-	glm::vec3			_snapOffset{1.0f};
+	glm::vec3			_snapOffset{1.0};
+	float				_snapAngleOffset{90.0};
+	float				_snapScaleOffset{0.5};
 	ImGuizmo::OPERATION _currentGizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 	ImGuizmo::MODE		_currentGizmoMode = ImGuizmo::MODE::WORLD;
 
@@ -399,7 +401,9 @@ class Editor {
 		return score;
 	}
 
-	void createSurface() { VK_CHECK(glfwCreateWindowSurface(_instance, _window, nullptr, &_surface)); }
+	void createSurface() {
+		VK_CHECK(glfwCreateWindowSurface(_instance, _window, nullptr, &_surface));
+	}
 
 	PhysicalDevice pickPhysicalDevice() const {
 		uint32_t deviceCount = 0;

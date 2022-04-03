@@ -52,16 +52,16 @@ void Editor::initImGui(uint32_t queueFamily) {
 
 	// Create Dear ImGUI Descriptor Pool
 	VkDescriptorPoolSize	   pool_sizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-										   {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-										   {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-										   {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-										   {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-										   {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-										   {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-										   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-										   {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-										   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-										   {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+											   {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+											   {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+											   {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+											   {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+											   {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+											   {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+											   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+											   {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+											   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+											   {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
 	VkDescriptorPoolCreateInfo pool_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
@@ -282,7 +282,7 @@ void Editor::drawUI() {
 		glm::vec2	glmwinpos{winpos.x, winpos.y};
 		auto		project = [&](const glm::mat4& transform, const glm::vec3& pos = glm::vec3(0)) {
 			   auto t = _camera.getViewMatrix() * transform * glm::vec4(pos, 1.0);
-			   if(t.z > 0.0) // Truncate is point is behind camera
+			   if(t.z > 0.0) // Truncate if point is behind camera
 				   t.z = 0.0;
 			   t = _camera.getProjectionMatrix() * t;
 			   auto r = glm::vec2{t.x, -t.y} / t.w;
@@ -335,9 +335,12 @@ void Editor::drawUI() {
 		glfwGetWindowPos(_window, &x, &y);
 		ImGuizmo::SetRect(x, y, io.DisplaySize.x, io.DisplaySize.y);
 		glm::mat4 delta;
-		bool	  gizmoUpdated =
-			ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()), _currentGizmoOperation,
-								 _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta), _useSnap ? &_snapOffset.x : nullptr);
+		bool	  gizmoUpdated = ImGuizmo::Manipulate(reinterpret_cast<const float*>(&_camera.getViewMatrix()), reinterpret_cast<const float*>(&_camera.getProjectionMatrix()),
+													  _currentGizmoOperation, _currentGizmoMode, reinterpret_cast<float*>(&worldTransform), reinterpret_cast<float*>(&delta),
+												  _useSnap ? (_currentGizmoOperation == ImGuizmo::OPERATION::ROTATE	 ? &_snapAngleOffset
+																  : _currentGizmoOperation == ImGuizmo::OPERATION::SCALE ? &_snapScaleOffset
+																														 : &_snapOffset.x)
+															   : nullptr);
 		// Keep track of the starting point of the modification
 		static bool		 updatingGizmo = false;
 		static glm::mat4 startingTransform;
@@ -679,6 +682,7 @@ void Editor::drawUI() {
 					auto prevTransform = node.transform;
 					ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, reinterpret_cast<float*>(&node.transform));
 					_history.push(new NodeTransformModification(_scene, _selectedNode, prevTransform, node.transform));
+					_scene.markDirty(_selectedNode);
 				}
 				if(ImGui::RadioButton("Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
 					_currentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -706,11 +710,11 @@ void Editor::drawUI() {
 						break;
 					case ImGuizmo::ROTATE:
 						// snap = config.mSnapRotation;
-						ImGui::InputFloat("Angle Snap", &_snapOffset.x);
+						ImGui::InputFloat("Angle Snap", &_snapAngleOffset);
 						break;
 					case ImGuizmo::SCALE:
 						// snap = config.mSnapScale;
-						ImGui::InputFloat("Scale Snap", &_snapOffset.x);
+						ImGui::InputFloat("Scale Snap", &_snapScaleOffset);
 						break;
 				}
 
