@@ -453,6 +453,8 @@ inline static [[nodiscard]] VkDeviceAddress getDeviceAddress(const Device& devic
 void Renderer::createTLAS() {
 	QuickTimer qt("TLAS building");
 
+	sortRenderers();
+
 	const auto& meshes = getMeshes();
 	{
 		auto instances = _scene->getRegistry().view<MeshRendererComponent>();
