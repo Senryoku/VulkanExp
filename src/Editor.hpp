@@ -83,7 +83,7 @@ class Editor {
 	const uint32_t InitialWidth = 1920;
 	const uint32_t InitialHeight = 1080;
 
-	const std::vector<const char*> _validationLayers = {"VK_LAYER_KHRONOS_validation"};
+	const std::vector<const char*> _validationLayers = {"VK_LAYER_KHRONOS_validation", "VK_LAYER_LUNARG_monitor"};
 
 	const std::vector<const char*> _requiredDeviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,

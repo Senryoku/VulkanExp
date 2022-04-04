@@ -57,8 +57,7 @@ const float g = -0.990f;		// The Mie phase asymmetry factor
 
 // TODO: We should probably precompute this into a cubemap at some point (with a really slow update rate)
 // Original value for sunColor: vec3(20);
-const float sunBrightnessFactor = 1.0f; // FIXME: Hack
-vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, bool showSun) {
+vec3 sky(vec3 rayOrigin, vec3 rayDirection, vec3 sunPosition, vec3 sunColor, float sunBrightnessFactor, bool showSun) {
 	//sunColor = normalize(sunColor);
 	sunColor *= sunBrightnessFactor;
 	

@@ -52,7 +52,7 @@ void main() {
 
 	// Miss: Display the environment map.
 	if(depth <= 0) {
-		color.rgb = sky(origin, (inverse(ubo.view) * vec4(normalize(vec3(inverse(ubo.proj) * vec4(2.0 * fragPosition - 1.0, 0.0, 1.0))), 0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, true);
+		color.rgb = sky(origin, (inverse(ubo.view) * vec4(normalize(vec3(inverse(ubo.proj) * vec4(2.0 * fragPosition - 1.0, 0.0, 1.0))), 0)).xyz, DirectionalLight.direction.xyz, DirectionalLight.color.rgb, 1.0, true);
 	} else {
 		vec3 view = normalize(origin - position);
 		// Direct Light
