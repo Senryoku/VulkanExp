@@ -20,6 +20,7 @@ layout(push_constant) uniform Push {
 
 #include "irradiance.glsl"
 #include "rayPayload.glsl"
+#include "InstanceMasks.glsl"
 
 layout(location = 0) rayPayloadEXT rayPayload payload;
 
@@ -39,7 +40,7 @@ void main() {
 	payload.raydx = rotateAxis(direction, normalize(cross(direction, vec3(1, 0, 0))), 0.001);
 	payload.raydy = rotateAxis(direction, normalize(cross(direction, vec3(0, 1, 0))), 0.001);
     payload.recursionDepth = 1; // Skip reflections
-	traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, origin, tmin, direction, tmax, 0);
+	traceRayEXT(topLevelAS, 0, INSTANCE_STATIC | INSTANCE_DYNAMIC, 0, 0, 0, origin, tmin, direction, tmax, 0);
         
     ivec2 coords = ivec2(gl_LaunchIDEXT.x, rayIndex);
     imageStore(rayIrradianceDepth, coords, vec4(payload.color.rgb, payload.depth));

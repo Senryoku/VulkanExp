@@ -155,6 +155,7 @@
     <None Include="src\shaders\directLightFilterX.comp" />
     <None Include="src\shaders\directLightFilterY.comp" />
     <None Include="src\shaders\InstanceData.glsl" />
+    <None Include="src\shaders\InstanceMasks.glsl" />
     <None Include="src\shaders\ProbeGrid.glsl" />
     <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\backfaceTest.rchit" />

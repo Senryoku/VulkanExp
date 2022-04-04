@@ -25,7 +25,8 @@ class Renderer {
 
 	enum InstanceMask : uint8_t {
 		Static = 0x1,
-		Dynamic = 0x2
+		Dynamic = 0x2,
+		Skinned = 0x4,
 	};
 
 	Renderer() = default;

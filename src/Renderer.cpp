@@ -487,7 +487,7 @@ void Renderer::createTLAS() {
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,
 				.instanceCustomIndex = skinnedMeshRendererComponent.indexIntoOffsetTable,
-				.mask = InstanceMask::Dynamic,
+				.mask = InstanceMask::Skinned,
 				.instanceShaderBindingTableRecordOffset = 0,
 				.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
 				.accelerationStructureReference = BLASDeviceAddress,

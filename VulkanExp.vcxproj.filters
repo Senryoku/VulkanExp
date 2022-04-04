@@ -404,5 +404,6 @@
     <None Include="src\shaders\directLightFilterY.comp" />
     <None Include="src\shaders\InstanceData.glsl" />
     <None Include="src\shaders\unpackMaterial.glsl" />
+    <None Include="src\shaders\InstanceMasks.glsl" />
   </ItemGroup>
 </Project>
