@@ -568,10 +568,8 @@ void Editor::drawUI() {
 
 		quickDisplay(_currentFrame);
 		quickDisplay(_reflectionImageViews.size() + _currentFrame);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 0);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 1);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 2);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 3);
+		for(int i = 0; i < _gbufferSize; ++i)
+			quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _gbufferSize * _currentFrame + i);
 
 		for(const auto& texture : DebugTextureIDs) {
 			if(ImGui::TreeNode(texture.name.c_str())) {

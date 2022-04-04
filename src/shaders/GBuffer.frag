@@ -17,11 +17,13 @@ layout(location = 3) in vec4 tangent;
 layout(location = 4) in vec3 bitangent;
 layout(location = 5) in vec2 texCoord;
 layout(location = 6) in flat vec3 origin;
+layout(location = 7) in vec3 motion;
 
 layout(location = 0) out vec4 outPositionDepth;
 layout(location = 1) out vec4 outNormalMetalness;
 layout(location = 2) out vec4 outAlbedoRoughness;
 layout(location = 3) out vec4 outEmissive;
+layout(location = 4) out vec4 outMotion;
 
 void main() {
     Material material = unpackMaterial(0);
@@ -57,4 +59,5 @@ void main() {
     outNormalMetalness = vec4(finalNormal, metalness);
     outAlbedoRoughness = vec4(albedo, roughness);
     outEmissive = vec4(emissive, 1.0);
+    outMotion = vec4(motion, 1.0);
 }

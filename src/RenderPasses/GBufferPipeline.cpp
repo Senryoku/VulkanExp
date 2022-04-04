@@ -50,6 +50,16 @@ void Editor::createGBufferRenderPass() {
 			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 		})
 		.add({
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FIXME: Temp finalLayout for the UI as it's not used for the moment
+		})
+		.add({
 			.format = _depthFormat,
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -64,10 +74,11 @@ void Editor::createGBufferRenderPass() {
 					 {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 					 {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 					 {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-					 {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
+					 {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+					 {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}},
 					{}, {},
 					{// Depth
-					 4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+					 5, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
 					{})
 		// Dependencies (FIXME!)
 		.add({
@@ -94,10 +105,11 @@ void Editor::createGBufferFramebuffers() {
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gbufferFramebuffers[i].create(_device, _gbufferRenderPass,
 									   {
-										   _gbufferImageViews[4 * i + 0],
-										   _gbufferImageViews[4 * i + 1],
-										   _gbufferImageViews[4 * i + 2],
-										   _gbufferImageViews[4 * i + 3],
+										   _gbufferImageViews[_gbufferSize * i + 0],
+										   _gbufferImageViews[_gbufferSize * i + 1],
+										   _gbufferImageViews[_gbufferSize * i + 2],
+										   _gbufferImageViews[_gbufferSize * i + 3],
+										   _gbufferImageViews[_gbufferSize * i + 4],
 										   _depthImageView,
 									   },
 									   _swapChainExtent);
@@ -127,7 +139,9 @@ void Editor::createGBufferPipeline() {
 	_gbufferDescriptorSetLayouts.push_back(builder.build(_device));
 
 	DescriptorSetLayoutBuilder instanceSetBuilder;
-	instanceSetBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); // Instance transform SSBO
+	instanceSetBuilder
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)	 // Instance transform SSBO
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT); // Previous instance transform SSBO
 	_gbufferDescriptorSetLayouts.push_back(instanceSetBuilder.build(_device));
 
 	std::vector<VkDescriptorSetLayout> layouts;
@@ -223,11 +237,8 @@ void Editor::createGBufferPipeline() {
 		.alphaBlendOp = VK_BLEND_OP_ADD,			 // Optional
 		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 	};
-	std::array<VkPipelineColorBlendAttachmentState, 4> colorBlendAttachmentStates{
-		colorBlendAttachment,
-		colorBlendAttachment,
-		colorBlendAttachment,
-		colorBlendAttachment,
+	std::array<VkPipelineColorBlendAttachmentState, 5> colorBlendAttachmentStates{
+		colorBlendAttachment, colorBlendAttachment, colorBlendAttachment, colorBlendAttachment, colorBlendAttachment,
 	};
 
 	VkPipelineDepthStencilStateCreateInfo depthStencil{
@@ -337,6 +348,7 @@ void Editor::writeGBufferDescriptorSets() {
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
 		DescriptorSetWriter dsw(_gbufferDescriptorPool.getDescriptorSets()[_swapChainImages.size() * Materials.size() + i]);
 		dsw.add(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _renderer.getInstanceBuffer());
+		dsw.add(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, _renderer.getPreviousInstanceBuffer());
 		dsw.update(_device);
 	}
 }

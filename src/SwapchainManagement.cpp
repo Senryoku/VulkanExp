@@ -89,8 +89,8 @@ void Editor::createSwapChain() {
 		_swapChainImageViews.push_back(ImageView{_device, _swapChainImages[i], _swapChainImageFormat});
 
 	// Create GBuffer Images & Views
-	_gbufferImages.resize(4 * _swapChainImages.size());
-	_gbufferImageViews.resize(4 * _swapChainImages.size());
+	_gbufferImages.resize(_gbufferSize * _swapChainImages.size());
+	_gbufferImageViews.resize(_gbufferSize * _swapChainImages.size());
 	_directLightImages.resize(2 * _swapChainImages.size());
 	_directLightImageViews.resize(2 * _swapChainImages.size());
 	_directLightIntermediateFilterImages.resize(_swapChainImages.size());
@@ -100,14 +100,15 @@ void Editor::createSwapChain() {
 	_reflectionIntermediateFilterImages.resize(_swapChainImages.size());
 	_reflectionIntermediateFilterImageViews.resize(_swapChainImages.size());
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {
-		for(size_t j = 0; j < 4; j++) {
-			_gbufferImages[4 * i + j].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-											 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-			_gbufferImages[4 * i + j].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			_gbufferImageViews[4 * i + j].create(_device, _gbufferImages[4 * i + j], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+		for(size_t j = 0; j < _gbufferSize; j++) {
+			_gbufferImages[_gbufferSize * i + j].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+														VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+															VK_IMAGE_USAGE_SAMPLED_BIT);
+			_gbufferImages[_gbufferSize * i + j].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			_gbufferImageViews[_gbufferSize * i + j].create(_device, _gbufferImages[_gbufferSize * i + j], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
 			// Set initial layout to avoid errors when used in the UI even if we've never rendered to them
-			_gbufferImages[4 * i + j].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
-													   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			_gbufferImages[_gbufferSize * i + j].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R32G32B32A32_SFLOAT,
+																  VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
 
 		_reflectionImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
@@ -296,7 +297,7 @@ void Editor::recordCommandBuffers() {
 
 		const std::vector<VkClearValue> clearValues{
 			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}},
-			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
+			VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.color = {0.0f, 0.0f, 0.0f, 0.0f}}, VkClearValue{.depthStencil = {1.0f, 0}},
 		};
 		{
 			b.beginRenderPass(_gbufferRenderPass, _gbufferFramebuffers[i], _swapChainExtent, clearValues);

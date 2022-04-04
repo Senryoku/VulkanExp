@@ -55,6 +55,7 @@ void Renderer::destroyTLAS() {
 	_tlasBuffer.destroy();
 	_tlasMemory.free();
 	_instancesBuffer.destroy();
+	_previousInstancesBuffer.destroy();
 	_instancesMemory.free();
 	_accStructInstances.clear();
 	_accStructInstancesBuffer.destroy();
@@ -500,8 +501,10 @@ void Renderer::createTLAS() {
 	_accStructInstancesMemory.allocate(*_device, _accStructInstancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	copyViaStagingBuffer(_accStructInstancesBuffer, _accStructInstances);
 
-	_instancesBuffer.create(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, _accStructInstances.size() * sizeof(InstanceData));
-	_instancesMemory.allocate(*_device, _instancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_instancesMemory.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+						  2 * _accStructInstances.size() * sizeof(InstanceData), 0, 2);
+	_instancesMemory.bind(_instancesBuffer, _accStructInstances.size() * sizeof(InstanceData));
+	_instancesMemory.bind(_previousInstancesBuffer, _accStructInstances.size() * sizeof(InstanceData));
 	updateTransforms();
 
 	VkAccelerationStructureGeometryKHR TLASGeometry{
@@ -662,12 +665,23 @@ void Renderer::onHierarchicalChanges(float deltaTime) {
 	updateTLAS();
 }
 
-void Renderer::update() {}
+void Renderer::update() {
+	if(!_instancesData.empty())
+		_device->immediateSubmitTransfert([&](const CommandBuffer& cmdBuff) {
+			VkBufferCopy copyRegion{
+				.srcOffset = 0,
+				.dstOffset = 0,
+				.size = _instancesData.size() * sizeof(InstanceData),
+			};
+			vkCmdCopyBuffer(cmdBuff, _instancesBuffer, _previousInstancesBuffer, 1, &copyRegion);
+		});
+}
 
 void Renderer::updateTransforms() {
 	sortRenderers();
 	auto meshRenderers = _scene->getRegistry().view<MeshRendererComponent, NodeComponent>();
 	auto skinnedMeshRenderers = _scene->getRegistry().view<SkinnedMeshRendererComponent, NodeComponent>();
+
 	// TODO: Optimize by only updating dirtyNode when possible
 	_instancesData.clear();
 	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());

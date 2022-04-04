@@ -119,10 +119,10 @@ void Editor::createGatherFramebuffers() {
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gatherFramebuffers[i].create(_device, _gatherRenderPass,
 									  {
-										  _gbufferImageViews[4 * i + 0],
-										  _gbufferImageViews[4 * i + 1],
-										  _gbufferImageViews[4 * i + 2],
-										  _gbufferImageViews[4 * i + 3],
+										  _gbufferImageViews[_gbufferSize * i + 0],
+										  _gbufferImageViews[_gbufferSize * i + 1],
+										  _gbufferImageViews[_gbufferSize * i + 2],
+										  _gbufferImageViews[_gbufferSize * i + 3],
 										  _directLightImageViews[i],
 										  _swapChainImageViews[i],
 									  },
@@ -269,28 +269,28 @@ void Editor::createGatherPipeline() {
 				{
 					.sampler =
 						*getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					.imageView = _gbufferImageViews[4 * i + 0],
+					.imageView = _gbufferImageViews[_gbufferSize * i + 0],
 					.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				})
 			.add(1, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _gbufferImageViews[4 * i + 1],
+					 .imageView = _gbufferImageViews[_gbufferSize * i + 1],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(2, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _gbufferImageViews[4 * i + 2],
+					 .imageView = _gbufferImageViews[_gbufferSize * i + 2],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(3, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 				 {
 					 .sampler =
 						 *getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0),
-					 .imageView = _gbufferImageViews[4 * i + 3],
+					 .imageView = _gbufferImageViews[_gbufferSize * i + 3],
 					 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				 })
 			.add(4, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,

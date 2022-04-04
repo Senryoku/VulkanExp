@@ -218,6 +218,7 @@ void Editor::mainLoop() {
 
 		_renderer.updateAnimations(deltaTime);
 		const auto updates = _scene.update(deltaTime);
+		_renderer.update();
 		if(updates)
 			_renderer.onHierarchicalChanges(deltaTime);
 		if(_outdatedCommandBuffers || updates) {

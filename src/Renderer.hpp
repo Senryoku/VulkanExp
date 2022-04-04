@@ -36,6 +36,7 @@ class Renderer {
 
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
+	inline const Buffer&					 getPreviousInstanceBuffer() const { return _previousInstancesBuffer; }
 	inline const auto&						 getDynamicOffsetTable() const { return _dynamicOffsetTable; }
 
 	const RollingBuffer<float>& getDynamicBLASUpdateTimes() const { return _dynamicBLASUpdateTimes; }
@@ -115,7 +116,8 @@ class Renderer {
 
 	std::vector<InstanceData> _instancesData; // Transforms for each instances
 	Buffer					  _instancesBuffer;
-	DeviceMemory			  _instancesMemory;
+	Buffer					  _previousInstancesBuffer;
+	StaticDeviceAllocator	  _instancesMemory;
 
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;

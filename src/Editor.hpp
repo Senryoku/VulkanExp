@@ -166,6 +166,7 @@ class Editor {
 	bool							 _outdatedCommandBuffers = false; // Re-record command buffers at the start of the next frame
 	Image							 _depthImage;
 	ImageView						 _depthImageView;
+	const uint32_t					 _gbufferSize = 5; // How many images the gbuffer pass generates
 	std::vector<Image>				 _gbufferImages;
 	std::vector<ImageView>			 _gbufferImageViews;
 	std::vector<Framebuffer>		 _gbufferFramebuffers;

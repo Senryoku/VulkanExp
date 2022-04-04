@@ -7,19 +7,37 @@
 /* Allocator with fixed initial capacity and no deallocation */
 class StaticDeviceAllocator {
   public:
-	void init(const Device& device, VkBufferUsageFlags usage, VkMemoryPropertyFlags memProperties, size_t capacity, VkMemoryAllocateFlags flags = 0) {
+	void init(const Device& device, VkBufferUsageFlags usage, VkMemoryPropertyFlags memProperties, size_t capacity, VkMemoryAllocateFlags flags = 0, size_t expectedFragments = 0) {
 		_device = &device;
 		_capacity = capacity;
+		_bufferUsage = usage;
 		_buffer.create(device, usage, _capacity);
+		auto memReq = _buffer.getMemoryRequirements();
+		// Try to respect alignment constraints given the supplied expected number of fragments
+		if(expectedFragments > 0 && (_capacity / expectedFragments) % memReq.alignment != 0) {
+			_capacity = expectedFragments * ((_capacity / expectedFragments) + memReq.alignment - ((_capacity / expectedFragments) % memReq.alignment));
+			_buffer.destroy();
+			_buffer.create(device, usage, _capacity);
+			memReq = _buffer.getMemoryRequirements();
+		}
+		_memory.allocate(device, _buffer, device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, memProperties), flags);
+	}
 
-		_memory.allocate(device, _buffer, device.getPhysicalDevice().findMemoryType(_buffer.getMemoryRequirements().memoryTypeBits, memProperties), flags);
+	void bind(Buffer& buffer, size_t bufferSize = 0) {
+		if(!buffer && bufferSize > 0)
+			buffer.create(*_device, _bufferUsage, bufferSize);
+		bind(static_cast<const Buffer&>(buffer), bufferSize);
 	}
 
 	void bind(const Buffer& buffer, size_t bufferSize = 0) {
+		assert(buffer);
+		auto memReq = buffer.getMemoryRequirements();
 		if(bufferSize == 0)
-			bufferSize = buffer.getMemoryRequirements().size;
+			bufferSize = memReq.size;
 		vkBindBufferMemory(*_device, buffer, _memory, _size);
 		_size += bufferSize;
+		if(_size % memReq.alignment != 0)
+			_size += (memReq.alignment - _size % memReq.alignment);
 		assert(_size <= _capacity);
 	}
 
@@ -44,4 +62,6 @@ class StaticDeviceAllocator {
 	Buffer		  _buffer;
 	size_t		  _size = 0;
 	size_t		  _capacity = 0;
+
+	VkBufferUsageFlags _bufferUsage;
 };
