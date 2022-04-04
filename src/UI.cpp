@@ -568,9 +568,10 @@ void Editor::drawUI() {
 
 		quickDisplay(_currentFrame);
 		quickDisplay(_reflectionImageViews.size() + _currentFrame);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 0);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 1);
-		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + _currentFrame * _swapChainImages.size() + 2);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 0);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 1);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 2);
+		quickDisplay(_reflectionImageViews.size() + _directLightImageViews.size() + 4 * _currentFrame + 3);
 
 		for(const auto& texture : DebugTextureIDs) {
 			if(ImGui::TreeNode(texture.name.c_str())) {
