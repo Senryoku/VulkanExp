@@ -69,7 +69,7 @@ class Renderer {
 	bool updateDynamicVertexBuffer();
 	bool updateDynamicBLAS();
 
-	void createVertexSkinningPipeline();
+	void createVertexSkinningPipeline(VkPipelineCache pipelineCache = VK_NULL_HANDLE);
 	void destroyVertexSkinningPipeline();
 
 	void freeMeshesDeviceMemory();

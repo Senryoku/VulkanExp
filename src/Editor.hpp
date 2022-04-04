@@ -327,26 +327,34 @@ class Editor {
 	void compileShaders() {
 		// Could use "start" to launch it asynchronously, but I'm not sure if there's a way to react to the command finishing
 		// Could use popen() instead of system() to capture the output too.
-		system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
-		// Fixme: We can probably do a lot less :) (Like only recreating the pipelines, which could even be done in another thread)
+		{
+			QuickTimer qt("Shader Compilation");
+			print("\n");
+			system("powershell.exe -ExecutionPolicy RemoteSigned .\\compile_shaders.ps1");
+		}
+		// Fixme: We can probably do a lot less :) (Like only recreating the concerned pipelines)
 		vkDeviceWaitIdle(_device);
-		destroyGBufferPipeline();
-		destroyDirectLightPipeline();
-		destroyReflectionPipeline();
-		destroyGatherPipeline();
-		destroyRayTracingPipeline();
-		// FIXME: Re-create the skinning pipeline too (when it's finally not part of Scene anymore...)
-		createGBufferPipeline();
-		createDirectLightPass();
-		createReflectionPass();
-		createGatherPipeline();
-		createRayTracingPipeline();
-		createRaytracingDescriptorSets();
-		recordRayTracingCommands();
-		_irradianceProbes.destroyPipeline();
-		_irradianceProbes.createPipeline(_pipelineCache);
-		onTLASCreation();
-		_outdatedCommandBuffers = true;
+		{
+			QuickTimer qt("Pipelines re-creation");
+			destroyGBufferPipeline();
+			destroyDirectLightPipeline();
+			destroyReflectionPipeline();
+			destroyGatherPipeline();
+			destroyRayTracingPipeline();
+			_irradianceProbes.destroyPipeline();
+			_renderer.destroyVertexSkinningPipeline();
+			createGBufferPipeline();
+			createDirectLightPass();
+			createReflectionPass();
+			createGatherPipeline();
+			createRayTracingPipeline();
+			createRaytracingDescriptorSets();
+			recordRayTracingCommands();
+			_irradianceProbes.createPipeline(_pipelineCache);
+			_renderer.createVertexSkinningPipeline(_pipelineCache);
+			onTLASCreation();
+			_outdatedCommandBuffers = true;
+		}
 	}
 
 	void setupDebugMessenger() {

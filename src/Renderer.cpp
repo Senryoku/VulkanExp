@@ -693,7 +693,7 @@ void Renderer::updateTransforms() {
 	copyViaStagingBuffer(_instancesBuffer, _instancesData);
 }
 
-void Renderer::createVertexSkinningPipeline() {
+void Renderer::createVertexSkinningPipeline(VkPipelineCache pipelineCache) {
 	if(_vertexSkinningPipeline)
 		destroyVertexSkinningPipeline();
 
@@ -720,7 +720,7 @@ void Renderer::createVertexSkinningPipeline() {
 		.basePipelineHandle = VK_NULL_HANDLE,
 		.basePipelineIndex = 0,
 	};
-	_vertexSkinningPipeline.create(*_device, info);
+	_vertexSkinningPipeline.create(*_device, info, pipelineCache);
 
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	layoutsToAllocate.push_back(_vertexSkinningDescriptorSetLayout);
