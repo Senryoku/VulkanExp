@@ -175,6 +175,7 @@ class Editor {
 	DescriptorPool					 _gbufferDescriptorPool;
 	std::vector<DescriptorSetLayout> _gbufferDescriptorSetLayouts;
 	Pipeline						 _gbufferPipeline;
+	Pipeline						 _gbufferSkinnedPipeline;
 	std::vector<Image>				 _directLightImages;
 	std::vector<ImageView>			 _directLightImageViews;
 	std::vector<Image>				 _directLightIntermediateFilterImages;

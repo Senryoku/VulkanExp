@@ -28,6 +28,7 @@ void Renderer::freeMeshesDeviceMemory() {
 	Indices.free();
 	Joints.free();
 	Weights.free();
+	MotionVectors.free();
 
 	StaticOffsetTableSizeInBytes = 0;
 	StaticVertexBufferSizeInBytes = 0;
@@ -89,6 +90,9 @@ void Renderer::allocateMeshes() {
 			Weights.bind(mesh.getSkinWeightsBuffer());
 		}
 	}
+
+	MotionVectors.init(*_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+					   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(glm::vec4) * MaxDynamicVertexSizeInBytes / sizeof(Vertex), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
 	OffsetTable.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
@@ -196,6 +200,7 @@ struct VertexSkinningPushConstant {
 	uint32_t srcOffset = 0;
 	uint32_t dstOffset = 0;
 	uint32_t size = 0;
+	uint32_t motionVectorsOffset = 0;
 };
 
 bool Renderer::updateDynamicVertexBuffer() {
@@ -222,6 +227,8 @@ bool Renderer::updateDynamicVertexBuffer() {
 				.srcOffset = _offsetTable[_scene->getMeshes()[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset,
 				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
 				.size = static_cast<uint32_t>(_scene->getMeshes()[skinnedMeshRenderer.meshIndex].getVertices().size()),
+				.motionVectorsOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset -
+									   StaticVertexBufferSizeInBytes / sizeof(Vertex),
 			};
 			vkCmdPushConstants(commandBuffer, _vertexSkinningPipeline.getLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VertexSkinningPushConstant), &constants);
 			vkCmdDispatch(commandBuffer, std::ceil(_scene->getMeshes()[skinnedMeshRenderer.meshIndex].getVertices().size() / 128.0), 1, 1);
@@ -703,6 +710,7 @@ void Renderer::createVertexSkinningPipeline(VkPipelineCache pipelineCache) {
 											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 2 Skin Weights
 											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Base Vertices
 											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 4 Output Vertices
+											 .add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 5 Output Motion Vectors
 											 .build(*_device);
 	VkPushConstantRange pushConstants{
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -776,6 +784,7 @@ void Renderer::writeSkinningDescriptorSet(const SkinnedMeshRendererComponent& co
 			 .range = mesh.getVertexByteSize(),
 		 })
 		 */
+		.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MotionVectors.buffer())
 		.update(*_device);
 }
 

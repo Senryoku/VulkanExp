@@ -380,7 +380,7 @@
     <None Include="src\shaders\anyhit.rahit" />
     <None Include="src\shaders\rayPayload.glsl" />
     <None Include="src\shaders\GBuffer.frag" />
-    <None Include="src\shaders\GBuffer.vert" />
+    <None Include="src\shaders\GBuffer.vert.glsl" />
     <None Include="src\shaders\FullScreenQuad.vert" />
     <None Include="src\shaders\reflection.rgen" />
     <None Include="src\shaders\Lights.glsl" />
@@ -405,5 +405,7 @@
     <None Include="src\shaders\InstanceData.glsl" />
     <None Include="src\shaders\unpackMaterial.glsl" />
     <None Include="src\shaders\InstanceMasks.glsl" />
+    <None Include="src\shaders\GBufferSkinned.vert" />
+    <None Include="src\shaders\GBuffer.vert" />
   </ItemGroup>
 </Project>

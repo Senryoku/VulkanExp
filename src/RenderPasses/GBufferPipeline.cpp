@@ -293,6 +293,43 @@ void Editor::createGBufferPipeline() {
 	};
 
 	_gbufferPipeline.create(_device, pipelineInfo, _pipelineCache);
+
+	Shader skinnedVertShader(_device, "./shaders_spv/GBufferSkinned.vert.spv");
+
+	{
+		std::vector<VkPipelineShaderStageCreateInfo> skinnedShaderStages{
+			skinnedVertShader.getStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
+			fragShader.getStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+		};
+		auto bindingDescription = {
+			Vertex::getBindingDescription(),
+			VkVertexInputBindingDescription{
+				.binding = 1,
+				.stride = sizeof(glm::vec4),
+				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+			},
+		};
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{Vertex::getAttributeDescriptions().begin(), Vertex::getAttributeDescriptions().end()};
+		attributeDescriptions.push_back(VkVertexInputAttributeDescription{
+			.location = 5,
+			.binding = 1,
+			.format = VK_FORMAT_R32G32B32_SFLOAT,
+			.offset = 0,
+		});
+
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+			.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescription.size()),
+			.pVertexBindingDescriptions = bindingDescription.begin(),
+			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+			.pVertexAttributeDescriptions = attributeDescriptions.data(),
+		};
+
+		pipelineInfo.pStages = skinnedShaderStages.data();
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+
+		_gbufferSkinnedPipeline.create(_device, pipelineInfo, _pipelineCache);
+	}
 	writeGBufferDescriptorSets();
 }
 
@@ -355,6 +392,7 @@ void Editor::writeGBufferDescriptorSets() {
 
 void Editor::destroyGBufferPipeline() {
 	_gbufferPipeline.destroy();
+	_gbufferSkinnedPipeline.destroy();
 	_gbufferDescriptorPool.destroy();
 	_gbufferDescriptorSetLayouts.clear();
 }

@@ -81,6 +81,7 @@ class Renderer {
 	StaticDeviceAllocator Indices;
 	StaticDeviceAllocator Joints;
 	StaticDeviceAllocator Weights;
+	StaticDeviceAllocator MotionVectors;
 	uint32_t			  StaticVertexBufferSizeInBytes = 0;
 	uint32_t			  StaticIndexBufferSizeInBytes = 0;
 	uint32_t			  StaticOffsetTableSizeInBytes = 0;

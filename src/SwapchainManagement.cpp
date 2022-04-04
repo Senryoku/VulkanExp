@@ -347,10 +347,14 @@ void Editor::recordCommandBuffers() {
 			}
 			// NOTE: We can't batch calls for skinned meshes, vertex buffers have to be updated for the raytracing pass, we'll reuse them directly.
 			{
+				_gbufferSkinnedPipeline.bind(b);
+
 				auto					currentMaterial = InvalidMaterialIndex;
 				auto					currentMesh = InvalidMeshIndex;
 				auto					skinnedMeshRenderers = _scene.getRegistry().view<SkinnedMeshRendererComponent>();
-				std::array<VkBuffer, 1> buffers{_renderer.Vertices.buffer()};
+				std::array<VkBuffer, 2> buffers{_renderer.Vertices.buffer(), _renderer.MotionVectors.buffer()};
+				auto					offsets = std::array<VkDeviceSize, 2>{_renderer.StaticVertexBufferSizeInBytes, 0};
+				vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 				for(const auto& entity : skinnedMeshRenderers) {
 					const auto& meshRenderer = _scene.getRegistry().get<SkinnedMeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {
@@ -364,21 +368,12 @@ void Editor::recordCommandBuffers() {
 												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + meshRenderer.materialIndex], 0, nullptr);
 					}
 
-#if 0 
-					auto offsets = std::array<VkDeviceSize, 1>{
-						_scene._dynamicOffsetTable[meshRenderer.indexIntoOffsetTable - _scene.StaticOffsetTableSizeInBytes / sizeof(Scene::OffsetEntry)].vertexOffset *
-						sizeof(Vertex)}; // Use the vertex buffer of this particular instance.
-
-					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
-					vkCmdDrawIndexed(b, indexCount, 1, 0, 0, instanceBaseOffset);
-#else
-					auto offsets = std::array<VkDeviceSize, 1>{0};
-					vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 					vkCmdDrawIndexed(
 						b, indexCount, 1, 0,
-						_renderer.getDynamicOffsetTable()[meshRenderer.indexIntoOffsetTable - _renderer.StaticOffsetTableSizeInBytes / sizeof(Renderer::OffsetEntry)].vertexOffset,
+						_renderer.getDynamicOffsetTable()[meshRenderer.indexIntoOffsetTable - _renderer.StaticOffsetTableSizeInBytes / sizeof(Renderer::OffsetEntry)].vertexOffset -
+							_renderer.StaticVertexBufferSizeInBytes / sizeof(Vertex),
 						instanceBaseOffset);
-#endif
+
 					++instanceBaseOffset;
 				}
 			}

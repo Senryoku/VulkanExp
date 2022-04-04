@@ -154,6 +154,8 @@
     <None Include="src\shaders\directLightFilter.glsl" />
     <None Include="src\shaders\directLightFilterX.comp" />
     <None Include="src\shaders\directLightFilterY.comp" />
+    <None Include="src\shaders\GBuffer.vert" />
+    <None Include="src\shaders\GBufferSkinned.vert" />
     <None Include="src\shaders\InstanceData.glsl" />
     <None Include="src\shaders\InstanceMasks.glsl" />
     <None Include="src\shaders\ProbeGrid.glsl" />
@@ -162,7 +164,7 @@
     <None Include="src\shaders\common.glsl" />
     <None Include="src\shaders\FullScreenQuad.vert" />
     <None Include="src\shaders\GBuffer.frag" />
-    <None Include="src\shaders\GBuffer.vert" />
+    <None Include="src\shaders\GBuffer.vert.glsl" />
     <None Include="src\shaders\Lights.glsl" />
     <None Include="src\shaders\Material.glsl" />
     <None Include="src\shaders\pbrMetallicRoughness.glsl" />
