@@ -96,9 +96,8 @@ void main()
 		else {
 			previousValue = imageLoad(prevReflection, ivec2(prevCoords.xy));
             // Discard history if the previous position is too different from the current one (i.e. the pixel probably doesn't map to the same object anymore).
-            vec3 previousOrigin = (inverse(prevUBO.view) * vec4(0, 0, 0, 1)).xyz;
             // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
-            vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - motionVector.xyz - previousOrigin);
+            vec3 previousPosition = prevUBO.origin + previousValue.w * normalize(position - motionVector.xyz - prevUBO.origin);
             float diff = length(position - previousPosition);
             if(diff < 0.01) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
             float factor = 0.1 * length(position - previousPosition);

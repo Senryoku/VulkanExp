@@ -59,8 +59,8 @@ void Editor::createDirectLightPass() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// 12 GBUffer 0
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// 13 GBuffer 1
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// 14 GBuffer 2
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// 15 Result (Reflections)
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // 16 Result (Direct Light)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)	// 15 Result (Direct Light)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR); // 16 Previous Result (Direct Light)
 
 	_directLightDescriptorSetLayout = dslBuilder.build(_device);
 	_directLightPipeline.getLayout().create(_device, {_directLightDescriptorSetLayout, _descriptorSetLayouts[0].getHandle()});
@@ -222,6 +222,11 @@ void Editor::writeDirectLightDescriptorSets() {
 		writer.add(15, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				   {
 					   .imageView = _directLightImageViews[i],
+					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+				   });
+		writer.add(16, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				   {
+					   .imageView = _directLightImageViews[_swapChainImages.size() + i],
 					   .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 				   });
 
