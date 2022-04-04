@@ -119,7 +119,7 @@ void IrradianceProbes::destroyPipeline() {
 	_descriptorSetLayout.destroy();
 }
 
-void IrradianceProbes::createPipeline() {
+void IrradianceProbes::createPipeline(VkPipelineCache pipelineCache) {
 	if(_traceRaysPipeline)
 		destroyPipeline();
 
@@ -257,35 +257,41 @@ void IrradianceProbes::createPipeline() {
 	}
 
 	Shader updateIrradianceShader(*_device, "./shaders_spv/probesUpdateIrradiance.comp.spv");
-	_updateIrradiancePipeline.create(*_device, VkComputePipelineCreateInfo{
-												   .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-												   .pNext = nullptr,
-												   .flags = 0,
-												   .stage = updateIrradianceShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
-												   .layout = _pipelineLayout,
-												   .basePipelineHandle = VK_NULL_HANDLE,
-												   .basePipelineIndex = 0,
-											   });
+	_updateIrradiancePipeline.create(*_device,
+									 VkComputePipelineCreateInfo{
+										 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+										 .pNext = nullptr,
+										 .flags = 0,
+										 .stage = updateIrradianceShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+										 .layout = _pipelineLayout,
+										 .basePipelineHandle = VK_NULL_HANDLE,
+										 .basePipelineIndex = 0,
+									 },
+									 pipelineCache);
 	Shader updateDepthShader(*_device, "./shaders_spv/probesUpdateDepth.comp.spv");
-	_updateDepthPipeline.create(*_device, VkComputePipelineCreateInfo{
-											  .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-											  .pNext = nullptr,
-											  .flags = 0,
-											  .stage = updateDepthShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
-											  .layout = _pipelineLayout,
-											  .basePipelineHandle = VK_NULL_HANDLE,
-											  .basePipelineIndex = 0,
-										  });
+	_updateDepthPipeline.create(*_device,
+								VkComputePipelineCreateInfo{
+									.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+									.pNext = nullptr,
+									.flags = 0,
+									.stage = updateDepthShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+									.layout = _pipelineLayout,
+									.basePipelineHandle = VK_NULL_HANDLE,
+									.basePipelineIndex = 0,
+								},
+								pipelineCache);
 	Shader copyBordersShader(*_device, "./shaders_spv/probesCopyBorders.comp.spv");
-	_copyBordersPipeline.create(*_device, VkComputePipelineCreateInfo{
-											  .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-											  .pNext = nullptr,
-											  .flags = 0,
-											  .stage = copyBordersShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
-											  .layout = _pipelineLayout,
-											  .basePipelineHandle = VK_NULL_HANDLE,
-											  .basePipelineIndex = 0,
-										  });
+	_copyBordersPipeline.create(*_device,
+								VkComputePipelineCreateInfo{
+									.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+									.pNext = nullptr,
+									.flags = 0,
+									.stage = copyBordersShader.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+									.layout = _pipelineLayout,
+									.basePipelineHandle = VK_NULL_HANDLE,
+									.basePipelineIndex = 0,
+								},
+								pipelineCache);
 
 	createShaderBindingTable();
 

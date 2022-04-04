@@ -17,7 +17,7 @@ class IrradianceProbes {
   public:
 	void init(const Device& device, uint32_t transfertFamilyQueueIndex, uint32_t computeFamilyQueueIndex, glm::vec3 min, glm::vec3 max);
 	void initProbes(VkQueue queue);
-	void createPipeline();
+	void createPipeline(VkPipelineCache pipelineCache = VK_NULL_HANDLE);
 	void destroyPipeline();
 	void createShaderBindingTable();
 	void writeDescriptorSet(const Renderer& renderer, const Buffer& lightBuffer);

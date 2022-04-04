@@ -1,7 +1,13 @@
 #include "Editor.hpp"
 
-// Create final gather pipeline (No actual geometry)
 void Editor::createGatherPass() {
+	createGatherRenderPass();
+	createGatherFramebuffers();
+	createGatherPipeline();
+}
+
+// Create final gather pipeline (No actual geometry)
+void Editor::createGatherRenderPass() {
 	RenderPassBuilder rpb;
 	// Attachments
 	rpb.add({
@@ -106,7 +112,9 @@ void Editor::createGatherPass() {
 			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 		});
 	_gatherRenderPass = rpb.build(_device);
+}
 
+void Editor::createGatherFramebuffers() {
 	_gatherFramebuffers.resize(_swapChainImageViews.size());
 	for(size_t i = 0; i < _swapChainImageViews.size(); i++)
 		_gatherFramebuffers[i].create(_device, _gatherRenderPass,
@@ -119,7 +127,9 @@ void Editor::createGatherPass() {
 										  _swapChainImageViews[i],
 									  },
 									  _swapChainExtent);
+}
 
+void Editor::createGatherPipeline() {
 	Shader gatherVertShader(_device, "./shaders_spv/FullScreenQuad.vert.spv");
 	Shader gatherFragShader(_device, "./shaders_spv/FinalGather.frag.spv");
 
@@ -355,4 +365,17 @@ void Editor::createGatherPass() {
 	};
 
 	_gatherPipeline.create(_device, pipelineInfo, _pipelineCache);
+}
+
+void Editor::destroyGatherPipeline() {
+	_gatherDescriptorSetLayout.destroy();
+	_gatherDescriptorPool.destroy();
+	_gatherPipeline.destroy();
+}
+
+void Editor::destroyGatherPass() {
+	destroyGatherPipeline();
+	_gatherDescriptorPool.destroy();
+	_gatherFramebuffers.clear();
+	_gatherRenderPass.destroy();
 }

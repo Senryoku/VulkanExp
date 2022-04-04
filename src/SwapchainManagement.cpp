@@ -279,7 +279,7 @@ void Editor::initSwapChain() {
 	recordRayTracingCommands();
 
 	// Irradiances Probes & Debug
-	_irradianceProbes.createPipeline();
+	_irradianceProbes.createPipeline(_pipelineCache);
 	_irradianceProbes.writeDescriptorSet(_renderer, _lightUniformBuffers[0]);
 	_irradianceProbes.initProbes(_computeQueue);
 	createProbeDebugPass();
@@ -538,21 +538,16 @@ void Editor::cleanupSwapChain() {
 	_lightUniformBuffers.clear();
 	_lightUniformBuffersMemory.free();
 	_descriptorPool.destroy();
-	_gatherDescriptorPool.destroy();
 	_gbufferFramebuffers.clear();
-	_gatherFramebuffers.clear();
+	destroyGatherPass();
 
 	// Only free up the command buffer, not the command pool
 	_commandBuffers.free();
 	_copyCommandBuffers.free();
 
-	_gatherPipeline.destroy();
-
 	_descriptorSetLayouts.clear();
-	_gatherDescriptorSetLayout.destroy();
 
 	_gbufferRenderPass.destroy();
-	_gatherRenderPass.destroy();
 
 	_gbufferImages.clear();
 	_gbufferImageViews.clear();

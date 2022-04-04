@@ -111,12 +111,12 @@ void Editor::createDirectLightPass() {
 		.basePipelineHandle = VK_NULL_HANDLE,
 		.basePipelineIndex = 0,
 	};
-	_directLightFilterPipelineX.create(_device, info);
+	_directLightFilterPipelineX.create(_device, info, _pipelineCache);
 	_directLightFilterPipelineY.getLayout().create(_device, {_directLightFilterDescriptorSetLayout});
 	Shader filterShaderY(_device, "./shaders_spv/directLightFilterY.comp.spv");
 	info.stage = filterShaderY.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT);
 	info.layout = _directLightFilterPipelineY.getLayout();
-	_directLightFilterPipelineY.create(_device, info);
+	_directLightFilterPipelineY.create(_device, info, _pipelineCache);
 
 	{
 		std::vector<VkDescriptorSetLayout> layoutsToAllocate;

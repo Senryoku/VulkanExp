@@ -532,7 +532,7 @@ void Editor::drawUI() {
 			_outdatedCommandBuffers = true;
 		}
 		if(ImGui::Button("Rebuild probe pipeline")) {
-			_irradianceProbes.createPipeline();
+			_irradianceProbes.createPipeline(_pipelineCache);
 			_irradianceProbes.update(_scene, _computeQueue);
 		}
 		if(ImGui::Button("Update Probes")) {

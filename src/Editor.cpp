@@ -535,7 +535,7 @@ void Editor::sDropCallback(GLFWwindow* window, int pathCount, const char* paths[
 	app->createRaytracingDescriptorSets();
 	app->recordRayTracingCommands();
 	app->_irradianceProbes.destroyPipeline();
-	app->_irradianceProbes.createPipeline();
+	app->_irradianceProbes.createPipeline(app->_pipelineCache);
 	app->onTLASCreation();
 	app->uiOnTextureChange();
 	app->_outdatedCommandBuffers = true;

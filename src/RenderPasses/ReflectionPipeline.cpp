@@ -110,12 +110,12 @@ void Editor::createReflectionPass() {
 		.basePipelineHandle = VK_NULL_HANDLE,
 		.basePipelineIndex = 0,
 	};
-	_reflectionFilterPipelineX.create(_device, info);
+	_reflectionFilterPipelineX.create(_device, info, _pipelineCache);
 	_reflectionFilterPipelineY.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
 	Shader filterShaderY(_device, "./shaders_spv/reflectionFilterY.comp.spv");
 	info.stage = filterShaderY.getStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT);
 	info.layout = _reflectionFilterPipelineY.getLayout();
-	_reflectionFilterPipelineY.create(_device, info);
+	_reflectionFilterPipelineY.create(_device, info, _pipelineCache);
 
 	{
 		std::vector<VkDescriptorSetLayout> layoutsToAllocate;

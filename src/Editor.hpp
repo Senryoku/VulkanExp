@@ -219,13 +219,22 @@ class Editor {
 	void createGBufferPipeline();
 	void writeGBufferDescriptorSets();
 	void destroyGBufferPipeline();
+
 	void createReflectionPass();
 	void destroyReflectionPipeline();
 	void writeReflectionDescriptorSets();
+
 	void createDirectLightPass();
 	void destroyDirectLightPipeline();
 	void writeDirectLightDescriptorSets();
+
 	void createGatherPass();
+	void createGatherRenderPass();
+	void createGatherFramebuffers();
+	void createGatherPipeline();
+	void destroyGatherPass();
+	void destroyGatherPipeline();
+
 	void createProbeDebugPass();
 
 	size_t				_uboStride = 0;
@@ -323,17 +332,18 @@ class Editor {
 		destroyGBufferPipeline();
 		destroyDirectLightPipeline();
 		destroyReflectionPipeline();
+		destroyGatherPipeline();
 		destroyRayTracingPipeline();
-		// FIXME: Re-create the GatherPipeline too
 		// FIXME: Re-create the skinning pipeline too (when it's finally not part of Scene anymore...)
 		createGBufferPipeline();
 		createDirectLightPass();
 		createReflectionPass();
+		createGatherPipeline();
 		createRayTracingPipeline();
 		createRaytracingDescriptorSets();
 		recordRayTracingCommands();
 		_irradianceProbes.destroyPipeline();
-		_irradianceProbes.createPipeline();
+		_irradianceProbes.createPipeline(_pipelineCache);
 		onTLASCreation();
 		_outdatedCommandBuffers = true;
 	}
