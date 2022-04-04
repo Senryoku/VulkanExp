@@ -1,5 +1,6 @@
 ﻿#include "Editor.hpp"
 
+#include <IconsFontAwesome6.h>
 #include <ImGuiExtensions.hpp>
 #include <ImGuizmo.h>
 #include <implot/implot.h>
@@ -28,7 +29,6 @@ void Editor::initImGui(uint32_t queueFamily) {
 	ImGui::CreateContext();
 	ImPlot::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
-	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_IsSRGB;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
 	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -36,6 +36,14 @@ void Editor::initImGui(uint32_t queueFamily) {
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
 	// io.ConfigViewportsNoAutoMerge = true;
 	// io.ConfigViewportsNoTaskBarIcon = true;
+
+	const float font_size = 16.0f;
+	io.Fonts->AddFontFromFileTTF("ext/imgui-docking/misc/fonts/DroidSans.ttf", font_size);
+	static const ImWchar icons_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+	ImFontConfig		 icons_config;
+	icons_config.MergeMode = true;
+	icons_config.PixelSnapH = true;
+	io.Fonts->AddFontFromFileTTF("data/fonts/fontawesome/otfs/Font Awesome 6 Free-Solid-900.otf", font_size, &icons_config, icons_ranges);
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
@@ -666,7 +674,7 @@ void Editor::drawUI() {
 				duplicateSelectedNode();
 			}
 			ImGui::SameLine();
-			if(ImGui::Button("Delete"))
+			if(ImGui::Button(ICON_FA_TRASH_CAN " Delete"))
 				deleteSelectedNode();
 		}
 		if(_selectedNode != entt::null) {
@@ -795,12 +803,15 @@ void Editor::drawUI() {
 			if(ImGui::DragFloat("Camera FoV", &fov, 1.f, 30.f, 120.f))
 				_camera.setFoV(fov);
 			float fnear = _camera.getNear();
+			ImGui::PushItemWidth(80);
 			if(ImGui::DragFloat("Near Plane", &fnear, 1.f, 0.f, 100.f))
 				_camera.setNear(fnear);
+			ImGui::SameLine();
 			float ffar = _camera.getFar();
 			if(ImGui::DragFloat("Far Plane", &ffar, 1.f, 100.f, 40000.f))
 				_camera.setFar(ffar);
 			ImGui::TreePop();
+			ImGui::PopItemWidth();
 		}
 		if(ImGui::TreeNodeEx("Light & Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Use time of day", &_deriveLightPositionFromTime);
@@ -808,10 +819,26 @@ void Editor::drawUI() {
 				ImGui::BeginDisabled();
 			ImGui::InputFloat("Day Cycle Speed", &_dayCycleSpeed, 0.0f, 100.f);
 			ImGui::InputInt("Day of the Year", &_dayOfTheYear, 0, 365);
-			ImGui::InputInt("Hour", &_hour, 0, 24);
-			ImGui::InputFloat("Minute", &_minute, 0.0f, 60.0f);
-			ImGui::InputFloat("Longitude", &_longitude, 0.0f, 90.f);
-			ImGui::InputFloat("Latitude", &_latitude, 0.0f, 90.0f);
+
+			ImGui::PushItemWidth(50);
+			ImGui::InputInt("##Hour", &_hour, 0, 24);
+			ImGui::SameLine();
+			ImGui::Text(":");
+			ImGui::SameLine();
+			ImGui::InputFloat("##Minute", &_minute, 0.0f, 60.0f);
+			ImGui::SameLine();
+			ImGui::Text("Time");
+
+			ImGui::InputFloat("##Longitude", &_longitude, 0.0f, 90.f);
+			ImGui::SameLine();
+			ImGui::Text((const char*)u8"° / ");
+			ImGui::SameLine();
+			ImGui::InputFloat("##Latitude", &_latitude, 0.0f, 90.0f);
+			ImGui::SameLine();
+			ImGui::Text((const char*)u8"° Long./Lat.");
+
+			ImGui::PopItemWidth();
+
 			ImGui::InputInt("Timezone", &_utctimezone, -12, 12);
 			if(!_deriveLightPositionFromTime)
 				ImGui::EndDisabled();
@@ -825,9 +852,11 @@ void Editor::drawUI() {
 		}
 		if(ImGui::TreeNodeEx("Irradiance Probes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Auto. Update", &_irradianceProbeAutoUpdate);
+			ImGui::SameLine();
 			if(ImGui::Button("Update State")) {
 				_irradianceProbes.initProbes(_computeQueue);
 			}
+			ImGui::SameLine();
 			bool uniformNeedsUpdate = false;
 			if(ImGui::Button("Fit to Scene")) {
 				_scene.computeBounds();
