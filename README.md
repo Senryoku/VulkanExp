@@ -14,6 +14,8 @@
 ## Todos
 
 ### Bugs
+  - GI
+    - Probes update sometimes generate a extremely bright spot, cause unknown (but disabling the sky doesn't solves the problem).
   - Probably a lot.
 
 ### Major Features
