@@ -19,6 +19,7 @@ layout(binding = 10, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	vec3 origin;
 	uint frameIndex;
 } ubo;
 layout(set = 0, binding = 11) uniform LightUBO {

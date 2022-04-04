@@ -55,6 +55,7 @@
 struct CameraBuffer {
 	glm::mat4 view;
 	glm::mat4 proj;
+	glm::vec3 origin;
 	uint32_t  frameIndex;
 };
 

@@ -7,6 +7,7 @@ layout(set = 0, binding = 3) uniform PrevUBOBlock
 {
     mat4 view;
     mat4 proj;
+    vec3 origin;
 	uint frameIndex;
 } prevUBO;
 layout(set = 0, binding = 4, rgba32f) uniform image2D prevReflection;

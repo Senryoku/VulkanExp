@@ -4,6 +4,7 @@
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
+    vec3 origin;
 	uint frameIndex;
 } ubo;
 
@@ -27,8 +28,7 @@ layout(location = 2) out vec3 normal;
 layout(location = 3) out vec4 tangent;
 layout(location = 4) out vec3 bitangent;
 layout(location = 5) out vec2 texCoord;
-layout(location = 6) out flat vec3 origin; // FIXME: Add this to the UBO?
-layout(location = 7) out vec3 motion;
+layout(location = 6) out vec3 motion;
 
 void main() {
     mat4 model = instances[gl_InstanceIndex].transform;
@@ -40,7 +40,6 @@ void main() {
     tangent = vec4(mat3(model) * inTangent.xyz, inTangent.w);
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
-    origin = (inverse(ubo.view) * vec4(0,0,0,1)).xyz;
     color = inColor;
     motion = (worldPosition - previousInstances[gl_InstanceIndex].transform * vec4(inPosition, 1.0)).xyz;
 }

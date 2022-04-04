@@ -6,6 +6,7 @@
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
+    vec3 origin;
 	uint frameIndex;
 } ubo;
 layout(binding = 1) uniform UBOBlock {

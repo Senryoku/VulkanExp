@@ -1,6 +1,13 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+layout(set = 0, binding = 0) uniform UniformBufferObject {
+    mat4 view;
+    mat4 proj;
+    vec3 origin;
+	uint frameIndex;
+} ubo;
+
 layout(set = 0, binding = 1) uniform sampler2D texSampler;
 layout(set = 0, binding = 2) uniform sampler2D normalTexSampler;
 layout(set = 0, binding = 3) uniform sampler2D metalRoughTexSampler;
@@ -16,8 +23,7 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec4 tangent;
 layout(location = 4) in vec3 bitangent;
 layout(location = 5) in vec2 texCoord;
-layout(location = 6) in flat vec3 origin;
-layout(location = 7) in vec3 motion;
+layout(location = 6) in vec3 motion;
 
 layout(location = 0) out vec4 outPositionDepth;
 layout(location = 1) out vec4 outNormalMetalness;
@@ -55,7 +61,7 @@ void main() {
         emissive *= emissiveTex.rgb;
     }
 
-    outPositionDepth = vec4(position, length(position - origin));
+    outPositionDepth = vec4(position, length(position - ubo.origin.xyz));
     outNormalMetalness = vec4(finalNormal, metalness);
     outAlbedoRoughness = vec4(albedo, roughness);
     outEmissive = vec4(emissive, 1.0);

@@ -28,6 +28,7 @@ layout(binding = 11, set = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
+	vec3 origin;
 	uint frameIndex;
 } ubo;
 layout(set = 1, binding = 0) uniform sampler blueNoiseSampler;

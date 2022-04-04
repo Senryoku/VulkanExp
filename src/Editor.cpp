@@ -419,6 +419,7 @@ void Editor::updateUniformBuffer(uint32_t currentImage) {
 		CameraBuffer ubo{
 			.view = _camera.getViewMatrix(),
 			.proj = _camera.getProjectionMatrix(),
+			.origin = _camera.getPosition(),
 			.frameIndex = _frameIndex,
 		};
 		ubo.proj[1][1] *= -1;
