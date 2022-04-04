@@ -1,16 +1,17 @@
 layout (local_size_x = 32, local_size_y = 32) in;
 
 layout(set = 0, binding = 0, rgba32f) uniform image2D positionDepthTex;
-layout(set = 0, binding = 1, rgba32f) uniform image2D inImage;
-layout(set = 0, binding = 2, rgba32f) uniform image2D outImage;
-layout(set = 0, binding = 3) uniform PrevUBOBlock
+layout(set = 0, binding = 1, rgba32f) uniform image2D motionVectorsTex;
+layout(set = 0, binding = 2, rgba32f) uniform image2D inImage;
+layout(set = 0, binding = 3, rgba32f) uniform image2D outImage;
+layout(set = 0, binding = 4) uniform PrevUBOBlock
 {
     mat4 view;
     mat4 proj;
     vec3 origin;
 	uint frameIndex;
 } prevUBO;
-layout(set = 0, binding = 4, rgba32f) uniform image2D prevReflection;
+layout(set = 0, binding = 5, rgba32f) uniform image2D prevReflection;
 
 //#define DISABLE
 
@@ -83,7 +84,8 @@ void main()
 		// TODO: Reprojecting reflections is actually harder than this :( See: http://bitsquid.blogspot.com/2017/06/reprojecting-reflections_22.html
 		// This necessitates an additionnal buffer of reflection position (if I understood correctly!) and reflection motion vector (if we actually add them someday).
         // It breaks really bad when the camera is moving (as in 'translating', not just rotating), we could also simply detect this case and reduce hysteresis as a workaround.
-		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position, 1.0)));
+        vec4 motionVector = imageLoad(motionVectorsTex, coords);
+		vec4 prevCoords = (prevUBO.proj * (prevUBO.view * vec4(position - motionVector.xyz, 1.0)));
 		prevCoords.xy /= prevCoords.w;
 		prevCoords.xy = (0.5 * prevCoords.xy + 0.5) * launchSize;
 		// TODO: Discard if mismatching (using previous position/depth? instanceID?)
@@ -96,7 +98,7 @@ void main()
             // Discard history if the previous position is too different from the current one (i.e. the pixel probably doesn't map to the same object anymore).
             vec3 previousOrigin = (inverse(prevUBO.view) * vec4(0, 0, 0, 1)).xyz;
             // Reconstruct previous position from its (linear, world space) depth and the previous ubo.
-            vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - previousOrigin);
+            vec3 previousPosition = previousOrigin + previousValue.w * normalize(position - motionVector.xyz - previousOrigin);
             float diff = length(position - previousPosition);
             if(diff < 0.01) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
             float factor = 0.1 * length(position - previousPosition);

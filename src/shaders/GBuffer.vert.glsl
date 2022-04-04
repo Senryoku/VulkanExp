@@ -45,6 +45,6 @@ void main() {
     color = inColor;
     motion = (worldPosition - previousInstances[gl_InstanceIndex].transform * vec4(inPosition, 1.0)).xyz;
 #ifdef SKINNED
-    motion += inMotionVector.xyz;
+    motion += mat3(model) * inMotionVector.xyz;
 #endif
 }

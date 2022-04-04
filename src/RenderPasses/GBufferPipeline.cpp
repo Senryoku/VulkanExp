@@ -57,7 +57,7 @@ void Editor::createGBufferRenderPass() {
 			.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 			.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-			.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FIXME: Temp finalLayout for the UI as it's not used for the moment
+			.finalLayout = VK_IMAGE_LAYOUT_GENERAL,
 		})
 		.add({
 			.format = _depthFormat,

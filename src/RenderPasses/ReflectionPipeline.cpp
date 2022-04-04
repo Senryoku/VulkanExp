@@ -96,6 +96,7 @@ void Editor::createReflectionPass() {
 	filterDSLB.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Previous Camera
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT); // 4 Previous Result
 	_reflectionFilterDescriptorSetLayout = filterDSLB.build(_device);
@@ -123,8 +124,9 @@ void Editor::createReflectionPass() {
 		for(size_t i = 0; i < setCount; ++i)
 			layoutsToAllocate.push_back(_reflectionFilterDescriptorSetLayout);
 		_reflectionFilterDescriptorPool.create(_device, layoutsToAllocate.size(),
-											   std::array<VkDescriptorPoolSize, 1>{
-												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * setCount},
+											   std::array<VkDescriptorPoolSize, 2>{
+												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 * setCount},
+												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, setCount},
 											   });
 		_reflectionFilterDescriptorPool.allocate(layoutsToAllocate);
 		for(size_t i = 0; i < setCount / 2; ++i) {
@@ -138,21 +140,26 @@ void Editor::createReflectionPass() {
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionImageViews[i],
+						 .imageView = _gbufferImageViews[_gbufferSize * i + 4],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
+						 .imageView = _reflectionImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
 						 .imageView = _reflectionIntermediateFilterImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
-				.add(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 					 {
 						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
 						 .offset = 0,
 						 .range = sizeof(CameraBuffer),
 					 })
-				.add(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.add(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionImageViews[_swapChainImages.size() + i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -168,21 +175,26 @@ void Editor::createReflectionPass() {
 					 })
 				.add(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
-						 .imageView = _reflectionIntermediateFilterImageViews[i],
+						 .imageView = _gbufferImageViews[_gbufferSize * i + 4],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
 				.add(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
+						 .imageView = _reflectionIntermediateFilterImageViews[i],
+						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+					 })
+				.add(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					 {
 						 .imageView = _reflectionImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
-				.add(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 					 {
 						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
 						 .offset = 0,
 						 .range = sizeof(CameraBuffer),
 					 })
-				.add(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				.add(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionImageViews[_swapChainImages.size() + i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
