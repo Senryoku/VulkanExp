@@ -81,10 +81,12 @@ void main()
     vec3 previous = imageLoad(imageOut, globalFragCoords).rgb;
     float hysteresis = grid.hysteresis;
 #ifdef IRRADIANCE
-    // Adjust hysteresis if enough changes are detected for faster convergence.
     float maxChange = max3(abs(result.rgb - previous.rgb));
-    if(maxChange > 0.25) hysteresis = max(0, hysteresis - 0.10);
-    if(maxChange > 0.80) hysteresis = 0.0;
+    // Adjust hysteresis if enough changes are detected for faster convergence.
+    // FIXME: These checks allow outliers to have too much impact, resulting in white flashes even if the scene doesn't change.
+    //        For now I'd rather have a more stable image.
+    //if(maxChange > 0.25) hysteresis = max(0, hysteresis - 0.10);
+    //if(maxChange > 0.80) hysteresis = 0.0;
 #endif
     result.rgb = mix(result.rgb, previous, hysteresis);
     imageStore(imageOut, globalFragCoords, vec4(result.rgb, 1.0));
