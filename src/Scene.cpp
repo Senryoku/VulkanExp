@@ -811,7 +811,7 @@ bool Scene::save(const std::filesystem::path& path) {
 }
 
 bool Scene::loadScene(const std::filesystem::path& path) {
-	QuickTimer qt(fmt::format("Loading Scene '{}'", path.string()));
+	QuickTimer qt(fmt::format("Loading Scene '{}'", fmt::format(fg(fmt::color::royal_blue), path.string())));
 
 	// FIXME
 	_registry.clear();
