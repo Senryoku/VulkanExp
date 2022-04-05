@@ -97,8 +97,9 @@ void Editor::createReflectionPass() {
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)
-		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT) // 3 Previous Camera
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT); // 4 Previous Result
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)  // 3 Previous Camera
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT)	  // 4 Previous Result
+		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT); // 5 Current Camera
 	_reflectionFilterDescriptorSetLayout = filterDSLB.build(_device);
 	_reflectionFilterPipelineX.getLayout().create(_device, {_reflectionFilterDescriptorSetLayout});
 	Shader						filterShaderX(_device, "./shaders_spv/reflectionFilterX.comp.spv");
@@ -153,17 +154,13 @@ void Editor::createReflectionPass() {
 						 .imageView = _reflectionIntermediateFilterImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
-				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					 {
-						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
-						 .offset = 0,
-						 .range = sizeof(CameraBuffer),
-					 })
+				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _cameraUniformBuffers[_swapChainImages.size() + i])
 				.add(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionImageViews[_swapChainImages.size() + i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
+				.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _cameraUniformBuffers[_swapChainImages.size()])
 				.update(_device);
 			// Y
 			DescriptorSetWriter writer2(_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1]);
@@ -188,17 +185,13 @@ void Editor::createReflectionPass() {
 						 .imageView = _reflectionImageViews[i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
-				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					 {
-						 .buffer = _cameraUniformBuffers[_swapChainImages.size() + i],
-						 .offset = 0,
-						 .range = sizeof(CameraBuffer),
-					 })
+				.add(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _cameraUniformBuffers[_swapChainImages.size() + i])
 				.add(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					 {
 						 .imageView = _reflectionImageViews[_swapChainImages.size() + i],
 						 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 					 })
+				.add(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, _cameraUniformBuffers[_swapChainImages.size()])
 				.update(_device);
 		}
 	}
