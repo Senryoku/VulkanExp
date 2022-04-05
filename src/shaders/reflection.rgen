@@ -92,8 +92,6 @@ vec3 colorCompression(vec3 v) {
 
 void main() 
 {
-	vec4 origin = inverse(ubo.view) * vec4(0, 0, 0, 1);
-	
 	vec4 positionDepth = imageLoad(positionDepthTex, ivec2(gl_LaunchIDEXT.xy));
 	vec4 normalMetalness = imageLoad(normalMetalnessTex, ivec2(gl_LaunchIDEXT.xy));
 	vec4 albedoRoughness = imageLoad(albedoRoughnessTex, ivec2(gl_LaunchIDEXT.xy));
@@ -105,7 +103,7 @@ void main()
 	vec3 albedo = albedoRoughness.rgb;
 	float roughness = albedoRoughness.a;
 
-	vec3 toOrigin = normalize(origin.xyz - position);
+	vec3 toOrigin = normalize(ubo.origin - position);
 
     payload.color = vec4(0.0);
     payload.recursionDepth = 1; // We've technically already solved the first ray (by rasterisation, but still.)
@@ -125,16 +123,34 @@ void main()
 #if 1
 	// One sample per pixel than we'll try to filter later (keyword: try)
 	if(depth > 0) {
+		vec3 reflectDir = normalize(reflect(-toOrigin, normal));
 	#if 0
 		// Single sample directly on the reflection direction
 		// Basically, this just ignore roughness, hoping we can filter it later (spoiler: we can't really).
-		vec3 direction = normalize(reflect(-toOrigin, normal));
-
+		vec3 direction = reflectDir;
+	#else
+		// Single sample, Blue noise and importance sampling.
+		// With proper denoising (or at least some form of temporal accumulation - 'simply' TAA?) this would be better than the above solution, but right now it is way too distracting :(
+		vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(ivec2(ubo.frameIndex / 64, ubo.frameIndex / 64 / 64) +  gl_LaunchIDEXT.xy) / 64.0).xy;
+		//vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy) / 64.0).xy;		
+		float theta = roughness * (noise.x - 0.5) * pi;
+		float phi = (noise.y - 0.5) * 2.0f * pi;
+		vec3 tangent;
+		if(dot(reflectDir, normal) < 0.9)
+			tangent = normalize(cross(reflectDir, normal));
+		else {
+			tangent = normalize(cross(reflectDir, vec3(1, 0, 0)));
+		}
+		vec3 direction = rotateAxis(reflectDir, tangent, theta);
+		direction = rotateAxis(direction, reflectDir, phi);
+	#endif
+	
 		// Try Screen-Space Reflection (WIP, actually slower right now :^) A raygen shader is probably not the right place for this.) before defaulting to proper ray-tracing.
 		// A proper implementation would do the SSR pass in a compute shader (I guess?), storing the failures then binning the rays 
 		// for the missing pixels before launching this very raygen shader (or ray query directly in the compute pass?).
 		#if 0
-		vec3 pos = position + 0.1 * normal + direction;
+		const float stepLength = 0.1;
+		vec3 pos = position + 0.1 * normal + stepLength * direction;
 		for(int i = 0; i < 32; ++i) {
 			// FIXME: We should me make sure we moved by at least one pixel
 			vec4 currPixel = (ubo.proj * ubo.view * vec4(pos, 1.0));
@@ -148,7 +164,7 @@ void main()
 				imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), imageLoad(albedoRoughnessTex, ivec2(currPixel.xy)));
 				return;
 			}
-			pos += 10.0 * direction;
+			pos += stepLength * direction;
 		}
 		#endif
 
@@ -156,27 +172,6 @@ void main()
 		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
 		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
 		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
-	#else
-		// Single sample, Blue noise and importance sampling.
-		// With proper denoising (or at least some form of temporal accumulation - 'simply' TAA?) this would be better than the above solution, but right now it is way too distracting :(
-		vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(ivec2(ubo.frameIndex / 64, ubo.frameIndex / 64 / 64) +  gl_LaunchIDEXT.xy) / 64.0).xy;
-		//vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy) / 64.0).xy;
-		vec3 reflectDir = normalize(reflect(-toOrigin, normal));			
-		float theta = roughness * (noise.x - 0.5) * pi;
-		float phi = (noise.y - 0.5) * 2.0f * pi;
-		vec3 tangent;
-		if(dot(reflectDir, normal) < 0.9)
-			tangent = normalize(cross(reflectDir, normal));
-		else {
-			tangent = normalize(cross(reflectDir, vec3(1, 0, 0)));
-		}
-		vec3 direction = rotateAxis(reflectDir, tangent, theta);
-		direction = rotateAxis(direction, reflectDir, phi);
-		payload.raydx = rotateAxis(direction, normal, 0.001);
-		payload.raydy = rotateAxis(direction, cross(normal, direction), 0.001);
-		traceRayEXT(topLevelAS, 0, 0xff, 0, 0, 0, position, tmin, direction, tmax, 0);
-		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(colorCompression(payload.color.rgb), roughness));
-	#endif
 	} else {
 		imageStore(reflectionOut, ivec2(gl_LaunchIDEXT.xy), vec4(0));
 	}
