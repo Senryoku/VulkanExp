@@ -110,10 +110,10 @@ void main()
                 vec3 previousPosition = prevUBO.origin + previousValue.w * normalize(position - motionVector.xyz - prevUBO.origin);
                 float diff = length(position - previousPosition);
                 if(diff < 0.01) diff = 0; // Clip differences that could be accounted to some 'small' precisions errors (especially if the scene is huge), this factor is scene dependent.
-                float factor = 0.1 * length(position - previousPosition);
+                float factor = length(position - previousPosition);
                 hysteresis *= 1.0 - clamp(factor, 0, 1);
             }
         }
-	    imageStore(outImage, coords, vec4(hysteresis * previousValue.rgb + (1.0f - hysteresis) * final.rgb, depth));
+	    imageStore(outImage, coords, vec4(mix(final.rgb, previousValue.rgb, hysteresis), depth));
 #endif
 }

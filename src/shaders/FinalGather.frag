@@ -59,11 +59,11 @@ void main() {
 		// Direct Light
 		color.rgb += subpassLoad(inputDirectLight).r * pbrMetallicRoughness(normal, view, DirectionalLight.color.rgb, DirectionalLight.direction.xyz, albedo, metalness, roughness).rgb;
 	
-		vec3 f0 = vec3(0.04);
+		vec3 f0 = vec3(0.004); // Note: 0.04 Produce too much reflections on non-metallic materials for my taste.
 		vec3 diffuseColor = albedo.rgb * (1.0 - f0);
 		diffuseColor *= (1.0 - metalness);
 
-		// Specular (???)
+		// Specular. FIXME: Still have no idea if this makes any sense.
 		vec3 specularColor = mix(f0, albedo.rgb, metalness);
 		color.rgb += specularColor * reflection.rgb;
 	
