@@ -231,7 +231,7 @@ bool Renderer::updateDynamicVertexBuffer() {
 									   StaticVertexBufferSizeInBytes / sizeof(Vertex),
 			};
 			vkCmdPushConstants(commandBuffer, _vertexSkinningPipeline.getLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VertexSkinningPushConstant), &constants);
-			vkCmdDispatch(commandBuffer, std::ceil(_scene->getMeshes()[skinnedMeshRenderer.meshIndex].getVertices().size() / 128.0), 1, 1);
+			vkCmdDispatch(commandBuffer, std::ceil(constants.size / 128.0), 1, 1);
 		});
 	}
 	return true;

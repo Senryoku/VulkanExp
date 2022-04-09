@@ -107,6 +107,14 @@ void Editor::initImGui(uint32_t queueFamily) {
 	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
+void tooltip(const char* str) {
+	if(ImGui::IsItemHovered()) {
+		ImGui::BeginTooltip();
+		ImGui::Text(str);
+		ImGui::EndTooltip();
+	}
+}
+
 void Editor::createImGuiRenderPass() {
 	// UI
 	VkAttachmentReference colorAttachment = {
@@ -319,9 +327,9 @@ void Editor::drawUI() {
 		auto* animationComponent = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode);
 		if(skinnedMesh || animationComponent) {
 			std::vector<entt::entity> joints;
-			if(skinnedMesh)
+			if(skinnedMesh && skinnedMesh->skinIndex != InvalidSkinIndex)
 				joints = _scene.getSkins()[skinnedMesh->skinIndex].joints;
-			else if(animationComponent->animationIndex != InvalidAnimationIndex)
+			else if(animationComponent && animationComponent->animationIndex != InvalidAnimationIndex)
 				for(const auto& na : Animations[animationComponent->animationIndex].nodeAnimations)
 					joints.push_back(na.first);
 			for(const auto& entity : joints) {
@@ -669,11 +677,9 @@ void Editor::drawUI() {
 		if(_selectedNode != entt::null) {
 			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
 			ImGui::InputText("Name", &node.name);
-
 			// TEMP Buttons
-			if(ImGui::Button("Duplicate")) {
+			if(ImGui::Button("Duplicate"))
 				duplicateSelectedNode();
-			}
 			ImGui::SameLine();
 			if(ImGui::Button(ICON_FA_TRASH_CAN " Delete"))
 				deleteSelectedNode();
@@ -682,7 +688,6 @@ void Editor::drawUI() {
 			auto& node = _scene.getRegistry().get<NodeComponent>(_selectedNode);
 			if(ImGui::TreeNodeEx("Transform Matrix", ImGuiTreeNodeFlags_Leaf)) {
 				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-				// ImGui::Matrix("Local Transform", _scene[_selectedNode].transform);
 				ImGuizmo::DecomposeMatrixToComponents(reinterpret_cast<float*>(&node.transform), matrixTranslation, matrixRotation, matrixScale);
 				updatedTransform = ImGui::InputFloat3("Translation", matrixTranslation) || updatedTransform;
 				updatedTransform = ImGui::InputFloat3("Rotation   ", matrixRotation) || updatedTransform;
@@ -693,61 +698,67 @@ void Editor::drawUI() {
 					_history.push(new NodeTransformModification(_scene, _selectedNode, prevTransform, node.transform));
 					_scene.markDirty(_selectedNode);
 				}
-				if(ImGui::RadioButton("Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
+				// FIXME: Should be somewhere else, like a toolbar.
+				if(ImGui::RadioButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
 					_currentGizmoOperation = ImGuizmo::TRANSLATE;
+				tooltip("Translate (T)");
 				ImGui::SameLine();
-				if(ImGui::RadioButton("Rotate (R)", _currentGizmoOperation == ImGuizmo::ROTATE))
+				if(ImGui::RadioButton(ICON_FA_ARROWS_ROTATE " Rotate (R)", _currentGizmoOperation == ImGuizmo::ROTATE))
 					_currentGizmoOperation = ImGuizmo::ROTATE;
 				ImGui::SameLine();
-				if(ImGui::RadioButton("Scale (Y)", _currentGizmoOperation == ImGuizmo::SCALE))
+				if(ImGui::RadioButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER " Scale (Y)", _currentGizmoOperation == ImGuizmo::SCALE))
 					_currentGizmoOperation = ImGuizmo::SCALE;
 
-				if(_currentGizmoOperation != ImGuizmo::SCALE) {
-					if(ImGui::RadioButton("Local", _currentGizmoMode == ImGuizmo::LOCAL))
-						_currentGizmoMode = ImGuizmo::LOCAL;
-					ImGui::SameLine();
-					if(ImGui::RadioButton("World", _currentGizmoMode == ImGuizmo::WORLD))
-						_currentGizmoMode = ImGuizmo::WORLD;
-				}
+				if(_currentGizmoOperation == ImGuizmo::SCALE)
+					ImGui::BeginDisabled();
+				if(ImGui::RadioButton("Local", _currentGizmoMode == ImGuizmo::LOCAL))
+					_currentGizmoMode = ImGuizmo::LOCAL;
+				ImGui::SameLine();
+				if(ImGui::RadioButton("World", _currentGizmoMode == ImGuizmo::WORLD))
+					_currentGizmoMode = ImGuizmo::WORLD;
+				if(_currentGizmoOperation == ImGuizmo::SCALE)
+					ImGui::EndDisabled();
 
 				ImGui::Checkbox("Snap", &_useSnap);
 				ImGui::SameLine();
 				switch(_currentGizmoOperation) {
-					case ImGuizmo::TRANSLATE:
-						// snap = config.mSnapTranslation;
-						ImGui::InputFloat3("Snap", &_snapOffset.x);
-						break;
-					case ImGuizmo::ROTATE:
-						// snap = config.mSnapRotation;
-						ImGui::InputFloat("Angle Snap", &_snapAngleOffset);
-						break;
-					case ImGuizmo::SCALE:
-						// snap = config.mSnapScale;
-						ImGui::InputFloat("Scale Snap", &_snapScaleOffset);
-						break;
+					case ImGuizmo::TRANSLATE: ImGui::InputFloat3("##Snap", &_snapOffset.x); break;
+					case ImGuizmo::ROTATE: ImGui::InputFloat(reinterpret_cast<const char*>(u8"°##Angle Snap"), &_snapAngleOffset); break;
+					case ImGuizmo::SCALE: ImGui::InputFloat("##Scale Snap", &_snapScaleOffset); break;
 				}
 
 				ImGui::TreePop();
 			}
-			if(auto* meshComp = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); meshComp != nullptr) {
-				auto& mesh = _scene[meshComp->meshIndex];
-				if(ImGui::TreeNodeEx("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+
+			std::vector<const char*> absentComponentTypes;
+
+			auto displayMesh = [&](MeshIndex meshIndex) {
+				if(meshIndex != InvalidMeshIndex) {
+					auto& mesh = _scene[meshIndex];
 					ImGui::Text("Mesh: %s", mesh.name.c_str());
+				} else
+					ImGui::Text("No Mesh Assigned");
+			};
+
+			if(auto* meshComp = _scene.getRegistry().try_get<MeshRendererComponent>(_selectedNode); meshComp != nullptr) {
+				if(ImGui::TreeNodeEx("MeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+					displayMesh(meshComp->meshIndex);
 					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;
 					ImGui::TreePop();
 				}
-			}
+			} else
+				absentComponentTypes.push_back("MeshRenderer");
 			if(auto* meshComp = _scene.getRegistry().try_get<SkinnedMeshRendererComponent>(_selectedNode); meshComp != nullptr) {
-				auto& mesh = _scene[meshComp->meshIndex];
 				if(ImGui::TreeNodeEx("SkinnedMeshRenderer", ImGuiTreeNodeFlags_DefaultOpen)) {
-					ImGui::Text("Mesh: %s", mesh.name.c_str());
+					displayMesh(meshComp->meshIndex);
 					ImGui::Text("Skin: %d", meshComp->skinIndex);
 					ImGui::Text("BLAS: %d", meshComp->blasIndex);
 					ImGui::Text("IndexIntoOffsetTable: %d", meshComp->indexIntoOffsetTable);
 					dirtyMaterials = displayMaterial(&meshComp->materialIndex, true) || dirtyMaterials;
 					ImGui::TreePop();
 				}
-			}
+			} else
+				absentComponentTypes.push_back("SkinnedMeshRenderer");
 			if(auto* animComp = _scene.getRegistry().try_get<AnimationComponent>(_selectedNode); animComp != nullptr) {
 				if(ImGui::TreeNodeEx("Animation", ImGuiTreeNodeFlags_DefaultOpen)) {
 					ImGui::Checkbox("Running", &animComp->running);
@@ -760,6 +771,33 @@ void Editor::drawUI() {
 					}
 					ImGui::TreePop();
 				}
+			} else
+				absentComponentTypes.push_back("Animation");
+
+			// Add Component
+			ImGui::Dummy(ImVec2(0.0f, 20.0f));
+			ImGui::Separator();
+			ImGui::Dummy(ImVec2(0.0f, 20.0f));
+			static char componentType[256] = "";
+			if(ImGui::BeginCombo("##ComponentType", componentType)) {
+				for(const auto& type : absentComponentTypes) {
+					bool is_selected = strcmp(type, componentType) == 0;
+					if(ImGui::Selectable(type, is_selected))
+						strcpy_s(componentType, type);
+					if(is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("Add Component")) {
+				if(strcmp(componentType, "MeshRenderer") == 0)
+					_scene.getRegistry().emplace<MeshRendererComponent>(_selectedNode);
+				else if(strcmp(componentType, "SkinnedMeshRenderer") == 0)
+					_scene.getRegistry().emplace<SkinnedMeshRendererComponent>(_selectedNode);
+				else if(strcmp(componentType, "Animation") == 0)
+					_scene.getRegistry().emplace<AnimationComponent>(_selectedNode);
+				strcpy_s(componentType, "");
 			}
 		} else {
 			ImGui::Text("No selected node.");
@@ -775,6 +813,7 @@ void Editor::drawUI() {
 		recordCommandBuffers(); // FIXME: We're passing metalness and roughness as push constants, so we have to re-record command buffer, this should probably be part
 								// of a uniform buffer (like the model matrix?)
 	}
+
 	if(ImGui::Begin("Settings")) {
 		ImGui::SliderFloat("Time Scale", &_timeScale, 0, 2.0);
 	}
