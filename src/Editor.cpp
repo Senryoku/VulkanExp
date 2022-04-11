@@ -2,7 +2,9 @@
 
 #include <ImGuizmo.h>
 #include <Raytracing.hpp>
+#include <ThreadPool.hpp>
 #include <voxels/Chunk.hpp>
+#include <voxels/VoxelTerrain.hpp>
 #include <vulkan/Extension.hpp>
 
 void Editor::initWindow() {
@@ -39,6 +41,14 @@ void Editor::initWindow() {
 	_shortcuts[{GLFW_KEY_R, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::ROTATE; };
 	_shortcuts[{GLFW_KEY_Y, GLFW_PRESS}] = [&]() { _currentGizmoOperation = ImGuizmo::SCALE; };
 	_shortcuts[{GLFW_KEY_DELETE, GLFW_PRESS}] = [&]() { deleteSelectedNode(); };
+	_shortcuts[{GLFW_KEY_TAB, GLFW_PRESS}] = [&]() {
+		if(_controlMode == ControlMode::Node)
+			_controlMode = ControlMode::Voxel;
+		else if(_controlMode == ControlMode::Voxel)
+			_controlMode = ControlMode::Node;
+		else
+			_controlMode = ControlMode::Node;
+	};
 }
 
 void Editor::deleteSelectedNode() {
@@ -90,48 +100,50 @@ void Editor::run() {
 	{
 		QuickTimer qt("Scene loading");
 
-		/*
-		// Chunk test
-		Chunk chunk;
-		float h = Chunk::Size / 2.0;
-		for(int i = 0; i < Chunk::Size; ++i)
-			for(int j = 0; j < Chunk::Size; ++j)
-				for(int k = 0; k < Chunk::Size; ++k) {
-					chunk(i, j, k).type = (i - h) * (i - h) + (j - h) * (j - h) + (k - h) * (k - h) < h * h ? 1 : Voxel::Empty;
-				}
+		// Voxel test
 		_scene.loadMaterial("data/materials/cavern-deposits/cavern-deposits.mat");
-		_scene.getMeshes().emplace_back(generateMesh(chunk));
-		_scene.getMeshes().back().computeBounds();
-		_scene.getMeshes().back().defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
 
-		auto  entity = _scene.getRegistry().create();
-		auto& node = _scene.getRegistry().emplace<NodeComponent>(entity);
-		node.name = "Chunk";
-		_scene.addChild(_scene.getRoot(), entity);
-		auto& renderer = _scene.getRegistry().emplace<MeshRendererComponent>(entity);
-		renderer.meshIndex = static_cast<MeshIndex>(_scene.getMeshes().size() - 1);
-		renderer.materialIndex = _scene.getMeshes().back().defaultMaterialIndex;
-		*/
+		auto  terrainRoot = _scene.getRegistry().create();
+		auto& rootNode = _scene.getRegistry().emplace<NodeComponent>(terrainRoot);
+		rootNode.name = "VoxelTerrain";
+		_scene.addChild(_scene.getRoot(), terrainRoot);
+
+		auto& terrain = _scene.getRegistry().emplace<VoxelTerrain>(terrainRoot);
+		float h = Chunk::Size / 2.0;
+		_scene.getMeshes().resize(terrain.Size * terrain.Size * terrain.Size);
+		ThreadPool::TaskQueue meshGenerations;
+		terrain.generate();
+		for(size_t idx = 0; auto& chunk : *terrain.chunks) {
+			meshGenerations.start([h, idx, &chunk, this]() {
+				auto m = generateMesh(chunk);
+				this->_scene.getMeshes()[idx].getVertices() = m.getVertices();
+				this->_scene.getMeshes()[idx].getIndices() = m.getIndices();
+				this->_scene.getMeshes()[idx].computeBounds();
+				this->_scene.getMeshes()[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
+			});
+			++idx;
+		}
+
+		for(size_t idx = 0; auto& chunk : *terrain.chunks) {
+			auto  entity = _scene.getRegistry().create();
+			auto& node = _scene.getRegistry().emplace<NodeComponent>(entity);
+			node.name = fmt::format("Chunk {0:4}", idx);
+			node.transform = terrain.transform(idx);
+			_scene.addChild(terrainRoot, entity);
+			auto& renderer = _scene.getRegistry().emplace<MeshRendererComponent>(entity);
+			renderer.meshIndex = static_cast<MeshIndex>(idx);
+			renderer.materialIndex = MaterialIndex(Materials.size() - 1);
+			++idx;
+		}
+
+		meshGenerations.wait();
 
 		for(const auto& str : {
-				//"./data/models/Sponza/Sponza.gltf",
-				//"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
-				//"./data/models/lucy.obj",
-				//"./data/models/Helmet/DamagedHelmet.gltf",
-				//"./data/models/sanmiguel/sanmiguel.gltf",
-				//"./data/models/livingroom/livingroom.gltf",
-				//"./data/models/gallery/gallery.gltf", // Crashes
-				//"./data/models/Home/ConvertedWithBlendergltf.gltf",
-				//"./data/models/Home/untitled.gltf",
 				"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
-				//"./data/models/SunTemple-glTF/suntemple.gltf",
-				//"./data/models/postwar_city_-_exterior_scene/scene.gltf",
-				//"./data/models/sea_keep_lonely_watcher/scene.gltf",
-				//"./data/models/RiggedSimple/glTF/RiggedSimple.gltf",
 			})
 			_scene.load(str);
 	}
-	_probeMesh.loadglTF("./data/models/sphere.gltf");
+	_probeMesh.loadglTF("./data/debug-models/sphere.gltf");
 	{
 		QuickTimer qt("initWindow");
 		initWindow();
@@ -383,8 +395,64 @@ void Editor::trySelectNode() {
 	auto d = glm::normalize(static_cast<float>((2.0f * _mouse_x) / _width - 1.0f) * _camera.getRight() +
 							-ratio * static_cast<float>((2.0f * _mouse_y) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
 	Ray	 r{.origin = _camera.getPosition(), .direction = d};
-	if(auto node = _scene.intersectNodes(r); node != entt::null) {
-		_selectedNode = node;
+
+	switch(_controlMode) {
+		case ControlMode::Node:
+			if(auto node = _scene.intersectMeshNodes(r); node != entt::null) {
+				_selectedNode = node;
+			}
+			break;
+		case ControlMode::Voxel: {
+			auto terrains = _scene.getRegistry().view<NodeComponent, VoxelTerrain>();
+			terrains.each([&](const auto entity, auto& node, auto& terrain) {
+				Hit			 best;
+				entt::entity bestNode = entt::null;
+				auto		 bounds = Bounds(glm::vec3(0), glm::vec3(Chunk::Size * VoxelTerrain::Size));
+				bounds = node.globalTransform * bounds;
+				if(auto hit = intersect(r, bounds); hit.hit) {
+					auto child = node.first;
+					while(child != entt::null) {
+						const auto& childNode = _scene.getRegistry().get<NodeComponent>(child);
+						if(auto hit = intersect(r, childNode.globalTransform * _scene[_scene.getRegistry().get<MeshRendererComponent>(child).meshIndex].getBounds());
+						   hit.hit && hit.depth < best.depth) {
+							Ray localRay = glm::inverse(childNode.globalTransform) * r;
+							hit = intersect(localRay, _scene[_scene.getRegistry().get<MeshRendererComponent>(child).meshIndex]);
+							hit.depth = glm::length(glm::vec3(childNode.globalTransform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - r.origin);
+							if(hit.hit && hit.depth < best.depth) {
+								best = hit;
+								bestNode = entity;
+							}
+						}
+						child = childNode.next;
+					}
+				}
+				if(best.hit) {
+					auto idx = terrain.add(glm::vec3(glm::inverse(node.globalTransform) * glm::vec4(r(best.depth - 0.0001), 1.0)));
+					if(idx != -1) {
+						// FIXME: Not here.
+						auto m = generateMesh((*terrain.chunks.get())[idx]);
+						_scene.getMeshes()[idx].getVertices() = m.getVertices();
+						_scene.getMeshes()[idx].getIndices() = m.getIndices();
+						_scene.getMeshes()[idx].computeBounds();
+						_scene.getMeshes()[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
+						// FIXME: Not that.
+						//        We should only have to update:
+						//          - One Mesh, but we need to reserve memory for that.
+						//          - The corresponding BLAS, but we need to allow geometry updates for it.
+						//          - The TLAS
+						//          - The descriptors
+						uploadScene();
+						writeRaytracingDescriptorSets();
+						writeDirectLightDescriptorSets();
+						writeReflectionDescriptorSets();
+						_irradianceProbes.writeDescriptorSet(_renderer, _lightUniformBuffers[0]);
+						onTLASCreation();
+						_outdatedCommandBuffers = true;
+					}
+				}
+			});
+			break;
+		}
 	}
 }
 

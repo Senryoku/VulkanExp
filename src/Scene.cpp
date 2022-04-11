@@ -979,7 +979,7 @@ glm::mat4 Scene::getGlobalTransform(const NodeComponent& node) const {
 	return transform;
 }
 
-entt::entity Scene::intersectNodes(const Ray& ray) {
+entt::entity Scene::intersectMeshNodes(const Ray& ray) {
 	Hit			 best;
 	entt::entity bestNode = entt::null;
 	const auto&	 meshes = getMeshes();

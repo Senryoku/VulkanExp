@@ -111,7 +111,7 @@ class Scene {
 	bool	  isAncestor(entt::entity ancestor, entt::entity entity) const;
 	glm::mat4 getGlobalTransform(const NodeComponent& node) const;
 
-	entt::entity intersectNodes(const Ray& ray);
+	entt::entity intersectMeshNodes(const Ray& ray);
 
 	inline const Bounds& getBounds() const { return _bounds; }
 	inline void			 setBounds(const Bounds& b) { _bounds = b; }

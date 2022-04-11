@@ -5,6 +5,8 @@
 #include <ImGuizmo.h>
 #include <implot/implot.h>
 #include <misc/cpp/imgui_stdlib.h>
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui_internal.h"
 
 struct TextureRef {
 	const TextureIndex textureIndex;
@@ -272,6 +274,60 @@ void Editor::drawUI() {
 		return modified;
 	};
 
+	ImVec2 menuSize;
+	if(ImGui::BeginMainMenuBar()) {
+		menuSize = ImGui::GetWindowSize();
+		if(ImGui::BeginMenu("File")) {
+			if(ImGui::MenuItem("Load Scene")) {
+				_scene.load("data/default.scene");
+			}
+			ImGui::EndMenu();
+		}
+		if(ImGui::BeginMenu("Edit")) {
+			if(ImGui::MenuItem("Undo", "CTRL+Z", false, _history.canUndo()))
+				_history.undo();
+			if(ImGui::MenuItem("Redo", "CTRL+Y", false, _history.canRedo()))
+				_history.redo();
+			ImGui::EndMenu();
+		}
+		if(ImGui::BeginMenu("Debug")) {
+			if(ImGui::MenuItem("Compile Shaders")) {
+				compileShaders();
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
+
+	if(ImGui::Begin("Probes Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
+		if(ImGui::Checkbox("Probe Debug Display", &_probeDebug)) {
+			_outdatedCommandBuffers = true;
+		}
+		if(ImGui::Button("Rebuild probe pipeline")) {
+			_irradianceProbes.createPipeline(_pipelineCache);
+			_irradianceProbes.update(_scene, _computeQueue);
+		}
+		if(ImGui::Button("Update Probes")) {
+			_irradianceProbes.update(_scene, _computeQueue);
+		}
+		float scale = 3.0f;
+		ImGui::Text("Probes Ray Irradiance Depth");
+		ImGui::Image(ProbesRayIrradianceDepth,
+					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
+		ImGui::Text("Probes Ray Direction");
+		ImGui::Image(ProbesRayDirection,
+					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
+		ImGui::Text("Probes Color");
+		ImGui::Image(ProbesColor,
+					 ImVec2(scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
+							scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[2]));
+		ImGui::Text("Probes Depth");
+		ImGui::Image(ProbesDepth,
+					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
+							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
+	}
+	ImGui::End();
+
 	bool updatedTransform = false;
 
 	// On screen gizmos
@@ -380,6 +436,82 @@ void Editor::drawUI() {
 	if(_selectedNode != entt::null && updatedTransform) {
 		_scene.markDirty(_selectedNode);
 	}
+
+	//////////////////////////////////////////////////////////////////////////
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 5.0);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0);
+	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos + ImVec2(_width / 2, menuSize.y), ImGuiCond_Always, ImVec2(0.5, 0));
+	ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_Always);
+	if(ImGui::Begin("##ContextualActions", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove)) {
+		switch(_controlMode) {
+			case ControlMode::Node: {
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0);
+				auto toggleButton = [&](const char* icon, bool active) {
+					if(active) {
+						ImGui::PushStyleColor(ImGuiCol_Border, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+						ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 4.0);
+					}
+					bool ret = ImGui::Button(icon);
+					if(active) {
+						ImGui::PopStyleColor();
+						ImGui::PopStyleVar(1);
+					}
+					return ret;
+				};
+				auto modeButton = [&](const char* icon, ImGuizmo::OPERATION op, const char* tooltipStr) {
+					const bool active = _currentGizmoOperation == op;
+					if(toggleButton(icon, active))
+						_currentGizmoOperation = op;
+					tooltip(tooltipStr);
+					ImGui::SameLine();
+				};
+
+				modeButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, ImGuizmo::TRANSLATE, "Translate (T)");
+				modeButton(ICON_FA_ARROWS_ROTATE, ImGuizmo::ROTATE, "Rotate (R)");
+				modeButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, ImGuizmo::SCALE, "Scale (Y)");
+
+				if(_currentGizmoOperation == ImGuizmo::SCALE)
+					ImGui::BeginDisabled();
+				if(_currentGizmoMode == ImGuizmo::LOCAL) {
+					if(ImGui::Button("Local", ImVec2(50, 0)))
+						_currentGizmoMode = ImGuizmo::WORLD;
+				} else {
+					if(ImGui::Button("World", ImVec2(50, 0)))
+						_currentGizmoMode = ImGuizmo::LOCAL;
+					tooltip("Toggle between Local and World transform edition mode.");
+				}
+				if(_currentGizmoOperation == ImGuizmo::SCALE)
+					ImGui::EndDisabled();
+				ImGui::SameLine();
+
+				if(toggleButton(ICON_FA_ARROWS_DOWN_TO_LINE, _useSnap))
+					_useSnap = !_useSnap;
+				tooltip("Snap transform to the specified value.");
+				ImGui::SameLine();
+				ImGui::PushItemWidth(120);
+				switch(_currentGizmoOperation) {
+					case ImGuizmo::TRANSLATE: ImGui::InputFloat3("##Snap Offset", &_snapOffset.x); break;
+					case ImGuizmo::ROTATE: ImGui::InputFloat(reinterpret_cast<const char*>(u8"°##Angle Snap"), &_snapAngleOffset); break;
+					case ImGuizmo::SCALE: ImGui::InputFloat("##Scale Snap", &_snapScaleOffset); break;
+				}
+				tooltip("Snap Value");
+				ImGui::PopItemWidth();
+
+				ImGui::PopStyleVar();
+				break;
+			}
+			case ControlMode::Voxel: {
+				ImGui::Text("Voxel");
+				break;
+			}
+		}
+	}
+	ImGui::End();
+	ImGui::PopStyleVar();
+	ImGui::PopStyleVar();
+
+	//////////////////////////////////////////////////////////////////////////
 
 	if(ImGui::Begin("Animation")) {
 		const static ImVec4 axisColors[3]{
@@ -511,58 +643,6 @@ void Editor::drawUI() {
 				}
 			}
 		}
-	}
-	ImGui::End();
-
-	if(ImGui::BeginMainMenuBar()) {
-		if(ImGui::BeginMenu("File")) {
-			if(ImGui::MenuItem("Load Scene")) {
-				_scene.load("data/default.scene");
-			}
-			ImGui::EndMenu();
-		}
-		if(ImGui::BeginMenu("Edit")) {
-			if(ImGui::MenuItem("Undo", "CTRL+Z", false, _history.canUndo()))
-				_history.undo();
-			if(ImGui::MenuItem("Redo", "CTRL+Y", false, _history.canRedo()))
-				_history.redo();
-			ImGui::EndMenu();
-		}
-		if(ImGui::BeginMenu("Debug")) {
-			if(ImGui::MenuItem("Compile Shaders")) {
-				compileShaders();
-			}
-			ImGui::EndMenu();
-		}
-		ImGui::EndMainMenuBar();
-	}
-
-	if(ImGui::Begin("Probes Debug", nullptr, ImGuiWindowFlags_HorizontalScrollbar)) {
-		if(ImGui::Checkbox("Probe Debug Display", &_probeDebug)) {
-			_outdatedCommandBuffers = true;
-		}
-		if(ImGui::Button("Rebuild probe pipeline")) {
-			_irradianceProbes.createPipeline(_pipelineCache);
-			_irradianceProbes.update(_scene, _computeQueue);
-		}
-		if(ImGui::Button("Update Probes")) {
-			_irradianceProbes.update(_scene, _computeQueue);
-		}
-		float scale = 3.0f;
-		ImGui::Text("Probes Ray Irradiance Depth");
-		ImGui::Image(ProbesRayIrradianceDepth,
-					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
-		ImGui::Text("Probes Ray Direction");
-		ImGui::Image(ProbesRayDirection,
-					 ImVec2(scale * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[2], scale * _irradianceProbes.MaxRaysPerProbe));
-		ImGui::Text("Probes Color");
-		ImGui::Image(ProbesColor,
-					 ImVec2(scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
-							scale * _irradianceProbes.GridParameters.colorRes * _irradianceProbes.GridParameters.resolution[2]));
-		ImGui::Text("Probes Depth");
-		ImGui::Image(ProbesDepth,
-					 ImVec2(scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[0] * _irradianceProbes.GridParameters.resolution[1],
-							scale * _irradianceProbes.GridParameters.depthRes * _irradianceProbes.GridParameters.resolution[2]));
 	}
 	ImGui::End();
 
@@ -698,35 +778,6 @@ void Editor::drawUI() {
 					_history.push(new NodeTransformModification(_scene, _selectedNode, prevTransform, node.transform));
 					_scene.markDirty(_selectedNode);
 				}
-				// FIXME: Should be somewhere else, like a toolbar.
-				if(ImGui::RadioButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Translate (T)", _currentGizmoOperation == ImGuizmo::TRANSLATE))
-					_currentGizmoOperation = ImGuizmo::TRANSLATE;
-				tooltip("Translate (T)");
-				ImGui::SameLine();
-				if(ImGui::RadioButton(ICON_FA_ARROWS_ROTATE " Rotate (R)", _currentGizmoOperation == ImGuizmo::ROTATE))
-					_currentGizmoOperation = ImGuizmo::ROTATE;
-				ImGui::SameLine();
-				if(ImGui::RadioButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER " Scale (Y)", _currentGizmoOperation == ImGuizmo::SCALE))
-					_currentGizmoOperation = ImGuizmo::SCALE;
-
-				if(_currentGizmoOperation == ImGuizmo::SCALE)
-					ImGui::BeginDisabled();
-				if(ImGui::RadioButton("Local", _currentGizmoMode == ImGuizmo::LOCAL))
-					_currentGizmoMode = ImGuizmo::LOCAL;
-				ImGui::SameLine();
-				if(ImGui::RadioButton("World", _currentGizmoMode == ImGuizmo::WORLD))
-					_currentGizmoMode = ImGuizmo::WORLD;
-				if(_currentGizmoOperation == ImGuizmo::SCALE)
-					ImGui::EndDisabled();
-
-				ImGui::Checkbox("Snap", &_useSnap);
-				ImGui::SameLine();
-				switch(_currentGizmoOperation) {
-					case ImGuizmo::TRANSLATE: ImGui::InputFloat3("##Snap", &_snapOffset.x); break;
-					case ImGuizmo::ROTATE: ImGui::InputFloat(reinterpret_cast<const char*>(u8"°##Angle Snap"), &_snapAngleOffset); break;
-					case ImGuizmo::SCALE: ImGui::InputFloat("##Scale Snap", &_snapScaleOffset); break;
-				}
-
 				ImGui::TreePop();
 			}
 
@@ -735,7 +786,7 @@ void Editor::drawUI() {
 			auto displayMesh = [&](MeshIndex meshIndex) {
 				if(meshIndex != InvalidMeshIndex) {
 					auto& mesh = _scene[meshIndex];
-					ImGui::Text("Mesh: %s", mesh.name.c_str());
+					ImGui::Text("Mesh: %s (%d)", mesh.name.c_str(), meshIndex);
 				} else
 					ImGui::Text("No Mesh Assigned");
 			};

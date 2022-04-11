@@ -27,14 +27,20 @@ class Mesh {
 	Mesh(Mesh&&) noexcept = default;
 
 	std::string	  name;
+	size_t		  blasIndex = -1;
 	uint32_t	  indexIntoOffsetTable = -1;
 	MaterialIndex defaultMaterialIndex{static_cast<uint32_t>(0)};
+
+	bool isValid() const { return _indices.size() > 0; }
 
 	void init(const Device& device) {
 		if(_indexBuffer && _vertexBuffer) {
 			_indexBuffer.destroy();
 			_vertexBuffer.destroy();
 		}
+
+		if(!isValid())
+			return;
 
 		const auto indexDataSize = getIndexByteSize();
 		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -53,6 +59,9 @@ class Mesh {
 	}
 
 	void upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue) {
+		if(!isValid())
+			return;
+
 		stagingMemory.fill(_vertices);
 		_vertexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getVertexByteSize(), queue);
 

@@ -78,6 +78,9 @@ void Renderer::allocateMeshes() {
 	Indices.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticIndexBufferSizeInBytes,
 				 VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	for(const auto& mesh : getMeshes()) {
+		if(!mesh.isValid())
+			continue;
+
 		Vertices.bind(mesh.getVertexBuffer());
 		Indices.bind(mesh.getIndexBuffer());
 
@@ -109,6 +112,9 @@ void Renderer::updateMeshOffsetTable() {
 	StaticWeightsBufferSizeInBytes = 0;
 	_offsetTable.clear();
 	for(auto& m : getMeshes()) {
+		if(!m.isValid())
+			continue;
+
 		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
 		auto indexBufferMemReq = m.getIndexBuffer().getMemoryRequirements();
 		m.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size());
@@ -303,13 +309,14 @@ void Renderer::createAccelerationStructures() {
 		.ppGeometries = nullptr,
 	};
 
-	const auto& meshes = getMeshes();
-
+	auto& meshes = getMeshes();
 	{
 		QuickTimer qt("BLAS building");
 		// Collect all submeshes and query the memory requirements
 		const size_t staticBLASCount = meshes.size();
-		for(const auto& mesh : meshes) {
+		for(auto& mesh : meshes) {
+			if(!mesh.isValid())
+				continue;
 			/*
 			 * Right now there's a one-to-one relation between meshes and geometries.
 			 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
@@ -340,6 +347,7 @@ void Renderer::createAccelerationStructures() {
 				.firstVertex = 0,
 				.transformOffset = 0,
 			});
+			mesh.blasIndex = buildSizesInfo.size() - 1;
 		}
 
 		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
@@ -467,11 +475,14 @@ void Renderer::createTLAS() {
 	{
 		auto instances = _scene->getRegistry().view<MeshRendererComponent>();
 		for(auto& entity : instances) {
-			auto&				 meshRendererComponent = _scene->getRegistry().get<MeshRendererComponent>(entity);
+			const auto& meshRendererComponent = _scene->getRegistry().get<MeshRendererComponent>(entity);
+			const auto& mesh = (*_scene)[meshRendererComponent.meshIndex];
+			if(!mesh.isValid())
+				continue;
 			auto				 tmp = glm::transpose(_scene->getRegistry().get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-			auto BLASDeviceAddress = getDeviceAddress(*_device, _bottomLevelAccelerationStructures[meshRendererComponent.meshIndex]);
+			auto BLASDeviceAddress = getDeviceAddress(*_device, _bottomLevelAccelerationStructures[mesh.blasIndex]);
 
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,
@@ -486,7 +497,9 @@ void Renderer::createTLAS() {
 	{
 		auto instances = _scene->getRegistry().view<SkinnedMeshRendererComponent>();
 		for(auto& entity : instances) {
-			auto&				 skinnedMeshRendererComponent = _scene->getRegistry().get<SkinnedMeshRendererComponent>(entity);
+			auto& skinnedMeshRendererComponent = _scene->getRegistry().get<SkinnedMeshRendererComponent>(entity);
+			if(!(*_scene)[skinnedMeshRendererComponent.meshIndex].isValid())
+				continue;
 			auto				 tmp = glm::transpose(_scene->getRegistry().get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			auto				 BLASDeviceAddress = getDeviceAddress(*_device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
@@ -693,9 +706,11 @@ void Renderer::updateTransforms() {
 	_instancesData.clear();
 	_instancesData.reserve(meshRenderers.size_hint() + skinnedMeshRenderers.size_hint());
 	for(auto&& [entity, meshRenderer, node] : meshRenderers.each())
-		_instancesData.push_back({node.globalTransform});
+		if(_scene->getMeshes()[meshRenderer.meshIndex].isValid())
+			_instancesData.push_back({node.globalTransform});
 	for(auto&& [entity, skinnedMeshRenderer, node] : skinnedMeshRenderers.each())
-		_instancesData.push_back({node.globalTransform});
+		if(_scene->getMeshes()[skinnedMeshRenderer.meshIndex].isValid())
+			_instancesData.push_back({node.globalTransform});
 
 	copyViaStagingBuffer(_instancesBuffer, _instancesData);
 }

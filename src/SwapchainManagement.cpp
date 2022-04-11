@@ -321,16 +321,20 @@ void Editor::recordCommandBuffers() {
 					if(meshRenderer.meshIndex != currentMesh) {
 						// Issue a draw call for instanceCount instances before switching to the next mesh.
 						if(currentMesh != InvalidMeshIndex) {
-							vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
-							instanceBaseOffset += instanceCount;
+							if(indexCount > 0) {
+								vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
+								instanceBaseOffset += instanceCount;
+							}
 						}
 						// Reset (Next Mesh)
 						currentMesh = meshRenderer.meshIndex;
 						instanceCount = 0;
 						indexCount = static_cast<uint32_t>(_scene.getMeshes()[currentMesh].getIndices().size());
-						std::array<VkBuffer, 1> buffers{_scene.getMeshes()[currentMesh].getVertexBuffer()};
-						vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
-						vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+						if(indexCount > 0) {
+							std::array<VkBuffer, 1> buffers{_scene.getMeshes()[currentMesh].getVertexBuffer()};
+							vkCmdBindVertexBuffers(b, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
+							vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+						}
 						// Count the instances before issuing a draw call.
 					}
 					if(meshRenderer.materialIndex != currentMaterial) {
@@ -341,7 +345,8 @@ void Editor::recordCommandBuffers() {
 					++instanceCount;
 				}
 				if(currentMesh != InvalidMeshIndex) {
-					vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
+					if(indexCount > 0)
+						vkCmdDrawIndexed(b, indexCount, instanceCount, 0, 0, instanceBaseOffset);
 					instanceBaseOffset += instanceCount;
 				}
 			}
@@ -359,8 +364,9 @@ void Editor::recordCommandBuffers() {
 					const auto& meshRenderer = _scene.getRegistry().get<SkinnedMeshRendererComponent>(entity);
 					if(meshRenderer.meshIndex != currentMesh) {
 						currentMesh = meshRenderer.meshIndex;
-						vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32); // Index buffer doesn't have to be updated.
 						indexCount = static_cast<uint32_t>(_scene.getMeshes()[currentMesh].getIndices().size());
+						if(indexCount > 0)
+							vkCmdBindIndexBuffer(b, _scene.getMeshes()[currentMesh].getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32); // Index buffer doesn't have to be updated.
 					}
 					if(meshRenderer.materialIndex != currentMaterial) {
 						// Next Material
@@ -368,11 +374,13 @@ void Editor::recordCommandBuffers() {
 												&_gbufferDescriptorPool.getDescriptorSets()[i * Materials.size() + meshRenderer.materialIndex], 0, nullptr);
 					}
 
-					vkCmdDrawIndexed(
-						b, indexCount, 1, 0,
-						_renderer.getDynamicOffsetTable()[meshRenderer.indexIntoOffsetTable - _renderer.StaticOffsetTableSizeInBytes / sizeof(Renderer::OffsetEntry)].vertexOffset -
-							_renderer.StaticVertexBufferSizeInBytes / sizeof(Vertex),
-						instanceBaseOffset);
+					if(indexCount > 0)
+						vkCmdDrawIndexed(
+							b, indexCount, 1, 0,
+							_renderer.getDynamicOffsetTable()[meshRenderer.indexIntoOffsetTable - _renderer.StaticOffsetTableSizeInBytes / sizeof(Renderer::OffsetEntry)]
+									.vertexOffset -
+								_renderer.StaticVertexBufferSizeInBytes / sizeof(Vertex),
+							instanceBaseOffset);
 
 					++instanceBaseOffset;
 				}

@@ -45,11 +45,13 @@ void Mesh::computeVertexNormals() {
 }
 
 const Bounds& Mesh::computeBounds() {
-	Bounds b{.min = _vertices[0].pos, .max = _vertices[0].pos};
-	for(const auto& v : _vertices) {
-		b.min = glm::min(b.min, v.pos);
-		b.max = glm::max(b.max, v.pos);
+	if(!_vertices.empty()) {
+		Bounds b{.min = _vertices[0].pos, .max = _vertices[0].pos};
+		for(const auto& v : _vertices) {
+			b.min = glm::min(b.min, v.pos);
+			b.max = glm::max(b.max, v.pos);
+		}
+		_bounds = b;
 	}
-	_bounds = b;
 	return _bounds;
 }

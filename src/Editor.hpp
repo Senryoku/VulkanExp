@@ -80,6 +80,12 @@ class Editor {
   public:
 	void run();
 
+	enum class ControlMode {
+		Node,
+		Voxel,
+		Count
+	};
+
   private:
 	const uint32_t InitialWidth = 1920;
 	const uint32_t InitialHeight = 1080;
@@ -140,6 +146,7 @@ class Editor {
 	float		_longitude = 5;
 	float		_latitude = 45;
 	int			_utctimezone = 1; // _timezone is a macro...
+	ControlMode _controlMode = ControlMode::Node;
 
 	Buffer		 _stagingBuffer;
 	DeviceMemory _stagingMemory;

@@ -64,6 +64,7 @@
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\SwapchainManagement.cpp" />
     <ClCompile Include="src\voxels\Chunk.cpp" />
+    <ClCompile Include="src\voxels\PerlinNoise.cpp" />
     <ClCompile Include="src\VulkanLifecycle.cpp" />
     <ClCompile Include="src\vulkan\Buffer.cpp" />
     <ClCompile Include="src\vulkan\DescriptorPool.cpp" />
@@ -111,6 +112,8 @@
     <ClInclude Include="src\ThreadPool.hpp" />
     <ClInclude Include="src\Undoable.hpp" />
     <ClInclude Include="src\voxels\Chunk.hpp" />
+    <ClInclude Include="src\voxels\PerlinNoise.hpp" />
+    <ClInclude Include="src\voxels\VoxelTerrain.hpp" />
     <ClInclude Include="src\vulkan\Buffer.hpp" />
     <ClInclude Include="src\vulkan\CommandBuffer.hpp" />
     <ClInclude Include="src\vulkan\CommandPool.hpp" />

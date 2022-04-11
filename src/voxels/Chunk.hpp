@@ -10,7 +10,7 @@ struct Voxel {
 };
 
 struct Chunk {
-	constexpr static size_t Size = 8;
+	constexpr static size_t Size = 16;
 
 	std::array<Voxel, Size * Size * Size> voxels;
 

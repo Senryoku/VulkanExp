@@ -9,6 +9,25 @@
 
 class ThreadPool {
   public:
+	class TaskQueue {
+	  public:
+		~TaskQueue() { wait(); }
+
+		const std::future<void>& start(std::function<void()>&& func) {
+			_tasks.emplace_back(ThreadPool::GetInstance().queue(std::forward<std::function<void()>>(func)));
+			return _tasks.back();
+		}
+
+		void wait() {
+			for(const auto& f : _tasks)
+				f.wait();
+			_tasks.clear();
+		}
+
+	  private:
+		std::vector<std::future<void>> _tasks;
+	};
+
 	ThreadPool(uint32_t threadCount = std::thread::hardware_concurrency() - 1);
 	ThreadPool(const ThreadPool&) = delete;
 	ThreadPool& operator=(const ThreadPool&) = delete;
