@@ -414,15 +414,12 @@ void Editor::trySelectNode() {
 					auto child = node.first;
 					while(child != entt::null) {
 						const auto& childNode = _scene.getRegistry().get<NodeComponent>(child);
-						if(auto hit = intersect(r, childNode.globalTransform * _scene[_scene.getRegistry().get<MeshRendererComponent>(child).meshIndex].getBounds());
-						   hit.hit && hit.depth < best.depth) {
-							Ray localRay = glm::inverse(childNode.globalTransform) * r;
-							hit = intersect(localRay, _scene[_scene.getRegistry().get<MeshRendererComponent>(child).meshIndex]);
-							hit.depth = glm::length(glm::vec3(childNode.globalTransform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - r.origin);
-							if(hit.hit && hit.depth < best.depth) {
-								best = hit;
-								bestNode = entity;
-							}
+						Ray			localRay = glm::inverse(childNode.globalTransform) * r;
+						hit = intersect(localRay, _scene[_scene.getRegistry().get<MeshRendererComponent>(child).meshIndex]);
+						hit.depth = glm::length(glm::vec3(childNode.globalTransform * glm::vec4((localRay.origin + localRay.direction * hit.depth), 1.0f)) - r.origin);
+						if(hit.hit && hit.depth < best.depth) {
+							best = hit;
+							bestNode = entity;
 						}
 						child = childNode.next;
 					}
