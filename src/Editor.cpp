@@ -116,6 +116,7 @@ void Editor::run() {
 		for(size_t idx = 0; auto& chunk : *terrain.chunks) {
 			meshGenerations.start([h, idx, &chunk, this]() {
 				auto m = generateMesh(chunk);
+				this->_scene.getMeshes()[idx].dynamic = true;
 				this->_scene.getMeshes()[idx].getVertices() = m.getVertices();
 				this->_scene.getMeshes()[idx].getIndices() = m.getIndices();
 				this->_scene.getMeshes()[idx].computeBounds();
@@ -427,26 +428,29 @@ void Editor::trySelectNode() {
 					}
 				}
 				if(best.hit) {
-					auto idx = terrain.add(glm::vec3(glm::inverse(node.globalTransform) * glm::vec4(r(best.depth - 0.0001), 1.0)));
+					MeshIndex idx = MeshIndex(terrain.add(glm::vec3(glm::inverse(node.globalTransform) * glm::vec4(r(best.depth - 0.0001), 1.0))));
 					if(idx != -1) {
 						// FIXME: Not here.
 						auto m = generateMesh((*terrain.chunks.get())[idx]);
-						_scene.getMeshes()[idx].getVertices() = m.getVertices();
-						_scene.getMeshes()[idx].getIndices() = m.getIndices();
-						_scene.getMeshes()[idx].computeBounds();
-						_scene.getMeshes()[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
-						// FIXME: Not that.
-						//        We should only have to update:
-						//          - One Mesh, but we need to reserve memory for that.
-						//          - The corresponding BLAS, but we need to allow geometry updates for it.
-						//          - The TLAS
-						//          - The descriptors
-						uploadScene();
+						_scene[idx].getVertices() = m.getVertices();
+						_scene[idx].getIndices() = m.getIndices();
+						_scene[idx].computeBounds();
+						_scene[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
+						// FIXME: We couldn't allocate a BLAS for an empty meshes, we'll just redo everything for now, but this is obviously not what we should do (pre-allocate the
+						// BLAS and create it on demand)
+						if(_scene[idx].blasIndex == -1) {
+							uploadScene();
+						} else {
+							vkDeviceWaitIdle(_device);
+							_scene[idx].upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
+							_renderer.updateBLAS(idx);
+							_renderer.updateTLAS();
+						}
 						writeRaytracingDescriptorSets();
 						writeDirectLightDescriptorSets();
 						writeReflectionDescriptorSets();
+						writeGBufferDescriptorSets();
 						_irradianceProbes.writeDescriptorSet(_renderer, _lightUniformBuffers[0]);
-						onTLASCreation();
 						_outdatedCommandBuffers = true;
 					}
 				}

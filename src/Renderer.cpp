@@ -74,7 +74,7 @@ void Renderer::allocateMeshes() {
 	Vertices.init(*_device,
 				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 					  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticVertexBufferSizeInBytes + MaxDynamicVertexSizeInBytes, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticVertexBufferSizeInBytes + MaxSkinnedVertexSizeInBytes, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	Indices.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticIndexBufferSizeInBytes,
 				 VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	for(const auto& mesh : getMeshes()) {
@@ -95,14 +95,14 @@ void Renderer::allocateMeshes() {
 	}
 
 	MotionVectors.init(*_device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-					   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(glm::vec4) * MaxDynamicVertexSizeInBytes / sizeof(Vertex), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+					   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(glm::vec4) * MaxSkinnedVertexSizeInBytes / sizeof(Vertex), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
 	OffsetTable.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticOffsetTableSizeInBytes + 1024 * sizeof(OffsetEntry), VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
 	uploadMeshOffsetTable();
 
-	allocateDynamicMeshes();
+	allocateSkinnedMeshes();
 }
 
 void Renderer::updateMeshOffsetTable() {
@@ -141,10 +141,10 @@ void Renderer::uploadMeshOffsetTable() {
 		copyViaStagingBuffer(OffsetTable.buffer(), _offsetTable);
 }
 
-void Renderer::allocateDynamicMeshes() {
+void Renderer::allocateSkinnedMeshes() {
 	sortRenderers();
-	updateDynamicMeshOffsetTable();
-	uploadDynamicMeshOffsetTable();
+	updateSkinnedMeshOffsetTable();
+	uploadSkinnedMeshOffsetTable();
 
 	_updateQueryPools.clear();
 	_updateQueryPools.resize(2);
@@ -152,31 +152,31 @@ void Renderer::allocateDynamicMeshes() {
 		query.create(*_device, VK_QUERY_TYPE_TIMESTAMP, 2);
 }
 
-void Renderer::updateDynamicMeshOffsetTable() {
+void Renderer::updateSkinnedMeshOffsetTable() {
 	auto   instances = _scene->getRegistry().view<SkinnedMeshRendererComponent>();
 	size_t totalVertexSize = 0;
 	size_t idx = 0;
-	_dynamicOffsetTable.clear();
+	_skinnedOffsetTable.clear();
 	for(auto& entity : instances) {
 		auto& skinnedMeshRenderer = _scene->getRegistry().get<SkinnedMeshRendererComponent>(entity);
 		auto  vertexBufferMemReq = getMeshes()[skinnedMeshRenderer.meshIndex].getVertexBuffer().getMemoryRequirements();
-		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size() + _dynamicOffsetTable.size());
-		_dynamicOffsetTable.push_back(OffsetEntry{
+		skinnedMeshRenderer.indexIntoOffsetTable = static_cast<uint32_t>(_offsetTable.size() + _skinnedOffsetTable.size());
+		_skinnedOffsetTable.push_back(OffsetEntry{
 			static_cast<uint32_t>(skinnedMeshRenderer.materialIndex),
 			static_cast<uint32_t>((StaticVertexBufferSizeInBytes + totalVertexSize) / sizeof(Vertex)),
 			static_cast<uint32_t>(_offsetTable[getMeshes()[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].indexOffset),
 		});
 		totalVertexSize += vertexBufferMemReq.size;
 	}
-	assert(totalVertexSize < MaxDynamicVertexSizeInBytes);
-	assert(_dynamicOffsetTable.size() < 1024);
+	assert(totalVertexSize < MaxSkinnedVertexSizeInBytes);
+	assert(_skinnedOffsetTable.size() < 1024);
 
-	DynamicOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _dynamicOffsetTable.size());
+	SkinnedOffsetTableSizeInBytes = static_cast<uint32_t>(sizeof(OffsetEntry) * _skinnedOffsetTable.size());
 }
 
-void Renderer::uploadDynamicMeshOffsetTable() {
-	if(_dynamicOffsetTable.size() > 0)
-		copyViaStagingBuffer(OffsetTable.buffer(), _dynamicOffsetTable, 0, StaticOffsetTableSizeInBytes);
+void Renderer::uploadSkinnedMeshOffsetTable() {
+	if(_skinnedOffsetTable.size() > 0)
+		copyViaStagingBuffer(OffsetTable.buffer(), _skinnedOffsetTable, 0, StaticOffsetTableSizeInBytes);
 }
 
 bool Renderer::updateAnimations(float deltaTime) {
@@ -209,7 +209,7 @@ struct VertexSkinningPushConstant {
 	uint32_t motionVectorsOffset = 0;
 };
 
-bool Renderer::updateDynamicVertexBuffer() {
+bool Renderer::updateSkinnedVertexBuffer() {
 	auto instances = _scene->getRegistry().view<SkinnedMeshRendererComponent>();
 	for(auto& entity : instances) {
 		const auto& skinnedMeshRenderer = _scene->getRegistry().get<SkinnedMeshRendererComponent>(entity);
@@ -231,10 +231,10 @@ bool Renderer::updateDynamicVertexBuffer() {
 									0, 0);
 			VertexSkinningPushConstant constants{
 				.srcOffset = _offsetTable[_scene->getMeshes()[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset,
-				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
+				.dstOffset = _skinnedOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
 				.size = static_cast<uint32_t>(_scene->getMeshes()[skinnedMeshRenderer.meshIndex].getVertices().size()),
-				.motionVectorsOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset -
-									   StaticVertexBufferSizeInBytes / sizeof(Vertex),
+				.motionVectorsOffset = _skinnedOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset -
+									   static_cast<uint32_t>(StaticVertexBufferSizeInBytes / sizeof(Vertex)),
 			};
 			vkCmdPushConstants(commandBuffer, _vertexSkinningPipeline.getLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VertexSkinningPushConstant), &constants);
 			vkCmdDispatch(commandBuffer, std::ceil(constants.size / 128.0), 1, 1);
@@ -242,6 +242,38 @@ bool Renderer::updateDynamicVertexBuffer() {
 	}
 	return true;
 }
+
+constexpr VkAccelerationStructureGeometryKHR BaseVkAccelerationStructureGeometryKHR{
+	.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+	.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+	.geometry =
+		VkAccelerationStructureGeometryDataKHR{
+			.triangles =
+				VkAccelerationStructureGeometryTrianglesDataKHR{
+					.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+					.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+					.vertexData = 0,
+					.vertexStride = sizeof(Vertex),
+					.maxVertex = 0,
+					.indexType = VK_INDEX_TYPE_UINT32,
+					.indexData = 0,
+					.transformData = 0,
+				},
+		},
+	.flags = 0,
+};
+
+constexpr VkAccelerationStructureBuildGeometryInfoKHR BaseAccelerationStructureBuildGeometryInfo{
+	.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+	.pNext = VK_NULL_HANDLE,
+	.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+	.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+	.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
+	.srcAccelerationStructure = VK_NULL_HANDLE,
+	.geometryCount = 1,
+	.pGeometries = nullptr,
+	.ppGeometries = nullptr,
+};
 
 void Renderer::createAccelerationStructures() {
 	if(_topLevelAccelerationStructure) {
@@ -256,7 +288,7 @@ void Renderer::createAccelerationStructures() {
 
 	VkTransformMatrixKHR rootTransformMatrix = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
 
-	size_t meshesCount = getMeshes().size() + MaxDynamicBLAS; // FIXME: Reserve MaxDynamicBLAS dynamic instances
+	size_t meshesCount = getMeshes().size() + MaxSkinnedBLAS; // FIXME: Reserve MaxSkinnedBLAS skinned instances
 
 	std::vector<VkAccelerationStructureGeometryKHR>			 geometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> buildInfos;
@@ -270,44 +302,15 @@ void Renderer::createAccelerationStructures() {
 	rangeInfos.reserve(meshesCount); // Avoid reallocation since pRangeInfos will refer to this.
 	blasOffsets.reserve(meshesCount);
 	buildSizesInfo.reserve(meshesCount);
-	_dynamicBLASGeometries.clear();
-	_dynamicBLASGeometries.reserve(MaxDynamicBLAS);
-	_dynamicBLASBuildGeometryInfos.clear();
-	_dynamicBLASBuildGeometryInfos.reserve(MaxDynamicBLAS);
-	_dynamicBLASBuildRangeInfos.clear();
-	_dynamicBLASBuildRangeInfos.reserve(MaxDynamicBLAS);
+	_skinnedBLASGeometries.clear();
+	_skinnedBLASGeometries.reserve(MaxSkinnedBLAS);
+	_skinnedBLASBuildGeometryInfos.clear();
+	_skinnedBLASBuildGeometryInfos.reserve(MaxSkinnedBLAS);
+	_skinnedBLASBuildRangeInfos.clear();
+	_skinnedBLASBuildRangeInfos.reserve(MaxSkinnedBLAS);
 
-	VkAccelerationStructureGeometryKHR baseGeometry = {
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
-		.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
-		.geometry =
-			VkAccelerationStructureGeometryDataKHR{
-				.triangles =
-					VkAccelerationStructureGeometryTrianglesDataKHR{
-						.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-						.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-						.vertexData = 0,
-						.vertexStride = sizeof(Vertex),
-						.maxVertex = 0,
-						.indexType = VK_INDEX_TYPE_UINT32,
-						.indexData = 0,
-						.transformData = 0,
-					},
-			},
-		.flags = 0,
-	};
-
-	VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-		.pNext = VK_NULL_HANDLE,
-		.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-		.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-		.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR,
-		.srcAccelerationStructure = VK_NULL_HANDLE,
-		.geometryCount = 1,
-		.pGeometries = nullptr,
-		.ppGeometries = nullptr,
-	};
+	auto baseGeometry = BaseVkAccelerationStructureGeometryKHR;
+	auto accelerationBuildGeometryInfo = BaseAccelerationStructureBuildGeometryInfo;
 
 	auto& meshes = getMeshes();
 	{
@@ -324,16 +327,20 @@ void Renderer::createAccelerationStructures() {
 			 * This should be doable using the gl_GeometryIndexEXT built-in.
 			 */
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
-			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size());
+			baseGeometry.geometry.triangles.maxVertex = mesh.dynamic ? mesh.DynamicVertexCapacity : static_cast<uint32_t>(mesh.getVertices().size() - 1);
 			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
 			geometries.push_back(baseGeometry);
-
 			accelerationBuildGeometryInfo.pGeometries = &geometries.back();
+
+			accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+			if(mesh.dynamic)
+				accelerationBuildGeometryInfo.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 
 			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
 
 			auto accelerationStructureBuildSizesInfo = getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
 
+			// FIXME: Query this 256 alignment instead of hardcoding it.
 			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
 			totalBLASSize += alignedSize;
 			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
@@ -361,8 +368,8 @@ void Renderer::createAccelerationStructures() {
 
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{
 				Vertices.buffer().getDeviceAddress() +
-				sizeof(Vertex) * _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset};
-			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size());
+				sizeof(Vertex) * _skinnedOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset};
+			baseGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(mesh.getVertices().size() - 1);
 			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
 			geometries.push_back(baseGeometry);
 
@@ -372,6 +379,7 @@ void Renderer::createAccelerationStructures() {
 
 			auto accelerationStructureBuildSizesInfo = getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
 
+			// FIXME: Query this 256 alignment instead of hardcoding it.
 			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
 			totalBLASSize += alignedSize;
 			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
@@ -387,10 +395,10 @@ void Renderer::createAccelerationStructures() {
 			});
 
 			// Also keep a copy for later re-builds
-			_dynamicBLASGeometries.push_back(baseGeometry);
-			accelerationBuildGeometryInfo.pGeometries = &_dynamicBLASGeometries.back();
-			_dynamicBLASBuildGeometryInfos.push_back(accelerationBuildGeometryInfo);
-			_dynamicBLASBuildRangeInfos.push_back(rangeInfos.back());
+			_skinnedBLASGeometries.push_back(baseGeometry);
+			accelerationBuildGeometryInfo.pGeometries = &_skinnedBLASGeometries.back();
+			_skinnedBLASBuildGeometryInfos.push_back(accelerationBuildGeometryInfo);
+			_skinnedBLASBuildRangeInfos.push_back(rangeInfos.back());
 		}
 
 		_blasBuffer.create(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
@@ -412,8 +420,7 @@ void Renderer::createAccelerationStructures() {
 
 			buildInfos[i].dstAccelerationStructure = blas;
 			if(i >= staticBLASCount) {
-				_dynamicBLASBuildGeometryInfos[i - staticBLASCount].dstAccelerationStructure = blas;
-				//_dynamicBLASBuildGeometryInfos[i - staticBLASCount].srcAccelerationStructure = blas;
+				_skinnedBLASBuildGeometryInfos[i - staticBLASCount].dstAccelerationStructure = blas;
 			}
 			runningOffset += blasOffsets[i];
 		}
@@ -425,7 +432,7 @@ void Renderer::createAccelerationStructures() {
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
 			buildInfos[i].scratchData = {.deviceAddress = scratchBufferAddr + offset};
 			if(i >= staticBLASCount) {
-				_dynamicBLASBuildGeometryInfos[i - staticBLASCount].scratchData = {.deviceAddress = scratchBufferAddr + offset};
+				_skinnedBLASBuildGeometryInfos[i - staticBLASCount].scratchData = {.deviceAddress = scratchBufferAddr + offset};
 			}
 			offset += buildSizesInfo[i].buildScratchSize;
 			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
@@ -443,6 +450,30 @@ void Renderer::createAccelerationStructures() {
 	}
 
 	createTLAS();
+}
+
+void Renderer::updateBLAS(MeshIndex idx) {
+	const auto& mesh = (*_scene)[idx];
+	auto		baseGeometry = BaseVkAccelerationStructureGeometryKHR;
+	auto		accelerationBuildGeometryInfo = BaseAccelerationStructureBuildGeometryInfo;
+	baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
+	baseGeometry.geometry.triangles.maxVertex = mesh.dynamic ? mesh.DynamicVertexCapacity : static_cast<uint32_t>(mesh.getVertices().size());
+	baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
+	accelerationBuildGeometryInfo.scratchData = {.deviceAddress = _blasScratchBuffer.getDeviceAddress()}; // Should not be run in parallel - I think - so probably fine...?
+	accelerationBuildGeometryInfo.srcAccelerationStructure = _bottomLevelAccelerationStructures[mesh.blasIndex];
+	accelerationBuildGeometryInfo.dstAccelerationStructure = _bottomLevelAccelerationStructures[mesh.blasIndex];
+	accelerationBuildGeometryInfo.pGeometries = &baseGeometry;
+	accelerationBuildGeometryInfo.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+	const VkAccelerationStructureBuildRangeInfoKHR rangeInfo{
+		.primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3),
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0,
+	};
+	const VkAccelerationStructureBuildRangeInfoKHR* pRangeInfos{&rangeInfo};
+	_device->immediateSubmitCompute(
+		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationBuildGeometryInfo, &pRangeInfos); });
 }
 
 void Renderer::sortRenderers() {
@@ -585,27 +616,27 @@ void Renderer::createTLAS() {
 		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &TLASBuildGeometryInfo, TLASBuildRangeInfos.data()); });
 }
 
-bool Renderer::updateDynamicBLAS() {
+bool Renderer::updateSkinnedBLAS() {
 	QuickTimer qt(_cpuBLASUpdateTimes);
 
-	if(_dynamicBLASBuildGeometryInfos.empty())
+	if(_skinnedBLASBuildGeometryInfos.empty())
 		return false;
 
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> pRangeInfos;
-	for(auto& rangeInfo : _dynamicBLASBuildRangeInfos)
+	for(auto& rangeInfo : _skinnedBLASBuildRangeInfos)
 		pRangeInfos.push_back(&rangeInfo);
 
 	if(_updateQueryPools[0].newSampleFlag) {
 		auto queryResults = _updateQueryPools[0].get();
 		if(queryResults.size() >= 2 && queryResults[0].available && queryResults[1].available) {
-			_dynamicBLASUpdateTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
+			_skinnedBLASUpdateTimes.add(0.000001f * (queryResults[1].result - queryResults[0].result));
 			_updateQueryPools[0].newSampleFlag = false;
 		}
 	}
 	_device->immediateSubmitCompute([&](const CommandBuffer& commandBuffer) {
 		_updateQueryPools[0].reset(commandBuffer);
 		_updateQueryPools[0].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
-		vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(_dynamicBLASBuildGeometryInfos.size()), _dynamicBLASBuildGeometryInfos.data(), pRangeInfos.data());
+		vkCmdBuildAccelerationStructuresKHR(commandBuffer, static_cast<uint32_t>(_skinnedBLASBuildGeometryInfos.size()), _skinnedBLASBuildGeometryInfos.data(), pRangeInfos.data());
 		_updateQueryPools[0].writeTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 1);
 	}); // FIXME: Too much synchronisation here (WaitQueueIdle)
 	_updateQueryPools[0].newSampleFlag = true;
@@ -679,9 +710,9 @@ void Renderer::updateTLAS() {
 void Renderer::onHierarchicalChanges(float deltaTime) {
 	updateTransforms();
 	updateAccelerationStructureInstances();
-	auto vertexUpdate = updateDynamicVertexBuffer();
+	auto vertexUpdate = updateSkinnedVertexBuffer();
 	if(vertexUpdate)
-		updateDynamicBLAS();
+		updateSkinnedBLAS();
 	updateTLAS();
 }
 
@@ -766,7 +797,7 @@ void Renderer::createVertexSkinningPipeline(VkPipelineCache pipelineCache) {
 			auto  vertexSize = getMeshes()[skinnedMeshRenderer.meshIndex].getVertexByteSize();
 			regions.push_back({
 				.srcOffset = _offsetTable[getMeshes()[skinnedMeshRenderer.meshIndex].indexIntoOffsetTable].vertexOffset * sizeof(Vertex),
-				.dstOffset = _dynamicOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset * sizeof(Vertex),
+				.dstOffset = _skinnedOffsetTable[skinnedMeshRenderer.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset * sizeof(Vertex),
 				.size = vertexSize,
 			});
 		}
@@ -783,22 +814,8 @@ void Renderer::writeSkinningDescriptorSet(const SkinnedMeshRendererComponent& co
 		.add(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, mesh.getSkinWeightsBuffer())
 		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, Vertices.buffer())
 		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, Vertices.buffer())
-		/*
 		// We could bind the slice that we're interested in, but this would require us to adhere to storage alignement requirements,
 		// I'll just pass the offsets as push constants, at least for now.
-		.add(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		 {
-			 .buffer = VertexBuffer,
-			 .offset = _offsetTable[mesh.indexIntoOffsetTable].vertexOffset,
-			 .range = mesh.getVertexByteSize(),
-		 })
-		.add(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		 {
-			 .buffer = VertexBuffer,
-			 .offset = _dynamicOffsetTable[comp.indexIntoOffsetTable - StaticOffsetTableSizeInBytes / sizeof(OffsetEntry)].vertexOffset,
-			 .range = mesh.getVertexByteSize(),
-		 })
-		 */
 		.add(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MotionVectors.buffer())
 		.update(*_device);
 }

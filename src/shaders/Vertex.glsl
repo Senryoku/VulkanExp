@@ -16,7 +16,6 @@ const uint VertexStride = 4; // 4 vec4 per vertex
 Vertex unpack(uint index)
 {
 	// Unpack the vertices from the SSBO
-
 	vec4 d0 = Vertices[VertexStride * index + 0];
 	vec4 d1 = Vertices[VertexStride * index + 1];
 	vec4 d2 = Vertices[VertexStride * index + 2];

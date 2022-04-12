@@ -38,9 +38,9 @@ class Renderer {
 	inline const VkAccelerationStructureKHR& getTLAS() const { return _topLevelAccelerationStructure; }
 	inline const Buffer&					 getInstanceBuffer() const { return _instancesBuffer; }
 	inline const Buffer&					 getPreviousInstanceBuffer() const { return _previousInstancesBuffer; }
-	inline const auto&						 getDynamicOffsetTable() const { return _dynamicOffsetTable; }
+	inline const auto&						 getDynamicOffsetTable() const { return _skinnedOffsetTable; }
 
-	const RollingBuffer<float>& getDynamicBLASUpdateTimes() const { return _dynamicBLASUpdateTimes; }
+	const RollingBuffer<float>& getDynamicBLASUpdateTimes() const { return _skinnedBLASUpdateTimes; }
 	const RollingBuffer<float>& getTLASUpdateTimes() const { return _tlasUpdateTimes; }
 	const RollingBuffer<float>& getCPUBLASUpdateTimes() const { return _cpuBLASUpdateTimes; }
 	const RollingBuffer<float>& getCPUTLASUpdateTimes() const { return _cpuTLASUpdateTimes; }
@@ -59,15 +59,16 @@ class Renderer {
 	void updateMeshOffsetTable();
 	void uploadMeshOffsetTable();
 
-	void allocateDynamicMeshes();
-	void updateDynamicMeshOffsetTable();
-	void uploadDynamicMeshOffsetTable();
+	void allocateSkinnedMeshes();
+	void updateSkinnedMeshOffsetTable();
+	void uploadSkinnedMeshOffsetTable();
 
 	void onHierarchicalChanges(float deltaTime);
 	void update();
+	void updateBLAS(MeshIndex idx);
 	bool updateAnimations(float deltaTime); // FIXME: This should probably not be in the Renderer
-	bool updateDynamicVertexBuffer();
-	bool updateDynamicBLAS();
+	bool updateSkinnedVertexBuffer();
+	bool updateSkinnedBLAS();
 
 	void createVertexSkinningPipeline(VkPipelineCache pipelineCache = VK_NULL_HANDLE);
 	void destroyVertexSkinningPipeline();
@@ -82,11 +83,11 @@ class Renderer {
 	StaticDeviceAllocator Joints;
 	StaticDeviceAllocator Weights;
 	StaticDeviceAllocator MotionVectors;
-	uint32_t			  StaticVertexBufferSizeInBytes = 0;
-	uint32_t			  StaticIndexBufferSizeInBytes = 0;
-	uint32_t			  StaticOffsetTableSizeInBytes = 0;
-	uint32_t			  StaticJointsBufferSizeInBytes = 0;
-	uint32_t			  StaticWeightsBufferSizeInBytes = 0;
+	size_t				  StaticVertexBufferSizeInBytes = 0;
+	size_t				  StaticIndexBufferSizeInBytes = 0;
+	size_t				  StaticOffsetTableSizeInBytes = 0;
+	size_t				  StaticJointsBufferSizeInBytes = 0;
+	size_t				  StaticWeightsBufferSizeInBytes = 0;
 
   private:
 	Scene*	_scene = nullptr;
@@ -97,13 +98,13 @@ class Renderer {
 	// (the easiest is wimply to separate BLAS building into two pass, static and dynamic, sharing no memory).
 
 	// Data for dynamic (skinned) meshes.
-	const uint32_t											 MaxDynamicBLAS = 1024;
-	const uint32_t											 MaxDynamicVertexSizeInBytes = 512 * 1024 * 1024;
-	uint32_t												 DynamicOffsetTableSizeInBytes;
-	std::vector<OffsetEntry>								 _dynamicOffsetTable;
-	std::vector<VkAccelerationStructureGeometryKHR>			 _dynamicBLASGeometries;
-	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _dynamicBLASBuildGeometryInfos;
-	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 _dynamicBLASBuildRangeInfos;
+	const uint32_t											 MaxSkinnedBLAS = 1024;
+	const size_t											 MaxSkinnedVertexSizeInBytes = 512 * 1024 * 1024;
+	size_t													 SkinnedOffsetTableSizeInBytes;
+	std::vector<OffsetEntry>								 _skinnedOffsetTable;
+	std::vector<VkAccelerationStructureGeometryKHR>			 _skinnedBLASGeometries;
+	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _skinnedBLASBuildGeometryInfos;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 _skinnedBLASBuildRangeInfos;
 
 	Buffer											_blasBuffer;
 	DeviceMemory									_blasMemory;
@@ -128,7 +129,7 @@ class Renderer {
 	DeviceMemory _blasScratchMemory;
 
 	std::vector<QueryPool> _updateQueryPools;
-	RollingBuffer<float>   _dynamicBLASUpdateTimes;
+	RollingBuffer<float>   _skinnedBLASUpdateTimes;
 	RollingBuffer<float>   _tlasUpdateTimes;
 	RollingBuffer<float>   _cpuTLASUpdateTimes;
 	RollingBuffer<float>   _cpuBLASUpdateTimes;
