@@ -23,6 +23,13 @@ class StaticDeviceAllocator {
 		_memory.allocate(device, _buffer, device.getPhysicalDevice().findMemoryType(memReq.memoryTypeBits, memProperties), flags);
 	}
 
+	void free() {
+		_buffer.destroy();
+		_memory.free();
+		_size = 0;
+		_capacity = 0;
+	}
+
 	void bind(Buffer& buffer, size_t bufferSize = 0) {
 		if(!buffer && bufferSize > 0)
 			buffer.create(*_device, _bufferUsage, bufferSize);
@@ -40,17 +47,14 @@ class StaticDeviceAllocator {
 			_size += (memReq.alignment - _size % memReq.alignment);
 		assert(_size <= _capacity);
 	}
-
-	void free() {
-		_buffer.destroy();
-		_memory.free();
-		_size = 0;
-		_capacity = 0;
+	// Reserve the next 'size' bytes of memory
+	void reserve(size_t size) {
+		assert(_size + size <= _capacity);
+		_size += size;
 	}
 
-	inline bool isValid() { return _capacity > 0; }
-	inline		operator bool() { return isValid(); }
-
+	inline bool				   isValid() { return _capacity > 0; }
+	inline					   operator bool() { return isValid(); }
 	inline const Buffer&	   buffer() const { return _buffer; }	  // Returns a view (buffer) on the entire allocated memory
 	inline const DeviceMemory& memory() const { return _memory; }	  // Memory pool allocated using init()
 	inline size_t			   size() const { return _size; }		  // Returns the size of memory leased to external buffers using bind()

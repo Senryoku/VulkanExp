@@ -9,6 +9,7 @@
 #include <RollingBuffer.hpp>
 #include <Scene.hpp>
 #include <StaticDeviceAllocator.hpp>
+#include <vulkan/AccelerationStructure.hpp>
 
 class Renderer {
   public:
@@ -65,6 +66,7 @@ class Renderer {
 
 	void onHierarchicalChanges(float deltaTime);
 	void update();
+	void createBLAS(MeshIndex idx); // Create and build the BLAS associated to supplied mesh idx
 	void updateBLAS(MeshIndex idx);
 	bool updateAnimations(float deltaTime); // FIXME: This should probably not be in the Renderer
 	bool updateSkinnedVertexBuffer();
@@ -106,13 +108,11 @@ class Renderer {
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _skinnedBLASBuildGeometryInfos;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR>	 _skinnedBLASBuildRangeInfos;
 
-	Buffer											_blasBuffer;
-	DeviceMemory									_blasMemory;
+	StaticDeviceAllocator							_blasMemory;
 	Buffer											_tlasBuffer;
 	DeviceMemory									_tlasMemory;
 	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
-	std::vector<VkAccelerationStructureKHR>			_bottomLevelAccelerationStructures;
-	std::vector<VkAccelerationStructureKHR>			_dynamicBottomLevelAccelerationStructures;
+	std::vector<AccelerationStructure>				_bottomLevelAccelerationStructures;
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
 	DeviceMemory									_accStructInstancesMemory;

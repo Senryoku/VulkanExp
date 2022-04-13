@@ -114,6 +114,7 @@
     <ClInclude Include="src\voxels\Chunk.hpp" />
     <ClInclude Include="src\voxels\PerlinNoise.hpp" />
     <ClInclude Include="src\voxels\VoxelTerrain.hpp" />
+    <ClInclude Include="src\vulkan\AccelerationStructure.hpp" />
     <ClInclude Include="src\vulkan\Buffer.hpp" />
     <ClInclude Include="src\vulkan\CommandBuffer.hpp" />
     <ClInclude Include="src\vulkan\CommandPool.hpp" />

@@ -391,6 +391,15 @@ void Editor::cameraControl(float dt) {
 	}
 }
 
+Ray Editor::getMouseRay() const {
+	double xpos, ypos;
+	glfwGetCursorPos(_window, &xpos, &ypos);
+	auto ratio = static_cast<float>(_height) / _width;
+	auto d = glm::normalize(static_cast<float>((2.0f * xpos) / _width - 1.0f) * _camera.getRight() +
+							-ratio * static_cast<float>((2.0f * ypos) / _height - 1.0f) * glm::cross(_camera.getRight(), _camera.getDirection()) + _camera.getDirection());
+	return {.origin = _camera.getPosition(), .direction = d};
+}
+
 void Editor::trySelectNode() {
 	auto ratio = static_cast<float>(_height) / _width;
 	auto d = glm::normalize(static_cast<float>((2.0f * _mouse_x) / _width - 1.0f) * _camera.getRight() +
@@ -433,12 +442,14 @@ void Editor::trySelectNode() {
 						_scene[idx].getIndices() = m.getIndices();
 						_scene[idx].computeBounds();
 						_scene[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
-						// FIXME: We couldn't allocate a BLAS for an empty meshes, we'll just redo everything for now, but this is obviously not what we should do (pre-allocate the
-						// BLAS and create it on demand)
+						vkDeviceWaitIdle(_device); // FIXME: Can we do better?
 						if(_scene[idx].blasIndex == -1) {
-							uploadScene();
+							_scene[idx].upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
+							_renderer.createBLAS(idx);
+							_renderer.destroyTLAS();
+							_renderer.createTLAS();
+							onTLASCreation();
 						} else {
-							vkDeviceWaitIdle(_device);
 							_scene[idx].upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);
 							_renderer.updateBLAS(idx);
 							_renderer.updateTLAS();

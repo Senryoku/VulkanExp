@@ -6,15 +6,6 @@
 #include <QuickTimer.hpp>
 #include <vulkan/Shader.hpp>
 
-inline static [[nodiscard]] VkAccelerationStructureBuildSizesInfoKHR getBuildSize(const Device&										device,
-																				  const VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo,
-																				  const uint32_t									primitiveCount) {
-	VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
-	vkGetAccelerationStructureBuildSizesKHR(device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &accelerationBuildGeometryInfo, &primitiveCount,
-											&accelerationStructureBuildSizesInfo);
-	return accelerationStructureBuildSizesInfo;
-}
-
 void Renderer::free() {
 	destroyAccelerationStructures();
 	destroyVertexSkinningPipeline();
@@ -41,11 +32,8 @@ void Renderer::freeMeshesDeviceMemory() {
 void Renderer::destroyAccelerationStructures() {
 	destroyTLAS();
 
-	for(const auto& blas : _bottomLevelAccelerationStructures)
-		vkDestroyAccelerationStructureKHR(*_device, blas, nullptr);
-	_blasBuffer.destroy();
-	_blasMemory.free();
 	_bottomLevelAccelerationStructures.clear();
+	_blasMemory.free();
 	_blasScratchBuffer.destroy();
 	_blasScratchMemory.free();
 }
@@ -78,7 +66,7 @@ void Renderer::allocateMeshes() {
 	Indices.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticIndexBufferSizeInBytes,
 				 VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	for(const auto& mesh : getMeshes()) {
-		if(!mesh.isValid())
+		if(!mesh.isValid() && !mesh.dynamic)
 			continue;
 
 		Vertices.bind(mesh.getVertexBuffer());
@@ -112,7 +100,7 @@ void Renderer::updateMeshOffsetTable() {
 	StaticWeightsBufferSizeInBytes = 0;
 	_offsetTable.clear();
 	for(auto& m : getMeshes()) {
-		if(!m.isValid())
+		if(!m.isValid() && !m.dynamic)
 			continue;
 
 		auto vertexBufferMemReq = m.getVertexBuffer().getMemoryRequirements();
@@ -314,36 +302,45 @@ void Renderer::createAccelerationStructures() {
 
 	auto& meshes = getMeshes();
 	{
+		/* Notes:
+		 * Right now there's a one-to-one relation between meshes and geometries.
+		 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
+		 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
+		 * This should be doable using the gl_GeometryIndexEXT built-in.
+		 *
+		 * BLASMemory:
+		 *  [Used Static BLASes][Reserved Memory for currently invalid (non-skinned) dynamic meshes][BLASes for Skinned Meshes]
+		 */
 		QuickTimer qt("BLAS building");
 		// Collect all submeshes and query the memory requirements
-		const size_t staticBLASCount = meshes.size();
+		size_t createdStaticBLASCount = 0;
 		for(auto& mesh : meshes) {
-			if(!mesh.isValid())
+			// Reserve some additional memory for dynamic meshes even if they're empty for now.
+			// We won't create/build them for now.
+			if(!mesh.isValid() && !mesh.dynamic)
 				continue;
-			/*
-			 * Right now there's a one-to-one relation between meshes and geometries.
-			 * This is not garanteed to be optimal (Apparently less BLAS is better, i.e. grouping geometries), but we don't have a mechanism to
-			 * retrieve data for distinct geometries (vertices/indices/material) in our ray tracing shaders yet.
-			 * This should be doable using the gl_GeometryIndexEXT built-in.
-			 */
+
 			baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
 			baseGeometry.geometry.triangles.maxVertex = mesh.dynamic ? mesh.DynamicVertexCapacity : static_cast<uint32_t>(mesh.getVertices().size() - 1);
 			baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
-			geometries.push_back(baseGeometry);
-			accelerationBuildGeometryInfo.pGeometries = &geometries.back();
+			accelerationBuildGeometryInfo.pGeometries = &baseGeometry;
 
 			accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 			if(mesh.dynamic)
 				accelerationBuildGeometryInfo.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 
 			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
-
-			auto accelerationStructureBuildSizesInfo = getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
-
+			auto		   accelerationStructureBuildSizesInfo = AccelerationStructure::getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
 			// FIXME: Query this 256 alignment instead of hardcoding it.
 			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
 			totalBLASSize += alignedSize;
 			scratchBufferSize += accelerationStructureBuildSizesInfo.buildScratchSize;
+
+			if(!mesh.isValid())
+				continue;
+
+			geometries.push_back(baseGeometry);
+			accelerationBuildGeometryInfo.pGeometries = &geometries.back();
 
 			buildSizesInfo.push_back(accelerationStructureBuildSizesInfo);
 			blasOffsets.push_back(alignedSize);
@@ -355,6 +352,7 @@ void Renderer::createAccelerationStructures() {
 				.transformOffset = 0,
 			});
 			mesh.blasIndex = buildSizesInfo.size() - 1;
+			++createdStaticBLASCount;
 		}
 
 		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
@@ -363,6 +361,8 @@ void Renderer::createAccelerationStructures() {
 		for(auto& entity : instances) {
 			auto& skinnedMeshRenderer = _scene->getRegistry().get<SkinnedMeshRendererComponent>(entity);
 			auto& mesh = getMeshes()[skinnedMeshRenderer.meshIndex];
+			if(mesh.dynamic)
+				warn("Mesh '{}' marked are dynamic AND used as a skinned mesh (Is this really a valid use case?).\n", mesh.name);
 
 			skinnedMeshRenderer.blasIndex = buildInfos.size();
 
@@ -377,7 +377,7 @@ void Renderer::createAccelerationStructures() {
 
 			const uint32_t primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
 
-			auto accelerationStructureBuildSizesInfo = getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
+			auto accelerationStructureBuildSizesInfo = AccelerationStructure::getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
 
 			// FIXME: Query this 256 alignment instead of hardcoding it.
 			uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
@@ -400,30 +400,19 @@ void Renderer::createAccelerationStructures() {
 			_skinnedBLASBuildGeometryInfos.push_back(accelerationBuildGeometryInfo);
 			_skinnedBLASBuildRangeInfos.push_back(rangeInfos.back());
 		}
-
-		_blasBuffer.create(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, totalBLASSize);
-		_blasMemory.allocate(*_device, _blasBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		_blasMemory.init(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, totalBLASSize);
 		size_t runningOffset = 0;
+		_bottomLevelAccelerationStructures.resize(buildInfos.size());
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
 			// Create the acceleration structure
-			VkAccelerationStructureKHR			 blas;
-			VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{
-				.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-				.pNext = VK_NULL_HANDLE,
-				.buffer = _blasBuffer,
-				.offset = runningOffset,
-				.size = buildSizesInfo[i].accelerationStructureSize,
-				.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-			};
-			VK_CHECK(vkCreateAccelerationStructureKHR(*_device, &accelerationStructureCreateInfo, nullptr, &blas));
-			_bottomLevelAccelerationStructures.push_back(blas);
+			_bottomLevelAccelerationStructures[i].create(*_device, _blasMemory.buffer(), runningOffset, buildSizesInfo[i].accelerationStructureSize);
 
-			buildInfos[i].dstAccelerationStructure = blas;
-			if(i >= staticBLASCount) {
-				_skinnedBLASBuildGeometryInfos[i - staticBLASCount].dstAccelerationStructure = blas;
-			}
+			buildInfos[i].dstAccelerationStructure = _bottomLevelAccelerationStructures[i];
+			if(i >= createdStaticBLASCount)
+				_skinnedBLASBuildGeometryInfos[i - createdStaticBLASCount].dstAccelerationStructure = _bottomLevelAccelerationStructures[i];
 			runningOffset += blasOffsets[i];
 		}
+		_blasMemory.reserve(runningOffset);
 
 		_blasScratchBuffer.create(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, scratchBufferSize);
 		_blasScratchMemory.allocate(*_device, _blasScratchBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
@@ -431,8 +420,8 @@ void Renderer::createAccelerationStructures() {
 		const auto scratchBufferAddr = _blasScratchBuffer.getDeviceAddress();
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
 			buildInfos[i].scratchData = {.deviceAddress = scratchBufferAddr + offset};
-			if(i >= staticBLASCount) {
-				_skinnedBLASBuildGeometryInfos[i - staticBLASCount].scratchData = {.deviceAddress = scratchBufferAddr + offset};
+			if(i >= createdStaticBLASCount) {
+				_skinnedBLASBuildGeometryInfos[i - createdStaticBLASCount].scratchData = {.deviceAddress = scratchBufferAddr + offset};
 			}
 			offset += buildSizesInfo[i].buildScratchSize;
 			assert(buildInfos[i].geometryCount == 1); // See below! (pRangeInfos will be wrong in this case)
@@ -452,10 +441,47 @@ void Renderer::createAccelerationStructures() {
 	createTLAS();
 }
 
+void Renderer::createBLAS(MeshIndex idx) {
+	auto& mesh = (*_scene)[idx];
+	assert(mesh.blasIndex == -1);
+	auto baseGeometry = BaseVkAccelerationStructureGeometryKHR;
+	auto accelerationBuildGeometryInfo = BaseAccelerationStructureBuildGeometryInfo;
+	baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
+	baseGeometry.geometry.triangles.maxVertex = mesh.dynamic ? mesh.DynamicVertexCapacity : static_cast<uint32_t>(mesh.getVertices().size());
+	baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
+	accelerationBuildGeometryInfo.scratchData = {.deviceAddress = _blasScratchBuffer.getDeviceAddress()}; // Should not be run in parallel - I think - so probably fine...?
+	accelerationBuildGeometryInfo.pGeometries = &baseGeometry;
+	accelerationBuildGeometryInfo.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	auto										   primitiveCount = static_cast<uint32_t>(mesh.getIndices().size() / 3);
+	const VkAccelerationStructureBuildRangeInfoKHR rangeInfo{
+		.primitiveCount = primitiveCount,
+		.primitiveOffset = 0,
+		.firstVertex = 0,
+		.transformOffset = 0,
+	};
+	const VkAccelerationStructureBuildRangeInfoKHR* pRangeInfos{&rangeInfo};
+
+	auto accelerationStructureBuildSizesInfo = AccelerationStructure::getBuildSize(*_device, accelerationBuildGeometryInfo, primitiveCount);
+
+	_bottomLevelAccelerationStructures.emplace_back();
+	_bottomLevelAccelerationStructures.back().create(*_device, _blasMemory.buffer(), _blasMemory.size(), accelerationStructureBuildSizesInfo.accelerationStructureSize);
+	uint32_t alignedSize = static_cast<uint32_t>(std::ceil(accelerationStructureBuildSizesInfo.accelerationStructureSize / 256.0)) * 256;
+	_blasMemory.reserve(alignedSize);
+
+	mesh.blasIndex = _bottomLevelAccelerationStructures.size() - 1;
+	accelerationBuildGeometryInfo.srcAccelerationStructure = VK_NULL_HANDLE;
+	accelerationBuildGeometryInfo.dstAccelerationStructure = _bottomLevelAccelerationStructures[mesh.blasIndex];
+
+	_device->immediateSubmitCompute(
+		[&](const CommandBuffer& commandBuffer) { vkCmdBuildAccelerationStructuresKHR(commandBuffer, 1, &accelerationBuildGeometryInfo, &pRangeInfos); });
+}
+
 void Renderer::updateBLAS(MeshIndex idx) {
 	const auto& mesh = (*_scene)[idx];
-	auto		baseGeometry = BaseVkAccelerationStructureGeometryKHR;
-	auto		accelerationBuildGeometryInfo = BaseAccelerationStructureBuildGeometryInfo;
+	assert(mesh.blasIndex != -1);
+	auto baseGeometry = BaseVkAccelerationStructureGeometryKHR;
+	auto accelerationBuildGeometryInfo = BaseAccelerationStructureBuildGeometryInfo;
 	baseGeometry.geometry.triangles.vertexData = VkDeviceOrHostAddressConstKHR{mesh.getVertexBuffer().getDeviceAddress()};
 	baseGeometry.geometry.triangles.maxVertex = mesh.dynamic ? mesh.DynamicVertexCapacity : static_cast<uint32_t>(mesh.getVertices().size());
 	baseGeometry.geometry.triangles.indexData = VkDeviceOrHostAddressConstKHR{mesh.getIndexBuffer().getDeviceAddress()};
@@ -489,14 +515,6 @@ void Renderer::sortRenderers() {
 	});
 }
 
-inline static [[nodiscard]] VkDeviceAddress getDeviceAddress(const Device& device, VkAccelerationStructureKHR accelerationStructure) {
-	VkAccelerationStructureDeviceAddressInfoKHR BLASAddressInfo{
-		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-		.accelerationStructure = accelerationStructure,
-	};
-	return vkGetAccelerationStructureDeviceAddressKHR(device, &BLASAddressInfo);
-}
-
 void Renderer::createTLAS() {
 	QuickTimer qt("TLAS building");
 
@@ -508,12 +526,12 @@ void Renderer::createTLAS() {
 		for(auto& entity : instances) {
 			const auto& meshRendererComponent = _scene->getRegistry().get<MeshRendererComponent>(entity);
 			const auto& mesh = (*_scene)[meshRendererComponent.meshIndex];
-			if(!mesh.isValid())
+			if(mesh.blasIndex == -1)
 				continue;
 			auto				 tmp = glm::transpose(_scene->getRegistry().get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
 			// Get the bottom acceleration structures' handle, which will be used during the top level acceleration build
-			auto BLASDeviceAddress = getDeviceAddress(*_device, _bottomLevelAccelerationStructures[mesh.blasIndex]);
+			auto BLASDeviceAddress = _bottomLevelAccelerationStructures[mesh.blasIndex].getDeviceAddress();
 
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,
@@ -533,7 +551,7 @@ void Renderer::createTLAS() {
 				continue;
 			auto				 tmp = glm::transpose(_scene->getRegistry().get<NodeComponent>(entity).globalTransform);
 			VkTransformMatrixKHR transposedTransform = *reinterpret_cast<VkTransformMatrixKHR*>(&tmp); // glm matrices are column-major, VkTransformMatrixKHR is row-major
-			auto				 BLASDeviceAddress = getDeviceAddress(*_device, _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex]);
+			auto				 BLASDeviceAddress = _bottomLevelAccelerationStructures[skinnedMeshRendererComponent.blasIndex].getDeviceAddress();
 
 			_accStructInstances.push_back(VkAccelerationStructureInstanceKHR{
 				.transform = transposedTransform,

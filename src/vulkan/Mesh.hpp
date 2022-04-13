@@ -26,60 +26,22 @@ class Mesh {
 	Mesh(const Mesh&) = delete;
 	Mesh(Mesh&&) noexcept = default;
 
-	std::string	  name;
+	std::string	  name = "AnonMesh";
 	bool		  dynamic = false; // Will allocate fixed sized buffers for vertices/indices instead of the initial minimum to allow mutating geometries
 	size_t		  blasIndex = -1;
 	uint32_t	  indexIntoOffsetTable = -1;
 	MaterialIndex defaultMaterialIndex{static_cast<uint32_t>(0)};
 
 	// FIXME: This will not fit in a 32bit address space... And OffsetTable uses 32bit addresses.
-	static constexpr uint32_t DynamicVertexCapacity = 32768 / 2; // Arbitrary custom capacity for dynamic meshes. Could be per-mesh and user controled instead of a static value.
-	static constexpr uint32_t DynamicIndexCapacity = 32768;
+	static constexpr uint32_t DynamicVertexCapacity =
+		10000; // 32768 / 2; // Arbitrary custom capacity for dynamic meshes. Could be per-mesh and user controled instead of a static value.
+	static constexpr uint32_t DynamicIndexCapacity = 32768 / 2;
 
-	bool isValid() const { return _indices.size() > 0; }
+	inline bool isValid() const { return _indices.size() > 0; }
 
-	void init(const Device& device) {
-		if(_indexBuffer && _vertexBuffer) {
-			_indexBuffer.destroy();
-			_vertexBuffer.destroy();
-		}
-
-		if(!isValid())
-			return;
-
-		const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-		const auto indexDataSize = getIndexByteSize();
-		_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | usageBitsForRayTracing, indexDataSize);
-		const auto vertexDataSize = getVertexByteSize();
-		_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | usageBitsForRayTracing, vertexDataSize);
-
-		if(_skinJointsBuffer) {
-			_skinJointsBuffer.destroy();
-			_skinWeightsBuffer.destroy();
-		}
-		if(isSkinned()) {
-			_skinJointsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getJointsByteSize());
-			_skinWeightsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getWeightsByteSize());
-		}
-	}
-
-	void upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue) {
-		if(!isValid())
-			return;
-
-		stagingMemory.fill(_vertices);
-		_vertexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getVertexByteSize(), queue);
-
-		stagingMemory.fill(_indices);
-		_indexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getIndexByteSize(), queue);
-
-		if(isSkinned()) {
-			stagingMemory.fill(getSkinVertexData().joints);
-			_skinJointsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getJointsByteSize(), queue);
-			stagingMemory.fill(getSkinVertexData().weights);
-			_skinWeightsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getWeightsByteSize(), queue);
-		}
-	}
+	void init(const Device& device);
+	void upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue);
+	void destroy();
 
 	inline size_t getVertexByteSize() const {
 		assert(!dynamic || _vertices.size() < DynamicVertexCapacity);
@@ -92,13 +54,6 @@ class Mesh {
 
 	inline const Buffer& getVertexBuffer() const { return _vertexBuffer; }
 	inline const Buffer& getIndexBuffer() const { return _indexBuffer; }
-
-	void destroy() {
-		_indexBuffer.destroy();
-		_vertexBuffer.destroy();
-		_skinJointsBuffer.destroy();
-		_skinWeightsBuffer.destroy();
-	}
 
 	inline const std::vector<Vertex>&	getVertices() const { return _vertices; }
 	inline const std::vector<uint32_t>& getIndices() const { return _indices; }

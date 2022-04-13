@@ -9,6 +9,7 @@
 
 #include "Chunk.hpp"
 #include "PerlinNoise.hpp"
+#include "ThreadPool.hpp"
 
 class VoxelTerrain {
   public:

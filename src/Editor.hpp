@@ -329,6 +329,7 @@ class Editor {
 	void uploadScene();
 	void uploadMaterials();
 
+	Ray	 getMouseRay() const;
 	void trySelectNode();
 	void duplicateSelectedNode();
 	void deleteSelectedNode();

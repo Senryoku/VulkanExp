@@ -8,6 +8,55 @@
 #include <Logger.hpp>
 #include <stringutils.hpp>
 
+void Mesh::init(const Device& device) {
+	if(!isValid() && !dynamic)
+		return;
+
+	if(_indexBuffer && _vertexBuffer) {
+		_indexBuffer.destroy();
+		_vertexBuffer.destroy();
+	}
+	const auto usageBitsForRayTracing = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	const auto indexDataSize = getIndexByteSize();
+	_indexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | usageBitsForRayTracing, indexDataSize);
+	const auto vertexDataSize = getVertexByteSize();
+	_vertexBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | usageBitsForRayTracing, vertexDataSize);
+
+	if(_skinJointsBuffer) {
+		_skinJointsBuffer.destroy();
+		_skinWeightsBuffer.destroy();
+	}
+	if(isSkinned()) {
+		_skinJointsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getJointsByteSize());
+		_skinWeightsBuffer.create(device, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, getWeightsByteSize());
+	}
+}
+
+void Mesh::upload(VkDevice device, const Buffer& stagingBuffer, const DeviceMemory& stagingMemory, const CommandPool& tmpCommandPool, VkQueue queue) {
+	if(!isValid())
+		return;
+
+	stagingMemory.fill(_vertices);
+	_vertexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getVertexByteSize(), queue);
+
+	stagingMemory.fill(_indices);
+	_indexBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getIndexByteSize(), queue);
+
+	if(isSkinned()) {
+		stagingMemory.fill(getSkinVertexData().joints);
+		_skinJointsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getJointsByteSize(), queue);
+		stagingMemory.fill(getSkinVertexData().weights);
+		_skinWeightsBuffer.copyFromStagingBuffer(tmpCommandPool, stagingBuffer, getWeightsByteSize(), queue);
+	}
+}
+
+void Mesh::destroy() {
+	_indexBuffer.destroy();
+	_vertexBuffer.destroy();
+	_skinJointsBuffer.destroy();
+	_skinWeightsBuffer.destroy();
+}
+
 void Mesh::normalizeVertices() {
 	glm::vec3 acc{0};
 	for(const auto& v : _vertices)
