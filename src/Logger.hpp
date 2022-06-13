@@ -3,22 +3,22 @@
 #include <fmt/color.h>
 #include <fmt/core.h>
 
-template <typename... Args>
+template<typename... Args>
 void error(Args... args) {
-    fmt::print(fg(fmt::color::red), args...);
+	fmt::print(fg(fmt::color::red), args...);
 }
 
-template <typename... Args>
+template<typename... Args>
 void warn(Args... args) {
-    fmt::print(fg(fmt::color::yellow), args...);
+	fmt::print(fg(fmt::color::yellow), args...);
 }
 
-template <typename... Args>
+template<typename... Args>
 void success(Args... args) {
-    fmt::print(fg(fmt::color::green), args...);
+	fmt::print(fg(fmt::color::green), args...);
 }
 
-template <typename... Args>
+template<typename... Args>
 void print(Args... args) {
-    fmt::print(args...);
+	fmt::print(args...);
 }

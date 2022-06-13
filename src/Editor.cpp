@@ -101,6 +101,7 @@ void Editor::run() {
 		QuickTimer qt("Scene loading");
 
 		// Voxel test
+		/*
 		_scene.loadMaterial("data/materials/cavern-deposits/cavern-deposits.mat");
 
 		auto  terrainRoot = _scene.getRegistry().create();
@@ -138,6 +139,7 @@ void Editor::run() {
 		}
 
 		meshGenerations.wait();
+		*/
 
 		for(const auto& str : {
 				"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",

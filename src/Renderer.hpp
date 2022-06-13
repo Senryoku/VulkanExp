@@ -96,13 +96,11 @@ class Renderer {
 	Device* _device = nullptr;
 
 	std::vector<OffsetEntry> _offsetTable;
-	// FIXME: This scratch buffer is used for static AND dynamic BLAS, all the static portion isn't used at all after the initial BLAS building, this should be better allocated
-	// (the easiest is wimply to separate BLAS building into two pass, static and dynamic, sharing no memory).
 
 	// Data for dynamic (skinned) meshes.
 	const uint32_t											 MaxSkinnedBLAS = 1024;
 	const size_t											 MaxSkinnedVertexSizeInBytes = 512 * 1024 * 1024;
-	size_t													 SkinnedOffsetTableSizeInBytes;
+	size_t													 SkinnedOffsetTableSizeInBytes = 0;
 	std::vector<OffsetEntry>								 _skinnedOffsetTable;
 	std::vector<VkAccelerationStructureGeometryKHR>			 _skinnedBLASGeometries;
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> _skinnedBLASBuildGeometryInfos;
@@ -111,7 +109,7 @@ class Renderer {
 	StaticDeviceAllocator							_blasMemory;
 	Buffer											_tlasBuffer;
 	DeviceMemory									_tlasMemory;
-	VkAccelerationStructureKHR						_topLevelAccelerationStructure;
+	VkAccelerationStructureKHR						_topLevelAccelerationStructure = VK_NULL_HANDLE;
 	std::vector<AccelerationStructure>				_bottomLevelAccelerationStructures;
 	std::vector<VkAccelerationStructureInstanceKHR> _accStructInstances;
 	Buffer											_accStructInstancesBuffer;
@@ -125,6 +123,8 @@ class Renderer {
 	// Reusable temp buffer(s)
 	Buffer		 _tlasScratchBuffer;
 	DeviceMemory _tlasScratchMemory;
+	// FIXME: This scratch buffer is used for static AND dynamic BLAS, all the static portion isn't used at all after the initial BLAS building, this should be better allocated
+	// (the easiest is wimply to separate BLAS building into two pass, static and dynamic, sharing no memory).
 	Buffer		 _blasScratchBuffer; // Temporary buffer used for Acceleration Creation, big enough for all AC so they can be build in parallel
 	DeviceMemory _blasScratchMemory;
 

@@ -39,7 +39,7 @@ class Buffer : public HandleWrapper<VkBuffer> {
 
 	~Buffer() { destroy(); }
 
-	VkMemoryRequirements getMemoryRequirements() const {
+	[[nodiscard]] VkMemoryRequirements getMemoryRequirements() const {
 		if(!isValid()) {
 			warn("Buffer::Call to 'getMemoryRequirements' on an invalid Buffer.");
 			return VkMemoryRequirements{};
@@ -49,11 +49,11 @@ class Buffer : public HandleWrapper<VkBuffer> {
 		return memRequirements;
 	}
 
-	VkDeviceAddress getDeviceAddress() const;
-	void			copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
+	[[nodiscard]] VkDeviceAddress getDeviceAddress() const;
+	void						  copyFromStagingBuffer(const CommandPool& tmpCommandPool, const Buffer& stagingBuffer, size_t size, VkQueue queue) const;
 
-	void				setMemory(const DeviceMemory& memory, uint32_t offset = 0);
-	const DeviceMemory& getMemory() const;
+	void							  setMemory(const DeviceMemory& memory, uint32_t offset = 0);
+	[[nodiscard]] const DeviceMemory& getMemory() const;
 
   private:
 	VkDevice			_device = VK_NULL_HANDLE;

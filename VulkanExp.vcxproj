@@ -27,6 +27,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ext\fmt-7.1.3\src\format.cc" />
+    <ClCompile Include="ext\fmt-7.1.3\src\os.cc" />
     <ClCompile Include="ext\imgui-docking\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="ext\imgui-docking\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="ext\imgui-docking\imgui.cpp" />
@@ -145,6 +147,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".clang-format" />
+    <None Include="ext\fmt-7.1.3\.clang-format" />
+    <None Include="ext\fmt-7.1.3\.travis.yml" />
+    <None Include="ext\fmt-7.1.3\ChangeLog.rst" />
+    <None Include="ext\fmt-7.1.3\CONTRIBUTING.md" />
+    <None Include="ext\fmt-7.1.3\LICENSE.rst" />
+    <None Include="ext\fmt-7.1.3\pull_request_template.md" />
+    <None Include="ext\fmt-7.1.3\README.rst" />
     <None Include="shaders\phong.frag" />
     <None Include="shaders\simple.frag" />
     <None Include="shaders\simple.vert" />
@@ -190,6 +199,9 @@
     <None Include="src\shaders\traceProbes.rgen" />
     <None Include="src\shaders\unpackMaterial.glsl" />
     <None Include="src\shaders\Vertex.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ext\fmt-7.1.3\CMakeLists.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -350,7 +362,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\fmt-7.1.3\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -372,7 +384,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\fmt-7.1.3\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -396,7 +408,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\ext\;.\ext\imgui-docking\;.\ext\imgui-docking\examples\imgui_impl_vulkan;.\ext\imgui-docking\examples\imgui_impl_glfw;.\ext\imgui-docking\backends;.\src;.\src\vulkan;C:\VulkanSDK\1.2.198.0\Include;.\ext\glfw-3.3.6.bin.WIN64\include;.\ext\glm\;.\ext\entt\include;.\ext\fmt-7.1.3\include;.\ext\IconFontCppHeaders</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>26812</DisableSpecificWarnings>
       <AdditionalOptions>/Zo /external:I .\ext\ /external:I .\ext\imgui-docking\ /external:I .\ext\imgui-docking\examples\imgui_impl_vulkan /external:I .\ext\imgui-docking\examples\imgui_impl_glfw /external:I  .\ext\imgui-docking\backends  /external:I .\ext\glm\ /external:I .\ext\glfw-3.3.6.bin.WIN64\include /external:I C:\VulkanSDK\1.2.198.0\Include  /external:I .\ext\ImGuizmo %(AdditionalOptions)</AdditionalOptions>
