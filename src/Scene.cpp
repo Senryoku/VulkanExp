@@ -38,7 +38,12 @@ bool Scene::load(const std::filesystem::path& path) {
 		return loadOBJ(canonicalPath);
 	else if(ext == ".gltf" || ext == ".glb")
 		return loadglTF(canonicalPath);
-	else
+	else if(ext == ".png") {
+		Textures.push_back(Texture{
+			.source = canonicalPath, .format = VK_FORMAT_R8G8B8A8_SRGB,
+			//.samplerDescription = JSON({"magFilter" : 9729, "minFilter" : 9986}),
+		});
+	} else
 		warn("Scene::load: File extension {} is not supported ('{}').", ext, path.string());
 	return false;
 }
