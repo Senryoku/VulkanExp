@@ -1,5 +1,8 @@
 # VulkanExp
 
+3D renderer written to gain some experience with Vulkan, and modern rendering techniques (mainly hardware raytracing).
+![image](https://user-images.githubusercontent.com/1338143/174816896-d6c1cb4f-dbf4-464f-ba7b-c82672f5e50f.png)
+
 # Features
   - Renderer
     - Rasterisation and Raytracing hybrid: Rasterized GBuffer and additional raytraced passes for effects (shadows/reflections). 
