@@ -14,6 +14,7 @@
 ## Todos
 
 ### Bugs
+  - Decouple the Renderer from the Editor
   - GI
     - Probes update sometimes generate a extremely bright spot, cause unknown (but disabling the sky doesn't solves the problem).
   - Probably a lot.
