@@ -1,6 +1,7 @@
 # VulkanExp
 
-3D renderer written to gain some experience with Vulkan, and modern rendering techniques (mainly hardware raytracing).
+3D renderer written to gain some experience with Vulkan, and modern rendering techniques (mainly hardware raytracing). As the name suggests, this is just an experiment: Nothing is done, nothing is polished.
+
 ![image](https://user-images.githubusercontent.com/1338143/174816896-d6c1cb4f-dbf4-464f-ba7b-c82672f5e50f.png)
 
 # Features
@@ -16,8 +17,9 @@
 
 ## Todos
 
+- Decouple the Renderer from the Editor
+  
 ### Bugs
-  - Decouple the Renderer from the Editor
   - GI
     - Probes update sometimes generate a extremely bright spot, cause unknown (but disabling the sky doesn't solves the problem).
   - Probably a lot.
@@ -27,16 +29,14 @@
  - Scene
    - Save (!)
      - Decide on a format...
+     - Support external resources (or not?)
      - Actually support all existing components and resources
      - Convert images to a common format? QOI?
    - Select Nodes
-     - Edit Material
      - Create empty node, add 'components'
-     - Delete Nodes
      - Disable Rendering (Update BLAS/TLAS and re-record Command Buffers)
    - Refer to assets with their path (avoid reloading the same one twice)
      - Refer to Materials by path/name (make sure names are unique on load)
-   - Manually load textures
    - Manually create new materials
  - Motions vectors
  - Some sort of (small scale) AO. Also raytraced? or SSAO? or even baked? 
@@ -51,7 +51,7 @@
   - Sun Direction in UBO
   - Use motions vectors for reprojection and accumulation 
 - GI
-  - Optimise probe placement (not sure how yet! try moving them out of the walls (i.e. when not receiving light?), but having an offset seems rather complicated)
+  - Optimise probe placement?
   - More refined probes state?
 - Move all rendering related code to its own class (Mostly remove all rendering code from Scene)
 - Many
