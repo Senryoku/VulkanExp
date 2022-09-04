@@ -427,13 +427,13 @@ void Editor::recordCommandBuffers() {
 																	VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineX.getLayout(), 0, 1,
 									&_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0, 0);
-			vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
+			vkCmdDispatch(b, launchSize.x, _height, 1);
 			_directLightIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
 															VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 			_directLightFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 			vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _directLightFilterPipelineY.getLayout(), 0, 1,
 									&_directLightFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0, 0);
-			vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
+			vkCmdDispatch(b, _width, launchSize.y, 1);
 
 			if(_enableReflections) {
 				// Wait on copy from another command buffer (reflections from previous frame)
