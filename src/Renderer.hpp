@@ -137,7 +137,7 @@ class Renderer {
 	DescriptorPool		  _vertexSkinningDescriptorPool;
 	DescriptorSetLayout	  _vertexSkinningDescriptorSetLayout;
 	Pipeline			  _vertexSkinningPipeline;
-	const uint32_t		  MaxJoints = 512;
+	const uint32_t		  MaxJoints = 1024;
 	StaticDeviceAllocator _currentJoints;
 
 	void		 writeSkinningDescriptorSet(const SkinnedMeshRendererComponent&);

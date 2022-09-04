@@ -204,6 +204,10 @@ bool Renderer::updateSkinnedVertexBuffer() {
 		const auto& skin = _scene->getSkins()[skinnedMeshRenderer.skinIndex];
 
 		std::vector<glm::mat4> jointPoses;
+		if(skin.joints.size() > MaxJoints) {
+			warn("Renderer::updateSkinnedVertexBuffer: Too many joints (skin.joints.size() ({}) > MaxJoints ({}))\n", skin.joints.size(), MaxJoints);
+			continue;
+		}
 		jointPoses.resize(skin.joints.size());
 		// FIXME: Not sure what inverseGlobalTransform should be.
 		const auto		parent = _scene->getRegistry().get<NodeComponent>(entity).parent;

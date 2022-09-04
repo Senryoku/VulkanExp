@@ -119,7 +119,9 @@ void main()
 	// Reflection
 #if 1
 	// One sample per pixel than we'll try to filter later (keyword: try)
-	if(depth > 0) {
+	if(depth > 0
+		 && (roughness < .99 || metalness > 0.01) // Avoid a ray if the result wouldn't have a meaningful contribution
+	) { 
 		vec3 reflectDir = normalize(reflect(-toOrigin, normal));
 	#if 0
 		// Single sample directly on the reflection direction

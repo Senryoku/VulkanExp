@@ -390,3 +390,4 @@ FodyWeavers.xsd
 imgui.ini
 models
 shaders_spv
+enc_temp_folder
