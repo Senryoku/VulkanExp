@@ -442,13 +442,13 @@ void Editor::recordCommandBuffers() {
 				_reflectionFilterPipelineX.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 				vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineX.getLayout(), 0, 1,
 										&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 0], 0, 0);
-				vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
+				vkCmdDispatch(b, launchSize.x, _height, 1);
 				_reflectionIntermediateFilterImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
 															   VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);
 				_reflectionFilterPipelineY.bind(b, VK_PIPELINE_BIND_POINT_COMPUTE);
 				vkCmdBindDescriptorSets(b, VK_PIPELINE_BIND_POINT_COMPUTE, _reflectionFilterPipelineY.getLayout(), 0, 1,
 										&_reflectionFilterDescriptorPool.getDescriptorSets()[2 * i + 1], 0, 0);
-				vkCmdDispatch(b, launchSize.x, launchSize.y, 1);
+				vkCmdDispatch(b, _width, launchSize.y, 1);
 
 				_reflectionImages[i].barrier(b, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 											 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL);

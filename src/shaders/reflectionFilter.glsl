@@ -1,4 +1,14 @@
-layout (local_size_x = 32, local_size_y = 32) in;
+#define WORKGROUP_SIZE 64
+
+#ifdef DIRECTION_X
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1) in;
+#define DIR 0
+const ivec2 offsetDirection = ivec2(1, 0);
+#else
+layout (local_size_x = 1, local_size_y = WORKGROUP_SIZE) in;
+#define DIR 1
+const ivec2 offsetDirection = ivec2(0, 1);
+#endif
 
 layout(set = 0, binding = 0, rgba32f) uniform image2D positionDepthTex;
 layout(set = 0, binding = 1, rgba32f) uniform image2D motionVectorsTex;
@@ -28,10 +38,21 @@ float gaussian(float stdDev, float dist) {
     return (1 / (sqrt(2 * 3.14159) * stdDev)) * exp(-(dist * dist) / (2 * stdDev * stdDev));
 }
 
-const int maxDev = 5;                // FIXME: This is arbitrary.
-const float depthFactor = 1.0 / 20.0; // FIXME: This is arbitrary.
+const float maxDev = 5.0;               // FIXME: This is arbitrary.
+const uint  iMaxDev = uint(maxDev + 1);
+const float depthFactor = 1.0 / 20.0;   // FIXME: This is arbitrary.
 const float baseHysteresis = 0.98;
-const float depthStdDev = 0.1;       // FIXME: Also arbitrary.
+const float depthStdDev = 0.1;          // FIXME: Also arbitrary.
+
+shared vec4 positionDepthTexCache[WORKGROUP_SIZE + 2 * iMaxDev];
+vec4 getPositionDepth(int localCoord) {
+    return positionDepthTexCache[uint(localCoord + iMaxDev)];
+}
+
+shared vec4 inImageTexCache[WORKGROUP_SIZE + 2 * iMaxDev];
+vec4 getInImage(int localCoord) {
+    return inImageTexCache[uint(localCoord + iMaxDev)];
+}
 
 void main()
 {
@@ -42,8 +63,24 @@ void main()
     return;
 #endif
 
+    const ivec2 launchSize = imageSize(inImage);
+    const int localID = int(gl_LocalInvocationID[DIR]);
+
+    // Preload neighbor positionDepthTex
+    positionDepthTexCache[iMaxDev + localID] = imageLoad(positionDepthTex, coords);
+    inImageTexCache      [iMaxDev + localID] = imageLoad(inImage,          coords);
+    if(localID < iMaxDev) {
+        positionDepthTexCache[localID]               = imageLoad(positionDepthTex, coords - ivec2(iMaxDev * offsetDirection));
+        inImageTexCache      [localID]               = imageLoad(inImage,          coords - ivec2(iMaxDev * offsetDirection));
+    }
+    if(localID + iMaxDev > WORKGROUP_SIZE) {
+        positionDepthTexCache[2 * iMaxDev + localID] = imageLoad(positionDepthTex, coords + ivec2(iMaxDev * offsetDirection));
+        inImageTexCache      [2 * iMaxDev + localID] = imageLoad(inImage,          coords + ivec2(iMaxDev * offsetDirection));
+    }
+    memoryBarrierShared();
+
     vec4 final = vec4(0);
-    vec4 positionDepth = imageLoad(positionDepthTex, coords);
+    vec4 positionDepth = getPositionDepth(localID);
     vec3 position = positionDepth.xyz;
     float depth = positionDepth.w;
     float roughness = imageLoad(inImage, coords).w;
@@ -52,32 +89,24 @@ void main()
         imageStore(outImage, coords, imageLoad(inImage, coords)); 
         return;
     }
-    float sqrDev = stdDev * stdDev;
-    int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev));
+    const float sqrDev = stdDev * stdDev;
+    const int window = int(clamp(ceil(sqrt(-2 * sqrDev * log(0.01 * stdDev * sqrt(2 * 3.14159)))), 1, maxDev));
     float totalFactor = 0;
-    ivec2 launchSize = imageSize(inImage);
-#ifdef DIRECTION_X
-    int minOffset = -min(window, coords.x);
-    int maxOffset = min(window, launchSize.x - coords.x);
-#else
-    int minOffset = -min(window, coords.y);
-    int maxOffset = min(window, launchSize.y - coords.y);
-#endif
+
+    int minOffset = -min(window, coords[DIR]);
+    int maxOffset = min(window, launchSize[DIR] - coords[DIR]);
+
     // TODO: Base the kernel on the roughness. A better approximation should use as much available geometric data as possible (sample direction, depth...)
     for(int i = minOffset; i <= maxOffset; ++i) {
-#ifdef DIRECTION_X
-        ivec2 offset = ivec2(i, 0);
-#else
-        ivec2 offset = ivec2(0, i);
-#endif
-#ifdef EDGE_PRESERVING
-        float factor = gaussian(stdDev, i) * gaussian(depthStdDev, abs(depth - imageLoad(positionDepthTex, coords + offset).w));
-        totalFactor += factor;
-#else
+        const int offset = localID + i;
         float factor = gaussian(stdDev, i);
+#ifdef EDGE_PRESERVING
+        factor *= gaussian(depthStdDev, abs(depth - getPositionDepth(offset).w));
+        totalFactor += factor;
 #endif
-        final += factor * imageLoad(inImage, coords + offset);
+        final += factor * getInImage(offset);
     }
+
 #ifdef EDGE_PRESERVING
     if(totalFactor > 1e-2)
         final /= totalFactor;
