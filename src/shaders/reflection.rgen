@@ -120,7 +120,7 @@ void main()
 #if 1
 	// One sample per pixel than we'll try to filter later (keyword: try)
 	if(depth > 0
-		 && (roughness < .99 || metalness > 0.01) // Avoid a ray if the result wouldn't have a meaningful contribution
+		 && (roughness < 0.4 || metalness > 0.01) // Avoid a ray if the result wouldn't have a meaningful contribution (These thresholds are empirical)
 	) { 
 		vec3 reflectDir = normalize(reflect(-toOrigin, normal));
 	#if 0

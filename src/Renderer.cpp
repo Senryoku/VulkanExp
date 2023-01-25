@@ -212,6 +212,7 @@ bool Renderer::updateSkinnedVertexBuffer() {
 		// FIXME: Not sure what inverseGlobalTransform should be.
 		const auto		parent = _scene->getRegistry().get<NodeComponent>(entity).parent;
 		const glm::mat4 inverseGlobalTransform = parent == entt::null ? glm::mat4(1.0f) : glm::inverse(_scene->getRegistry().get<NodeComponent>(parent).globalTransform);
+		// FIXME: This is extremely slow.
 		for(auto i = 0; i < skin.joints.size(); ++i)
 			jointPoses[i] = (inverseGlobalTransform * _scene->getRegistry().get<NodeComponent>(skin.joints[i]).globalTransform * skin.inverseBindMatrices[i]);
 		_currentJoints.memory().fill(jointPoses.data(), jointPoses.size());

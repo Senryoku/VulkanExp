@@ -39,7 +39,7 @@ float gaussian(float stdDev, float dist) {
 }
 
 const float maxDev = 5.0;               // FIXME: This is arbitrary.
-const uint  iMaxDev = uint(maxDev + 1);
+const uint  iMaxDev = uint(maxDev + 1) + 1;
 const float depthFactor = 1.0 / 20.0;   // FIXME: This is arbitrary.
 const float baseHysteresis = 0.98;
 const float depthStdDev = 0.1;          // FIXME: Also arbitrary.
