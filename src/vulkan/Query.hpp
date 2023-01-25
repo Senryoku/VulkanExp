@@ -48,7 +48,7 @@ class QueryPool : public HandleWrapper<VkQueryPool> {
 	[[nodiscard]] std::vector<QueryResultWithAvailability> get(uint32_t fistQueryIndex, uint32_t count) {
 		std::vector<QueryResultWithAvailability> results;
 		results.resize(count);
-		vkGetQueryPoolResults(*_device, _handle, fistQueryIndex, count, sizeof(QueryResultWithAvailability) * results.size(), results.data(), 0,
+		vkGetQueryPoolResults(*_device, _handle, fistQueryIndex, count, sizeof(QueryResultWithAvailability) * results.size(), results.data(), sizeof(QueryResultWithAvailability),
 							  VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
 		return results;
 	}
