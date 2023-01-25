@@ -1,10 +1,14 @@
-# VulkanExp
 
+
+<img align="right" src="https://user-images.githubusercontent.com/1338143/214525642-db6efd60-b749-4743-b0b7-dfb7c0c97184.gif">
+
+# VulkanExp
 3D renderer written to gain some experience with Vulkan, and modern rendering techniques (mainly hardware raytracing). As the name suggests, this is just an experiment: Nothing is done, nothing is polished.
 
 ![image](https://user-images.githubusercontent.com/1338143/174816896-d6c1cb4f-dbf4-464f-ba7b-c82672f5e50f.png)
 
 # Features
+
   - Renderer
     - Rasterisation and Raytracing hybrid: Rasterized GBuffer and additional raytraced passes for effects (shadows/reflections). 
     - [Dynamic Diffuse Global Illumination (DDGI)](https://morgan3d.github.io/articles/2019-04-01-ddgi/) : [Presentation](https://www.gdcvault.com/play/1026182/)
@@ -98,6 +102,6 @@ Build using Visual Studio 2022 with c++20 preview support (/std:c++latest)
    - ImGuizmo [https://github.com/CedricGuillemet/ImGuizmo] (included in ext/)
    - ImPlot [https://github.com/epezent/implot] (included in ext/)
  - FMT 7.1.3 [https://fmt.dev/]
- - EnTT 3.9.0 [https://github.com/skypjack/entt] (included in ext/)
+ - EnTT 3.11.1 [https://github.com/skypjack/entt] (included in ext/)
  - FileWatch [https://github.com/ThomasMonkman/filewatch] (included in ext/) For automatic shader recompilation. 
  - stb_image v2.27 [https://github.com/nothings/stb] (included in ext/)
