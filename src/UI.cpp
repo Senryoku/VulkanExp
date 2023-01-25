@@ -726,7 +726,7 @@ void Editor::drawUI() {
 				auto payload = ImGui::AcceptDragDropPayload("Entity");
 				if(payload) {
 					auto droppedEntity = *static_cast<entt::entity*>(payload->Data);
-					if(droppedEntity != n) {
+					if(droppedEntity != entity) {
 						// Make sure entity is not a descendant of droppedEntity
 						bool  isDescendant = false;
 						auto* currNode = &_scene.getRegistry().get<NodeComponent>(entity);

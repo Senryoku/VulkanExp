@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include <entt/include/entt.hpp>
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>

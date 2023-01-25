@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-#include <entt.hpp>
+#include <entt/entt.hpp>
 
 #include <Mesh.hpp>
 #include <Raytracing.hpp>
