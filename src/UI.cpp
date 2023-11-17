@@ -1,11 +1,11 @@
 ﻿#include "Editor.hpp"
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <IconsFontAwesome6.h>
 #include <ImGuiExtensions.hpp>
 #include <ImGuizmo.h>
 #include <implot/implot.h>
 #include <misc/cpp/imgui_stdlib.h>
-#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui_internal.h"
 #include <voxels/VoxelTerrain.hpp>
 
@@ -98,16 +98,18 @@ void Editor::initImGui(uint32_t queueFamily) {
 	};
 	ImGui_ImplVulkan_Init(&init_info, _imguiRenderPass);
 
-	_device.immediateSubmitGraphics([&](VkCommandBuffer cmd) { ImGui_ImplVulkan_CreateFontsTexture(cmd); });
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	ImGui_ImplVulkan_CreateFontsTexture();
 
 	for(TextureIndex i = TextureIndex{0}; i < TextureIndex(Textures.size()); ++i) {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
-	ProbesRayIrradianceDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayIrradianceDepthView(), VK_IMAGE_LAYOUT_GENERAL);
-	ProbesRayDirection = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getRayDirectionView(), VK_IMAGE_LAYOUT_GENERAL);
-	ProbesColor = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getIrradianceView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	ProbesDepth = ImGui_ImplVulkan_AddTexture(Samplers[0], _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	const auto sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0)->getHandle();
+
+	ProbesRayIrradianceDepth = ImGui_ImplVulkan_AddTexture(sampler, _irradianceProbes.getRayIrradianceDepthView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesRayDirection = ImGui_ImplVulkan_AddTexture(sampler, _irradianceProbes.getRayDirectionView(), VK_IMAGE_LAYOUT_GENERAL);
+	ProbesColor = ImGui_ImplVulkan_AddTexture(sampler, _irradianceProbes.getIrradianceView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	ProbesDepth = ImGui_ImplVulkan_AddTexture(sampler, _irradianceProbes.getDepthView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void tooltip(const char* str) {
@@ -157,18 +159,20 @@ void Editor::uiOnTextureChange() {
 		SceneUITextureIDs.push_back({i, ImGui_ImplVulkan_AddTexture(Textures[i].sampler->getHandle(), Textures[i].gpuImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	}
 
+	const auto sampler = getSampler(_device, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, 0)->getHandle();
+
 	DebugTextureIDs.clear();
 	for(size_t i = 0; i < _reflectionImageViews.size(); ++i)
-		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
+		DebugTextureIDs.push_back({fmt::format("Reflection {}", i), ImGui_ImplVulkan_AddTexture(sampler, _reflectionImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
 	for(size_t i = 0; i < _directLightImageViews.size(); ++i)
-		DebugTextureIDs.push_back({fmt::format("Direct Light {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _directLightImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
+		DebugTextureIDs.push_back({fmt::format("Direct Light {}", i), ImGui_ImplVulkan_AddTexture(sampler, _directLightImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
 	for(size_t i = 0; i < _gbufferImageViews.size(); ++i)
 		DebugTextureIDs.push_back(
 			{fmt::format("GBuffer {}", i),
-			 ImGui_ImplVulkan_AddTexture(Samplers[0], _gbufferImageViews[i], (i % _gbufferSize == 4) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
+			 ImGui_ImplVulkan_AddTexture(sampler, _gbufferImageViews[i], (i % _gbufferSize == 4) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)});
 	for(size_t i = 0; i < _reflectionIntermediateFilterImageViews.size(); ++i)
 		DebugTextureIDs.push_back(
-			{fmt::format("Reflection Filtered {}", i), ImGui_ImplVulkan_AddTexture(Samplers[0], _reflectionIntermediateFilterImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
+			{fmt::format("Reflection Filtered {}", i), ImGui_ImplVulkan_AddTexture(sampler, _reflectionIntermediateFilterImageViews[i], VK_IMAGE_LAYOUT_GENERAL)});
 }
 
 template<class T>
@@ -571,7 +575,7 @@ void Editor::drawUI() {
 				ImGui::Text("Animation Component doesn't refer to a valid animation.");
 			} else {
 				auto& anim = Animations[animComp->animationIndex];
-				if(ImGui::Button(animComp->running ? "Pause" : "Play") || ImGui::IsKeyPressed(GLFW_KEY_SPACE, false)) {
+				if(ImGui::Button(animComp->running ? "Pause" : "Play") || ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
 					animComp->running = !animComp->running;
 				}
 				static entt::entity		  selectedAnimationNode = entt::null;
@@ -606,8 +610,7 @@ void Editor::drawUI() {
 								if(ImPlot::BeginSubplots("##Rotation", 3, 1, ImVec2(-1, 360),
 														 ImPlotSubplotFlags_NoLegend | ImPlotSubplotFlags_LinkRows | ImPlotSubplotFlags_ShareItems)) {
 									static const char* rotationSubplotsNames[] = {"##RotationX", "##RotationY", "##RotationZ"};
-									ImPlotFlags		   plotFlags =
-										ImPlotFlags_CanvasOnly | (na.rotationKeyFrames.interpolation == SkeletalAnimationClip::Interpolation::Linear ? ImPlotFlags_AntiAliased : 0);
+									ImPlotFlags		   plotFlags = ImPlotFlags_CanvasOnly;
 									for(size_t c = 0; c < 3; ++c) {
 										if(ImPlot::BeginPlot(rotationSubplotsNames[c], ImVec2(-1, 0), plotFlags)) {
 											static std::vector<ImPlotPoint> points;
@@ -631,14 +634,14 @@ void Editor::drawUI() {
 
 											double time = std::fmod(animComp->time, duration);
 											ImPlot::SetNextLineStyle(ImVec4(1, 1, 1, 1));
-											ImPlot::PlotVLines("Time", &time, 1);
+											ImPlot::PlotInfLines("Time", &time, 1);
 											ImPlot::TagX(time, ImVec4(1, 1, 1, 1));
 											int toDelete = -1;
 											for(size_t i = 0; i < na.rotationKeyFrames.times.size(); ++i) {
 												auto		euler = glm::eulerAngles(na.rotationKeyFrames.frames[i]); // FIXME: Instable
 												ImPlotPoint point{na.rotationKeyFrames.times[i], 360.0f / (2.0f * glm::pi<float>()) * euler[c]};
 												if(ImPlot::DragPoint(c * na.rotationKeyFrames.times.size() + i, &point.x, &point.y, axisColors[c], 4)) {
-													if(ImGui::IsKeyPressed(GLFW_KEY_DELETE)) {
+													if(ImGui::IsKeyPressed(ImGuiKey_Delete)) {
 														toDelete = i;
 													} else {
 														point.x = glm::clamp(

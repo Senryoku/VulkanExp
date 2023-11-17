@@ -107,7 +107,9 @@ struct SkeletalAnimationClip {
 			}
 			if(interpolation == Interpolation::CubicSpline) {
 				// TODO
+				throw "Unimplemented";
 			}
+			throw "Unimplemented";
 		}
 	};
 	using TranslationChannel = Channel<glm::vec3>;

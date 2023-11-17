@@ -77,7 +77,7 @@ void Editor::createReflectionPass() {
 
 	_reflectionShaderBindingTable.create(_device, {1, 2, 1, 0}, _reflectionPipeline);
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
-	uint32_t						   setCount = _swapChainImages.size();
+	uint32_t						   setCount = static_cast<uint32_t>(_swapChainImages.size());
 	for(size_t i = 0; i < setCount; ++i)
 		layoutsToAllocate.push_back(_reflectionDescriptorSetLayout);
 	_reflectionDescriptorPool.create(_device, layoutsToAllocate.size(),

@@ -123,7 +123,7 @@ void Editor::createDirectLightPass() {
 		uint32_t						   setCount = 2 * _swapChainImages.size();
 		for(size_t i = 0; i < setCount; ++i)
 			layoutsToAllocate.push_back(_directLightFilterDescriptorSetLayout);
-		_directLightFilterDescriptorPool.create(_device, layoutsToAllocate.size(),
+		_directLightFilterDescriptorPool.create(_device, static_cast<uint32_t>(layoutsToAllocate.size()),
 												std::array<VkDescriptorPoolSize, 1>{
 													VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * setCount},
 												});

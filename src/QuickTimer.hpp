@@ -57,7 +57,7 @@ class QuickTimer {
 	void report() {
 		auto d = _end - _start;
 		if(_rollingBuffer) {
-			_rollingBuffer->add(d.count() / 1000000.0);
+			_rollingBuffer->add(d.count() / 1000000.0f);
 		}
 
 		if(shouldReport()) {

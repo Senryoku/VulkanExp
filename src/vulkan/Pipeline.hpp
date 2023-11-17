@@ -75,6 +75,6 @@ class Pipeline : public HandleWrapper<VkPipeline> {
 	~Pipeline() { destroy(); }
 
   private:
-	VkDevice	   _device;
+	VkDevice	   _device = VK_NULL_HANDLE;
 	PipelineLayout _pipelineLayout;
 };

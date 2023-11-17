@@ -443,7 +443,7 @@ void Editor::trySelectNode() {
 						_scene[idx].getVertices() = m.getVertices();
 						_scene[idx].getIndices() = m.getIndices();
 						_scene[idx].computeBounds();
-						_scene[idx].defaultMaterialIndex = MaterialIndex(Materials.size() - 1);
+						_scene[idx].defaultMaterialIndex = MaterialIndex(static_cast<uint32_t>(Materials.size()) - 1);
 						vkDeviceWaitIdle(_device); // FIXME: Can we do better?
 						if(_scene[idx].blasIndex == -1) {
 							_scene[idx].upload(_device, _stagingBuffer, _stagingMemory, _transfertCommandPool, _transfertQueue);

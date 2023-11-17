@@ -28,7 +28,7 @@ class VoxelTerrain {
 			return -1;
 		auto chunkIdx = to1D(pos / static_cast<float>(Chunk::Size));
 		auto coordWithinChunk = glm::mod(pos, static_cast<float>(Chunk::Size));
-		(*chunks)[chunkIdx](coordWithinChunk.x, coordWithinChunk.y, coordWithinChunk.z).type = 1;
+		(*chunks)[chunkIdx](static_cast<uint32_t>(coordWithinChunk.x), static_cast<uint32_t>(coordWithinChunk.y), static_cast<uint32_t>(coordWithinChunk.z)).type = 1;
 		// print("Pos {} ChunkIdx {} coordWithinChunk {}\n", glm::to_string(pos), chunkIdx, glm::to_string(coordWithinChunk));
 		return chunkIdx;
 	}

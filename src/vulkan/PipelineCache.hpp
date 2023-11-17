@@ -19,8 +19,10 @@ class PipelineCache : public HandleWrapper<VkPipelineCache> {
 	// Create a PipelineCache object on [device] using cached data in file at [path] for initialisation.
 	void create(VkDevice device, const std::filesystem::path& path) {
 		std::ifstream file(path, std::ios::binary);
-		if(!file)
-			throw std::runtime_error(fmt::format("PipelineCache Error: Could not open file '{}' for reading.", path.string()));
+		if(!file) {
+			create(device);
+			return;
+		}
 		std::streampos fileSize;
 		file.seekg(0, std::ios::end);
 		fileSize = file.tellg();
