@@ -1,5 +1,5 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v 1.89 WIP
 //
 // The MIT License(MIT)
 //
@@ -28,6 +28,7 @@
 #include <vector>
 #include <stdint.h>
 #include <string>
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_internal.h"
 
@@ -139,6 +140,8 @@ struct Delegate
     
     virtual const size_t GetLinkCount() = 0;
     virtual const Link GetLink(LinkIndex index) = 0;
+
+    virtual ~Delegate() = default;
 };
 
 void Show(Delegate& delegate, const Options& options, ViewState& viewState, bool enabled, FitOnScreen* fit = nullptr);

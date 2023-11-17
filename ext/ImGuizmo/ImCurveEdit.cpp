@@ -1,5 +1,5 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v 1.89 WIP
 //
 // The MIT License(MIT)
 //
@@ -24,6 +24,7 @@
 // SOFTWARE.
 //
 #include "ImCurveEdit.h"
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <stdint.h>

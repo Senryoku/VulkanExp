@@ -1,5 +1,5 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v 1.89 WIP
 //
 // The MIT License(MIT)
 //
@@ -25,6 +25,7 @@
 //
 #pragma once
 #include <stdint.h>
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 
 struct ImRect;
@@ -74,6 +75,8 @@ namespace ImCurveEdit
       // handle undo/redo thru this functions
       virtual void BeginEdit(int /*index*/) {}
       virtual void EndEdit() {}
+
+      virtual ~Delegate() = default;
    };
 
    int Edit(Delegate& delegate, const ImVec2& size, unsigned int id, const ImRect* clippingRect = NULL, ImVector<EditPoint>* selectedPoints = NULL);

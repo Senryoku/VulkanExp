@@ -1,5 +1,5 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v 1.89 WIP
 //
 // The MIT License(MIT)
 //
@@ -23,8 +23,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-#include "imgui.h"
 #define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
 #include "imgui_internal.h"
 #define IMAPP_IMPL
 #include "ImApp.h"
@@ -213,11 +213,11 @@ void EditTransform(float* cameraView, float* cameraProjection, float* matrix, bo
 
    if (editTransformDecomposition)
    {
-      if (ImGui::IsKeyPressed(90))
+      if (ImGui::IsKeyPressed(ImGuiKey_T))
          mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-      if (ImGui::IsKeyPressed(69))
+      if (ImGui::IsKeyPressed(ImGuiKey_E))
          mCurrentGizmoOperation = ImGuizmo::ROTATE;
-      if (ImGui::IsKeyPressed(82)) // r Key
+      if (ImGui::IsKeyPressed(ImGuiKey_R)) // r Key
          mCurrentGizmoOperation = ImGuizmo::SCALE;
       if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
          mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -244,9 +244,9 @@ void EditTransform(float* cameraView, float* cameraProjection, float* matrix, bo
          if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
             mCurrentGizmoMode = ImGuizmo::WORLD;
       }
-      if (ImGui::IsKeyPressed(83))
+      if (ImGui::IsKeyPressed(ImGuiKey_S))
          useSnap = !useSnap;
-      ImGui::Checkbox("", &useSnap);
+      ImGui::Checkbox("##UseSnap", &useSnap);
       ImGui::SameLine();
 
       switch (mCurrentGizmoOperation)
@@ -265,7 +265,7 @@ void EditTransform(float* cameraView, float* cameraProjection, float* matrix, bo
       if (boundSizing)
       {
          ImGui::PushID(3);
-         ImGui::Checkbox("", &boundSizingSnap);
+         ImGui::Checkbox("##BoundSizing", &boundSizingSnap);
          ImGui::SameLine();
          ImGui::InputFloat3("Snap", boundsSnap);
          ImGui::PopID();
