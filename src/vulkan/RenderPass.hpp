@@ -172,7 +172,7 @@ class RenderPassBuilder {
 	[[nodiscard]] RenderPass build(const Device& device, VkRenderPassCreateFlags flags = 0) {
 		RenderPass r;
 		r.create(device, _attachments, _subpasses, _dependencies, flags);
-		return std::move(r);
+		return r;
 	}
 
   private:

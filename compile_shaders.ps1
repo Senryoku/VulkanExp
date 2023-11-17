@@ -55,14 +55,15 @@ Foreach($shader in $shaders)
 	$baseColor = $host.UI.RawUI.ForegroundColor
 	If(-not $exists -or $d -gt $d2 -or $libsdate -gt $d2)
 	{
-		$time = Get-Date -Format "HH:mm:ss"
+		$start = [datetime](Get-Date)
 		#Write-Host "[$time] " -ForegroundColor DarkGray -NoNewLine 
 		#Write-Output "Compiling $filename to $dstfolder\$filename.spv"
 		$host.UI.RawUI.ForegroundColor = 'Red'
-		glslc.exe -O -g --target-env=vulkan1.2 -I$srcfolder $shader -o $dstfolder\$filename.spv
+		glslc.exe -O -g --target-env=vulkan1.3 -I$srcfolder $shader -o $dstfolder\$filename.spv
 		$dnew = [datetime](Get-ItemProperty -Path $dstfolder\$filename.spv -Name LastWriteTime).lastwritetime
+		$exists = Test-Path -Path $dstfolder\$filename.spv -PathType Leaf
 		$host.UI.RawUI.ForegroundColor = $baseColor
-		If(-not $exists -or $dnew -lt $time) {
+		If(-not $exists -or $dnew -lt $start) {
 			$now = Get-Date -Format "HH:mm:ss"
 			Write-Host "[$now] " -ForegroundColor DarkGray -NoNewLine
 			Write-Host "Error: " -ForegroundColor Red -NoNewLine
