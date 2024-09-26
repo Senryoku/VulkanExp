@@ -22,7 +22,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	inline const std::vector<VkExtensionProperties>&	 getExtensions() const { return _extensions; }
 	inline const VkPhysicalDeviceFeatures&				 getFeatures() const { return _features; }
 	inline const VkPhysicalDeviceProperties&			 getProperties() const { return _properties; };
-	inline const VkPhysicalDeviceRayTracingPropertiesNV& getRaytracingPipelineProperties() const { return _rayTracingProperties; };
+	inline const auto&									 getRaytracingPipelineProperties() const { return _rayTracingPipelineProperties; };
 	inline const std::vector<VkQueueFamilyProperties>	 getQueueFamilies() const { return _queueFamilies; }
 
 	using QueueFamilyIndex = uint32_t;
@@ -88,7 +88,7 @@ class PhysicalDevice : public HandleWrapper<VkPhysicalDevice> {
 	VkPhysicalDeviceFeatures			   _features{};
 	VkPhysicalDeviceProperties			   _properties{};
 	VkPhysicalDeviceMemoryProperties	   _memoryProperties{};
-	VkPhysicalDeviceRayTracingPropertiesNV _rayTracingProperties{};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR _rayTracingPipelineProperties{};
 
 	std::vector<VkQueueFamilyProperties> _queueFamilies;
 };

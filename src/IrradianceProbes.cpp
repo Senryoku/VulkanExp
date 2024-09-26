@@ -157,6 +157,8 @@ void IrradianceProbes::createPipeline(VkPipelineCache pipelineCache) {
 
 		Shader raygenShader(*_device, "./shaders_spv/probesInit.rgen.spv");
 		shader_stages.push_back(raygenShader.getStageCreateInfo(VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+		Shader raymissShader(*_device, "./shaders_spv/probeInitMiss.rmiss.spv");
+		shader_stages.push_back(raymissShader.getStageCreateInfo(VK_SHADER_STAGE_MISS_BIT_KHR));
 		Shader closesthitShader(*_device, "./shaders_spv/backfaceTest.rchit.spv");
 		shader_stages.push_back(closesthitShader.getStageCreateInfo(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
 
@@ -169,13 +171,22 @@ void IrradianceProbes::createPipeline(VkPipelineCache pipelineCache) {
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		});
+		// Ray miss group
+		shader_groups.push_back({
+			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+			.generalShader = 1,
+			.closestHitShader = VK_SHADER_UNUSED_KHR,
+			.anyHitShader = VK_SHADER_UNUSED_KHR,
+			.intersectionShader = VK_SHADER_UNUSED_KHR,
+		});
 
 		// Ray closest hit group
 		shader_groups.push_back({
 			.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 			.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
 			.generalShader = VK_SHADER_UNUSED_KHR,
-			.closestHitShader = 1,
+			.closestHitShader = 2,
 			.anyHitShader = VK_SHADER_UNUSED_KHR,
 			.intersectionShader = VK_SHADER_UNUSED_KHR,
 		});
@@ -326,7 +337,7 @@ void IrradianceProbes::writeLightDescriptor() {
 
 void IrradianceProbes::createShaderBindingTable() {
 	_shaderBindingTable.create(*_device, {1, 2, 1, 0}, _traceRaysPipeline);
-	_probeInitShaderBindingTable.create(*_device, {1, 0, 1, 0}, _pipelineProbeInit);
+	_probeInitShaderBindingTable.create(*_device, {1, 1, 1, 0}, _pipelineProbeInit);
 }
 
 #include <glm/gtc/matrix_transform.hpp>

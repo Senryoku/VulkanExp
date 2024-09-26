@@ -19,14 +19,16 @@ struct ShaderBindingTable {
 	void create(const Device& device, const std::array<uint32_t, 4> entriesCount, VkPipeline pipeline) {
 		const auto& rayTracingPipelineProperties = device.getPhysicalDevice().getRaytracingPipelineProperties();
 
+		assert(entriesCount[0] == 1);
+
 		const uint32_t totalEntries = entriesCount[0] + entriesCount[1] + entriesCount[2] + entriesCount[3];
 		const auto	   handle_size = rayTracingPipelineProperties.shaderGroupHandleSize;
-		const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment);
+		const uint32_t handle_size_aligned = aligned_size(handle_size, rayTracingPipelineProperties.shaderGroupHandleAlignment);
 		const uint32_t regionSizes[4] = {
-			entriesCount[0] * handle_size_aligned,
-			entriesCount[1] * handle_size_aligned,
-			entriesCount[2] * handle_size_aligned,
-			entriesCount[3] * handle_size_aligned,
+			aligned_size(entriesCount[0] * handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment),
+			aligned_size(entriesCount[1] * handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment),
+			aligned_size(entriesCount[2] * handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment),
+			aligned_size(entriesCount[3] * handle_size, rayTracingPipelineProperties.shaderGroupBaseAlignment),
 		};
 		auto				 stb_size = regionSizes[0] + regionSizes[1] + regionSizes[2] + regionSizes[3];
 		std::vector<uint8_t> shader_handle_storage(stb_size);
@@ -38,9 +40,10 @@ struct ShaderBindingTable {
 			memory.allocate(device, buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		}
 
-		size_t offset = 0;
+		size_t region_offset = 0;
 		for(size_t i = 0; i < 4; ++i) {
 			if(regionSizes[i] > 0) {
+				auto  offset = region_offset;
 				char* mapped = (char*)memory.map(regionSizes[i], offset);
 				for(size_t handleIdx = 0; handleIdx < entriesCount[i]; ++handleIdx) {
 					memcpy(mapped + handleIdx * handle_size_aligned, shader_handle_storage.data() + offsetInShaderHandleStorage + handleIdx * handle_size, handle_size);
@@ -48,6 +51,7 @@ struct ShaderBindingTable {
 				}
 				memory.unmap();
 				offsetInShaderHandleStorage += entriesCount[i] * handle_size;
+				region_offset += regionSizes[i];
 			}
 		}
 
@@ -56,7 +60,7 @@ struct ShaderBindingTable {
 			raygenEntry = {
 				.deviceAddress = bufferAddr,
 				.stride = handle_size_aligned,
-				.size = regionSizes[0],
+				.size = handle_size_aligned, // Special case for rgen
 			};
 
 		if(entriesCount[1] > 0)

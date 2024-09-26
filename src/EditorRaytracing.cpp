@@ -31,8 +31,8 @@ void Editor::createStorageImage() {
 
 void Editor::createRayTracingPipeline() {
 	auto rayTracingPipelineProperties = _device.getPhysicalDevice().getRaytracingPipelineProperties();
-	if(rayTracingPipelineProperties.maxRecursionDepth <= 2) {
-		throw std::runtime_error("VkPhysicalDeviceRayTracingPropertiesNV.maxRayRecursionDepth should be at least 3 for this pipeline.");
+	if(rayTracingPipelineProperties.maxRayRecursionDepth <= 2) {
+		throw std::runtime_error("VkPhysicalDeviceRayTracingPipelineProperties.maxRayRecursionDepth should be at least 3 for this pipeline.");
 	}
 
 	DescriptorSetLayoutBuilder dslBuilder = baseDescriptorSetLayout();
