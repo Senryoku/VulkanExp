@@ -86,7 +86,7 @@ void Editor::createReflectionPass() {
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4 * setCount},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * setCount},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * setCount},
 									 });
 	_reflectionDescriptorPool.allocate(layoutsToAllocate);
 
@@ -127,7 +127,7 @@ void Editor::createReflectionPass() {
 		_reflectionFilterDescriptorPool.create(_device, layoutsToAllocate.size(),
 											   std::array<VkDescriptorPoolSize, 2>{
 												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 * setCount},
-												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, setCount},
+												   VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * setCount},
 											   });
 		_reflectionFilterDescriptorPool.allocate(layoutsToAllocate);
 		for(size_t i = 0; i < setCount / 2; ++i) {

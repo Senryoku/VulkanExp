@@ -155,7 +155,10 @@ void Editor::createGatherPipeline() {
 
 	uint32_t			  descriptorSetsCount = static_cast<uint32_t>(_swapChainImages.size());
 	DescriptorPoolBuilder poolBuilder;
-	poolBuilder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 3 * descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 5 * descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 * descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * descriptorSetsCount);
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * descriptorSetsCount);
 	_gatherDescriptorPool = poolBuilder.build(_device, descriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;

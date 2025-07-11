@@ -7,6 +7,8 @@ layout(binding = 4) uniform sampler2D depthTex;
 
 #include "irradiance.glsl"
 
+#define TYPE 0
+
 layout(location = 0) in vec3 color;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec4 tangent;
@@ -16,14 +18,15 @@ layout(location = 5) flat in ivec2 probeUVOffset;
 layout(location = 6) flat in ivec2 probeDepthUVOffset;
 layout(location = 7) flat in vec2 uvScaling;
 layout(location = 8) flat in uint state;
+#if TYPE == 1
 layout(location = 9) flat in float gridCellLength;
+#endif
 
 layout(location = 0) out vec4 outColor;
 
 const int colorRes = 8; // FIXME
 const int depthRes = 16; // FIXME
 
-#define TYPE 0
 
 void main() {
     #if TYPE == 0

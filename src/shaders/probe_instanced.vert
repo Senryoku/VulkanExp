@@ -15,6 +15,7 @@ layout(binding = 1) uniform UBOBlock {
 layout(binding = 2, set = 0) buffer ProbesBlock { uint Probes[]; };
 
 #include "irradiance.glsl"
+#define TYPE 0
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -31,7 +32,9 @@ layout(location = 5) out ivec2 probeUVOffset;
 layout(location = 6) out ivec2 probeDepthUVOffset;
 layout(location = 7) out vec2 uvScaling;
 layout(location = 8) out uint state;
+#if TYPE == 1
 layout(location = 9) out float gridCellLength;
+#endif
 
 vec3 gridCellSize = abs((grid.extentMax - grid.extentMin) / grid.resolution);
 float ProbeSize = 0.15 * min(gridCellSize.x, min(gridCellSize.y, gridCellSize.z));
@@ -48,5 +51,7 @@ void main() {
     bitangent = cross(normal, tangent.xyz) * inTangent.w;
     texCoord = inTexCoord;
     state = Probes[gl_InstanceIndex];
+#if TYPE == 1
     gridCellLength = length(gridCellSize);
+#endif
 }

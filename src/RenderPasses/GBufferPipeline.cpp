@@ -153,7 +153,8 @@ void Editor::createGBufferPipeline() {
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * materialDescriptorSetsCount)
 		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * materialDescriptorSetsCount)
-		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, materialDescriptorSetsCount + instanceDescriptorSetsCount);
+		.add(VK_DESCRIPTOR_TYPE_SAMPLER, 4 * materialDescriptorSetsCount)
+		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, materialDescriptorSetsCount + 2 * instanceDescriptorSetsCount);
 	_gbufferDescriptorPool = poolBuilder.build(_device, materialDescriptorSetsCount + instanceDescriptorSetsCount);
 
 	std::vector<VkDescriptorSetLayout> descriptorSetsLayoutsToAllocate;

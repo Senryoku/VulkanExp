@@ -5,15 +5,16 @@
 void Editor::createStorageImage() {
 	_rayTraceStorageImages.resize(_swapChainImages.size());
 	_rayTraceStorageImageViews.resize(_swapChainImages.size());
+	const auto imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
-		_rayTraceStorageImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+		_rayTraceStorageImages[i].create(_device, _swapChainExtent.width, _swapChainExtent.height, imageFormat, VK_IMAGE_TILING_OPTIMAL,
 										 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 		_rayTraceStorageImages[i].allocate(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		_rayTraceStorageImageViews[i].create(_device, VkImageViewCreateInfo{
 														  .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 														  .image = _rayTraceStorageImages[i],
 														  .viewType = VK_IMAGE_VIEW_TYPE_2D,
-														  .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+														  .format = imageFormat,
 														  .subresourceRange =
 															  VkImageSubresourceRange{
 																  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -24,7 +25,7 @@ void Editor::createStorageImage() {
 															  },
 													  });
 
-		_rayTraceStorageImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED,
+		_rayTraceStorageImages[i].transitionLayout(_physicalDevice.getQueues(_surface).graphicsFamily.value(), imageFormat, VK_IMAGE_LAYOUT_UNDEFINED,
 												   VK_IMAGE_LAYOUT_GENERAL);
 	}
 }
@@ -124,13 +125,14 @@ void Editor::createRaytracingDescriptorSets() {
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i)
 		layoutsToAllocate.push_back(_rayTracingDescriptorSetLayout);
+	const auto setCount = static_cast<uint32_t>(_swapChainImages.size());
 	_rayTracingDescriptorPool.create(_device, static_cast<uint32_t>(layoutsToAllocate.size()),
 									 std::array<VkDescriptorPoolSize, 5>{
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 * setCount},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 * setCount},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024},
 										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024},
-										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
+										 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * setCount},
 									 });
 	_rayTracingDescriptorPool.allocate(layoutsToAllocate);
 	writeRaytracingDescriptorSets();

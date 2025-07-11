@@ -201,6 +201,7 @@ void Editor::createProbeDebugPass() {
 	DescriptorPoolBuilder poolBuilder;
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * static_cast<uint32_t>(_swapChainImages.size()));
 	poolBuilder.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * static_cast<uint32_t>(_swapChainImages.size()));
+	poolBuilder.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * static_cast<uint32_t>(_swapChainImages.size()));
 	_probeDebugDescriptorPool = poolBuilder.build(_device, static_cast<uint32_t>(_swapChainImages.size()));
 	_probeDebugDescriptorPool.allocate(descriptorSetsLayoutsToAllocate);
 	for(size_t i = 0; i < _swapChainImages.size(); i++) {

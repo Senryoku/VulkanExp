@@ -78,7 +78,7 @@ class DescriptorPoolBuilder {
   public:
 	DescriptorPoolBuilder& add(VkDescriptorType type, uint32_t count) {
 		_poolSizes.push_back(VkDescriptorPoolSize{
-			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.type = type,
 			.descriptorCount = static_cast<uint32_t>(count),
 		});
 		return *this;

@@ -804,7 +804,7 @@ void Renderer::createVertexSkinningPipeline(VkPipelineCache pipelineCache) {
 	layoutsToAllocate.push_back(_vertexSkinningDescriptorSetLayout);
 	_vertexSkinningDescriptorPool.create(*_device, layoutsToAllocate.size(),
 										 std::array<VkDescriptorPoolSize, 1>{
-											 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5},
+											 VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
 										 });
 	_vertexSkinningDescriptorPool.allocate(layoutsToAllocate);
 

@@ -84,10 +84,10 @@ void Editor::createDirectLightPass() {
 	_directLightDescriptorPool.create(_device, layoutsToAllocate.size(),
 									  std::array<VkDescriptorPoolSize, 5>{
 										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, setCount},
-										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4 * setCount},
+										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 5 * setCount},
 										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024u},
 										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024u},
-										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * setCount},
+										  VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * setCount},
 									  });
 	_directLightDescriptorPool.allocate(layoutsToAllocate);
 
@@ -124,8 +124,9 @@ void Editor::createDirectLightPass() {
 		for(size_t i = 0; i < setCount; ++i)
 			layoutsToAllocate.push_back(_directLightFilterDescriptorSetLayout);
 		_directLightFilterDescriptorPool.create(_device, static_cast<uint32_t>(layoutsToAllocate.size()),
-												std::array<VkDescriptorPoolSize, 1>{
-													VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 * setCount},
+												std::array<VkDescriptorPoolSize, 2>{
+													VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 4 * setCount},
+													VkDescriptorPoolSize{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * setCount},
 												});
 		_directLightFilterDescriptorPool.allocate(layoutsToAllocate);
 		for(size_t i = 0; i < setCount / 2; ++i) {

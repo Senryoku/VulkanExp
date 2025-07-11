@@ -226,7 +226,9 @@ void Editor::initSwapChain() {
 		.add(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1024)
 		.add(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024)
 		.add(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024)
-		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024);
+		.add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024)
+		.add(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1024)
+		.add(VK_DESCRIPTOR_TYPE_SAMPLER, 1024);
 	_descriptorPool = poolBuilder.build(_device, _swapChainImages.size() * _descriptorSetLayouts.size());
 	std::vector<VkDescriptorSetLayout> layoutsToAllocate;
 	for(size_t i = 0; i < _swapChainImages.size(); ++i) {
