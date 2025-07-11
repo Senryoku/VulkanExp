@@ -62,7 +62,7 @@ void Renderer::allocateMeshes() {
 	Vertices.init(*_device,
 				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
 					  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticVertexBufferSizeInBytes + MaxSkinnedVertexSizeInBytes, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticVertexBufferSizeInBytes + MaxSkinnedVertexSizeInBytes, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT );
 	Indices.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, StaticIndexBufferSizeInBytes,
 				 VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	for(const auto& mesh : getMeshes()) {
@@ -405,7 +405,8 @@ void Renderer::createAccelerationStructures() {
 			_skinnedBLASBuildGeometryInfos.push_back(accelerationBuildGeometryInfo);
 			_skinnedBLASBuildRangeInfos.push_back(rangeInfos.back());
 		}
-		_blasMemory.init(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, totalBLASSize);
+		_blasMemory.init(*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+						 totalBLASSize, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 		size_t runningOffset = 0;
 		_bottomLevelAccelerationStructures.resize(buildInfos.size());
 		for(size_t i = 0; i < buildInfos.size(); ++i) {
@@ -572,7 +573,7 @@ void Renderer::createTLAS() {
 	_accStructInstancesBuffer.create(
 		*_device, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		_accStructInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-	_accStructInstancesMemory.allocate(*_device, _accStructInstancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_accStructInstancesMemory.allocate(*_device, _accStructInstancesBuffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 	copyViaStagingBuffer(_accStructInstancesBuffer, _accStructInstances);
 
 	_instancesMemory.init(*_device, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,

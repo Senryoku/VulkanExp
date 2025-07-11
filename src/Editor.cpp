@@ -30,7 +30,7 @@ void Editor::initWindow() {
 	glfwSetKeyCallback(_window, sKeyCallback);
 
 	_shortcuts[{GLFW_KEY_F1}] = [&]() { _drawUI = !_drawUI; };
-	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/defaut.scene"); };
+	_shortcuts[{GLFW_KEY_S, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _scene.save("data/default.scene"); };
 	_shortcuts[{GLFW_KEY_D, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { duplicateSelectedNode(); };
 	_shortcuts[{GLFW_KEY_Z, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _history.undo(); }; // QWERTY
 	_shortcuts[{GLFW_KEY_W, GLFW_PRESS, GLFW_MOD_CONTROL}] = [&]() { _history.undo(); }; // AZERTY
@@ -142,6 +142,8 @@ void Editor::run() {
 		*/
 
 		for(const auto& str : {
+				//"./data/dungeon.scene",
+				"D:/Source/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf",
 				"./data/models/MetalRoughSpheres/MetalRoughSpheres.gltf",
 			})
 			_scene.load(str);
@@ -295,15 +297,17 @@ void Editor::drawFrame() {
 			.extent = {_width, _height, 1},
 		};
 		const auto copyImage = [&](const Image& srcImage, const Image& dstImage) {
-			dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
-							 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+							 VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+							 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 			srcImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
 							 VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 			vkCmdCopyImage(copyCmdBuff, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
-			srcImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+			srcImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+							 VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 							 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 			dstImage.barrier(copyCmdBuff, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-							 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+			 				 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 		};
 		if(_enableReflections)
 			copyImage(_reflectionImages[_lastImageIndex], _reflectionImages[imageIndex + _swapChainImages.size()]);

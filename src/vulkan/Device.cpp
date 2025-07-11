@@ -8,6 +8,8 @@ Device::Device(VkSurfaceKHR surface, const PhysicalDevice& physicalDevice, const
 	// FIXME: This shouldn't be baked in this class.
 	VkPhysicalDeviceFeatures deviceFeatures{
 		.samplerAnisotropy = VK_TRUE,
+		.vertexPipelineStoresAndAtomics = VK_TRUE,
+		.fragmentStoresAndAtomics = VK_TRUE, 
 	};
 	VkPhysicalDevice16BitStorageFeatures storage16Bits{
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
