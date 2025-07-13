@@ -69,11 +69,12 @@ void main()
         positionDepthTexCache[localID]               = imageLoad(positionDepthTex, coords - ivec2(iMaxDev * offsetDirection));
         inImageTexCache      [localID]               = imageLoad(inImage,          coords - ivec2(iMaxDev * offsetDirection));
     }
-    if(localID + iMaxDev > WORKGROUP_SIZE) {
+	if(localID >= WORKGROUP_SIZE - iMaxDev) {
         positionDepthTexCache[2 * iMaxDev + localID] = imageLoad(positionDepthTex, coords + ivec2(iMaxDev * offsetDirection));
         inImageTexCache      [2 * iMaxDev + localID] = imageLoad(inImage,          coords + ivec2(iMaxDev * offsetDirection));
     }
     memoryBarrierShared();
+	barrier();
 
     vec4 final = vec4(0);
     const vec4  positionDepth = getPositionDepth(localID);
@@ -119,7 +120,7 @@ void main()
     if(final.b > 0) // The blue channel is used to mark a high variance region, spread to the neighbors by the previous filter.
         hysteresis = final.b == 1 ? 0.5 : 0; 
 
-	if(prevCoords.x > launchSize.x || prevCoords.x < 0 || prevCoords.y > launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
+	if(prevCoords.x >= launchSize.x || prevCoords.x < 0 || prevCoords.y >= launchSize.y || prevCoords.y < 0) // Discard history if out-of-bounds
 		hysteresis = 0.0f;
 	else {
 		previousValue = imageLoad(prevDirectLight, ivec2(prevCoords.xy));

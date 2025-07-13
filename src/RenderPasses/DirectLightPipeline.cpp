@@ -71,7 +71,7 @@ void Editor::createDirectLightPass() {
 		.pStages = shaderStages.data(),
 		.groupCount = static_cast<uint32_t>(shaderGroups.size()),
 		.pGroups = shaderGroups.data(),
-		.maxPipelineRayRecursionDepth = 0,
+		.maxPipelineRayRecursionDepth = 1,
 		.layout = _directLightPipeline.getLayout(),
 	};
 	_directLightPipeline.create(_device, raytracingPipelineCreateInfo, _pipelineCache);
