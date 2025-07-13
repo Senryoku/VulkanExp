@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 
 #include "Resources.hpp"

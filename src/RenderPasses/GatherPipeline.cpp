@@ -378,7 +378,6 @@ void Editor::destroyGatherPipeline() {
 
 void Editor::destroyGatherPass() {
 	destroyGatherPipeline();
-	_gatherDescriptorPool.destroy();
 	_gatherFramebuffers.clear();
 	_gatherRenderPass.destroy();
 }

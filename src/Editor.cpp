@@ -474,6 +474,7 @@ void Editor::trySelectNode() {
 	}
 }
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/euler_angles.hpp>
 
 double toRad(double degree) {

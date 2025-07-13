@@ -1085,8 +1085,8 @@ void Editor::drawUI() {
 }
 
 void Editor::cleanupUI() {
-	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
 	ImGui_ImplVulkan_Shutdown();
+	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
 	ImGui_ImplGlfw_Shutdown();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();

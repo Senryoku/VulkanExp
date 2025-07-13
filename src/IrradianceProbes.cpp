@@ -340,6 +340,7 @@ void IrradianceProbes::createShaderBindingTable() {
 	_probeInitShaderBindingTable.create(*_device, {1, 1, 1, 0}, _pipelineProbeInit);
 }
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
 

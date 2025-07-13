@@ -41,6 +41,7 @@ inline Hit intersect(const Ray& r, const Bounds& b) {
 }
 
 #include <Mesh.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/intersect.hpp>
 
 inline Hit intersect(const Ray& r, const Mesh& m) {
