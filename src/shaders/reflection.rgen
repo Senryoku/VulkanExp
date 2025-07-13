@@ -131,7 +131,7 @@ void main()
 		// Single sample, Blue noise and importance sampling.
 		// With proper denoising (or at least some form of temporal accumulation - 'simply' TAA?) this would be better than the above solution, but right now it is way too distracting :(
 		vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(ivec2(ubo.frameIndex / 64, ubo.frameIndex / 64 / 64) +  gl_LaunchIDEXT.xy) / 64.0).xy;
-		//vec2 noise = texture(sampler2D(blueNoiseTextures[ubo.frameIndex % 64], blueNoiseSampler), vec2(gl_LaunchIDEXT.xy) / 64.0).xy;		
+		// vec2 noise = texelFetch(blueNoiseTextures[ubo.frameIndex % 64], ivec2(ubo.frameIndex / 64, ubo.frameIndex / 64 / 64) + ivec2(gl_LaunchIDEXT.xy), 0).xy;		
 		const float theta = roughness * (noise.x - 0.5) * 2.0 * pi;
 		const float phi = (noise.y - 0.5) * 2.0f * pi;
 		vec3 tangent;

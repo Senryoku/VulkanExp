@@ -39,7 +39,7 @@ float gaussian(float stdDev, float dist) {
 }
 
 const float maxDev = 5.0;               // FIXME: This is arbitrary.
-const uint  iMaxDev = uint(maxDev + 1) + 1;
+const int   iMaxDev = int(ceil(maxDev));
 const float depthFactor = 1.0 / 20.0;   // FIXME: This is arbitrary.
 const float baseHysteresis = 0.98;
 const float depthStdDev = 0.1;          // FIXME: Also arbitrary.
@@ -72,21 +72,22 @@ void main()
     if(localID < iMaxDev) {
         positionDepthTexCache[localID]               = imageLoad(positionDepthTex, coords - ivec2(iMaxDev * offsetDirection));
         inImageTexCache      [localID]               = imageLoad(inImage,          coords - ivec2(iMaxDev * offsetDirection));
-    }
-    if(localID + iMaxDev > WORKGROUP_SIZE) {
+	}
+	if(localID >= WORKGROUP_SIZE - iMaxDev) {
         positionDepthTexCache[2 * iMaxDev + localID] = imageLoad(positionDepthTex, coords + ivec2(iMaxDev * offsetDirection));
         inImageTexCache      [2 * iMaxDev + localID] = imageLoad(inImage,          coords + ivec2(iMaxDev * offsetDirection));
     }
     memoryBarrierShared();
+	barrier();
 
     vec4 final = vec4(0);
     vec4 positionDepth = getPositionDepth(localID);
     vec3 position = positionDepth.xyz;
     float depth = positionDepth.w;
-    float roughness = imageLoad(inImage, coords).w;
+	float roughness = getInImage(localID).w;
     float stdDev = max(0, maxDev * roughness / max(1, (depthFactor * depth))); 
     if(stdDev == 0) { // Skip filter entirely if roughness == 0 since we only need a single sample anyway.
-        imageStore(outImage, coords, imageLoad(inImage, coords)); 
+		imageStore(outImage, coords, getInImage(localID)); 
         return;
     }
     const float sqrDev = stdDev * stdDev;

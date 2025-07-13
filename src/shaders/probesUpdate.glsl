@@ -62,7 +62,7 @@ void main()
 
 	if(gl_LocalInvocationIndex == 0)
 		globalMaxChange = floatBitsToUint(0.0);
-	if(gl_LocalInvocationIndex < grid.raysPerProbe) 
+	if(gl_LocalInvocationIndex < grid.raysPerProbe) // NOTE: This assumes grid.raysPerProbe is lower than the number of updated probes...
 		rayDir[gl_LocalInvocationIndex] = imageLoad(rayDirection, ivec2(0, gl_LocalInvocationIndex)).xyz;
 	memoryBarrierShared();
 	barrier();
