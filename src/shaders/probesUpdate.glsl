@@ -41,7 +41,10 @@ vec2 specializedNormalizeLocalTexelCoord(ivec2 coord) {
 #endif
 }
 
-shared float globalMaxChange;
+const uint MaxRaysPerProbe = 256;
+
+shared uint globalMaxChange;
+shared vec3	 rayDir[MaxRaysPerProbe];
 
 void main()
 {
@@ -55,10 +58,18 @@ void main()
 
     vec4 result = vec4(0);
     vec3 texelDirection = octDecode(specializedNormalizeLocalTexelCoord(localFragCoord));
-    bool missed = true;
+	bool missed = true;
+
+	if(gl_LocalInvocationIndex == 0)
+		globalMaxChange = floatBitsToUint(0.0);
+	if(gl_LocalInvocationIndex < grid.raysPerProbe) 
+		rayDir[gl_LocalInvocationIndex] = imageLoad(rayDirection, ivec2(0, gl_LocalInvocationIndex)).xyz;
+	memoryBarrierShared();
+	barrier();
+
     for(int i = 0; i < grid.raysPerProbe; ++i) {
         vec4 rayData = imageLoad(rayIrradianceDepth, ivec2(gl_GlobalInvocationID.x, i));
-        vec3 direction = imageLoad(rayDirection, ivec2(0, i)).xyz;
+		vec3 direction = rayDir[i];
 #ifdef IRRADIANCE
         if(rayData.w < 0 || rayData.w > gridCellSize) ++outOfRange;
         float weight = max(0.0, dot(texelDirection, direction));
@@ -91,16 +102,19 @@ void main()
     result.rgb = mix(result.rgb, previous, hysteresis);
     imageStore(imageOut, globalFragCoords, vec4(result.rgb, 1.0));
 #ifdef IRRADIANCE
-    atomicAdd(globalMaxChange, maxChange); // FIXME: This should be an atomicMax, but GL_EXT_shader_atomic_float isn't supported by my GPU/driver :(
+    // FIXME: This should be a float atomicMax, but GL_EXT_shader_atomic_float2 isn't supported by my GPU/driver :(
+	uint asInt = floatBitsToUint(maxChange);
+	atomicMax(globalMaxChange, asInt);
+	groupMemoryBarrier();
+
     if(localFragCoord == ivec2(0)) {
         if(outOfRange >= grid.raysPerProbe) { // Force to a low refresh-rate when we hit no geometry close enough to be shaded by this probe.
             Probes[linearIndex] = 8;
         } else {
-            groupMemoryBarrier();
-            globalMaxChange /= 6 * 6;
-            if(globalMaxChange < 0.02 / Probes[linearIndex]) Probes[linearIndex] = min(Probes[linearIndex] + 1, 8);
-            if(globalMaxChange > 0.04 / Probes[linearIndex]) Probes[linearIndex] = max(Probes[linearIndex] - 1, 1);
-            if(globalMaxChange > 0.25) Probes[linearIndex] = 1;
+			maxChange = uintBitsToFloat(globalMaxChange);
+            if(maxChange < 0.02 / Probes[linearIndex]) Probes[linearIndex] = min(Probes[linearIndex] + 1, 8);
+            else if(maxChange > 0.04 / Probes[linearIndex]) Probes[linearIndex] = max(Probes[linearIndex] - 1, 1);
+			else if(maxChange > 0.25) Probes[linearIndex] = 1;
         }
     }
 #endif
